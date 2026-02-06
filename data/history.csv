@@ -1,0 +1,35 @@
+wine_name,producer,vintage,notes,score,liked,price,country,region,wine_color,is_sparkling,is_natural,sweetness,acidity,minerality,fruitiness,tannin,body
+Martín Códax 2022,Martín Códax,2022.0,"Appearance: Pale yellow with bright clarity. Nose: Ripe stone fruit, citrus blossom, subtle tropical notes. Palate: Fresh acidity, lighter body, green apple, grapefruit, clean finish. Overall: Accessible, fruit-forward style with good value",7.5,False,14.99,Spain,Rías Baixas,White,,,Dry,8.0,8.0,7.0,1.0,6.0
+Finca Cucó Negre,Finca Cuco,,"cherry, fruity, licorice, plum | Decent weekday red wine, heavy on cherry/cherry jam, pleasant. Good pick at the supermarket! | Spain",5.0,False,9.7,Spain,Montsant,Red,False,False,Dry,6.0,5.0,8.0,5.0,6.0
+Ocho dos dos,Anguix Winery,,"Leathery, Smokey, full-bodied, tobacco | GOOD WINE, very rich and deep for the price
+,
+
+Ocho Dos Dos is an oak-aged red wine that embodies the essence of the Ribera del Duero D.O. Produced by the prestigious Pagos de Anguix Winery, Ocho Dos Dos is a winemaking gem that invites you on a Journey of flavors and sensations. It presents a red wine made from 100% Tempranillo grapes, reflecting the authenticity of this winemaking region.  | Spain",9.0,True,12.0,Spain,Ribera del Duero,Red,False,False,Dry,6.0,5.0,6.0,8.0,9.0
+Camino a Padron,Vinos Divertidos,,"Christmas Compote, Dried Plumes, Smokey, earthy, full-bodied | Deep and smokey, enjoyed it a lot | Spain",9.0,True,12.0,Spain,Aragón,Red,False,False,Dry,6.0,5.0,7.0,7.0,8.0
+2022 Nittnaus - Zweigelt Reserve,GEBRÜDER NITTNAUS,2022.0,"Dark cherry, Long finish, Smokey, fresh, full-bodied | Very interesting, deep wine. Enjoyed it a lot! | Blaufränkisch",7.0,False,14.99,Austria,Burgenland,Red,False,False,Dry,6.0,5.0,8.0,5.0,7.0
+Attis Sobre Lías Albariño,Attis Bodegas y Viñedos,,"nan | 
+
+• Color: Bright straw yellow, clean and luminous.
+• Nose: Complex and expressive — ripe stone fruits (peach, apricot), citrus (lemon zest), floral hints (lily), plus a distinct salty, mineral Atlantic character. Some vintages may show light toasty or yeasty aromas from lees aging.
+• Palate: Fresh and vibrant, with a creamy texture from the lees contact. Flavors of nectarine, melon, lime, and hints of almond and fennel. Long, slightly saline finish.
+
+ | Albariño",7.0,False,17.0,Spain,Rías Baixas,White,False,False,Dry,9.0,9.0,7.0,1.0,4.0
+Algueira Carravel,Adega Algueira,,"earthy | 
+
+• Color: Garnet to cherry-red with medium intensity  .
+• Aromas: Wild/ripe red berries (strawberry, raspberry, blackberry), smoky, balsamic, spicy, with earthy/mineral nuances—sometimes graphite or smoked meat  .
+• Palate: Round, well-balanced tannins, fresh acidity, medium-full body. Flavors echo red fruit, oak-derived spices, and slate minerality, delivering a long finish  .
+
+ | Ribera Sarca",6.0,False,25.0,Spain,Ribeira Sacra,Red,False,False,Dry,7.0,8.0,6.0,6.0,6.0
+Algueira Fincas,Algueira,,"Balsamic, Herbal, Mineral, Smokey | • Color & Aromas: Deep, expressive red with scents of black raspberry, cherry‑cola, smoky minerals, potpourri and balsamic/herbal hints  .
+• Palate: Juicy and precise—vibrant mixed berries, a structured tannic backbone, energetic acidity, finishing with fine herbs and mineral grip  .
+ | Ribera Sarca",9.0,True,25.0,Spain,Ribeira Sacra,Red,False,False,Dry,8.0,9.0,7.0,7.0,6.0
+Finca Cortezada,Adega Algueira,,"Apple, Citrus, Mineral, Stone Fruit, fruity |  Appearance: Bright straw yellow with a bit of density  .
+• Aroma: Expressive mix of citrus zest, grapefruit, stone fruit (apricot, green apple), tropical hints, and subtle anise or olive; mineral and saline backbone  .
+• Palate: Medium to full-bodied, vivid acidity, with a pleasing bitterness, saline minerality, and a refreshing finish. Some develop waxy or buttery nuances with time   | Ribera Sarca",6.0,False,25.0,Spain,Ribeira Sacra,White,False,False,Dry,8.0,9.0,7.0,1.0,6.0
+ESPUMOSO XAMPRADA ROSADO EXTRA BRUT ECOLÓGICO,Prada a Tope,,"Citrus, Dry, Mineral, Red Berries, fruity | Very nice and interesting for sparkling, veeeery good cava | Mencilla",8.0,True,15.0,Spain,Bierzo,Rosé,True,True,Dry,8.0,7.0,6.0,2.0,4.0
+PRADA MACERACIÓN CARBÓNICA 2024,Prada a Tope,2024.0,"Fruit Jelly, Red Berries, Strawberried | Ok but flat mostly interesting smell taste short with no finish | Mencilla",4.0,False,9.0,Spain,Bierzo,Red,False,False,Dry,7.0,6.0,8.0,4.0,5.0
+PRADA SELECCIÓN MENCÍA BIERZO ECOLÓGICO 2018,Prada a Tope,2018.0,"Long finish, Mineral, Red Berries, full-bodied | Nice, but for this price you can sth more interesting. Proper! | Mencilla",6.0,False,19.0,Spain,Bierzo,Red,False,True,Dry,6.0,8.0,7.0,5.0,8.0
+Fernando de Castilla Manzanilla,Bodegas Rey Fernando de Castilla,,"Dry, Long finish, Mineral, Saline, almonds, green apple | nan | Palomino Fino",9.0,True,12.0,Spain,"Sanlúcar de Barrameda, Andalusia",White,False,False,Dry,8.0,9.0,3.0,1.0,3.0
+Albariño de Fefiñanes III Año,Fefiñanes,,"Mineral, Saline, lemon zest, stone fruits | lovely summer holiday white wine with high minerality | Albariño",8.0,True,35.0,Spain,Rías Baixas,White,False,False,Dry,9.0,9.0,6.0,1.0,4.0
+Adega Algueira S.L. Fincas 2012,Adegas Algueira,2012.0,"Mineral, cranberry, raspberry, wild cherry | This is a serious Ribeira Sacra red: fresh, mineral, and elegant, highlighting Galicia’s native grapes. Compared to international-style reds, it’s lighter, fresher, and more terroir-driven, with an Atlantic character. | nan",9.0,True,30.0,Spain,Ribeira Sacra,Red,False,False,Dry,8.0,9.0,6.0,5.0,5.0
