@@ -52,13 +52,13 @@ def get_connection_pool():
         if not database_url:
             raise ValueError("DATABASE_URL not found in secrets or environment")
 
-        # Create pool with 1-5 connections
+        # Create and open pool with 1-5 connections
         _connection_pool = ConnectionPool(
             database_url,
             min_size=1,
-            max_size=5,
-            open=False  # Don't open connections immediately
+            max_size=5
         )
+        _connection_pool.open()  # Open pool immediately
 
     return _connection_pool
 
@@ -85,7 +85,7 @@ def return_connection(conn):
     """Return connection to pool (or close if no pool)."""
     pool = get_connection_pool()
     if pool is not None:
-        return_connection(conn)
+        pool.putconn(conn)
     else:
         conn.close()
 
@@ -203,42 +203,38 @@ def add_wine(wine_data: Dict[str, Any]) -> bool:
 
             conn.commit()
             return True
+    except Exception as e:
+        conn.rollback()
+        raise
     finally:
         return_connection(conn)
 
 
-def get_all_wines(user_id: Optional[str] = None) -> pd.DataFrame:
+def get_all_wines(user_id: str) -> pd.DataFrame:
     """
-    Retrieve wines as a pandas DataFrame.
+    Retrieve wines as a pandas DataFrame filtered by user.
 
     Args:
-        user_id: Optional user ID to filter wines. If None, returns all wines.
+        user_id: User ID to filter wines (required for data isolation)
 
     Returns:
-        DataFrame with wine data
+        DataFrame with wine data for the specified user
     """
+    if not user_id:
+        raise ValueError("user_id is required for data isolation")
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            if user_id:
-                cursor.execute("""
-                    SELECT
-                        user_id, wine_name, producer, vintage, notes, score, liked, price,
-                        country, region, wine_color, is_sparkling, is_natural, sweetness,
-                        acidity, minerality, fruitiness, tannin, body
-                    FROM wines
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC
-                """, (user_id,))
-            else:
-                cursor.execute("""
-                    SELECT
-                        user_id, wine_name, producer, vintage, notes, score, liked, price,
-                        country, region, wine_color, is_sparkling, is_natural, sweetness,
-                        acidity, minerality, fruitiness, tannin, body
-                    FROM wines
-                    ORDER BY created_at DESC
-                """)
+            cursor.execute("""
+                SELECT
+                    user_id, wine_name, producer, vintage, notes, score, liked, price,
+                    country, region, wine_color, is_sparkling, is_natural, sweetness,
+                    acidity, minerality, fruitiness, tannin, body
+                FROM wines
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+            """, (user_id,))
 
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
