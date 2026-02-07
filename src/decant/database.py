@@ -8,8 +8,11 @@ replacing ephemeral CSV storage on Streamlit Cloud.
 import os
 import psycopg
 import pandas as pd
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, BinaryIO
 import streamlit as st
+from supabase import create_client, Client
+from io import BytesIO
+import re
 
 
 def get_database_url() -> Optional[str]:
@@ -176,3 +179,158 @@ def get_wine_count() -> int:
             cursor.execute("SELECT COUNT(*) FROM wines")
             count = cursor.fetchone()[0]
             return count
+
+
+# ===== Supabase Storage Functions =====
+
+def get_supabase_client() -> Optional[Client]:
+    """Get Supabase client for storage operations."""
+    try:
+        # Get credentials from secrets or environment
+        try:
+            supabase_url = st.secrets.get("SUPABASE_URL")
+            supabase_key = st.secrets.get("SUPABASE_KEY")
+        except (FileNotFoundError, KeyError, AttributeError):
+            supabase_url = os.getenv("SUPABASE_URL")
+            supabase_key = os.getenv("SUPABASE_KEY")
+
+        if not supabase_url or not supabase_key:
+            # Extract from DATABASE_URL if available
+            database_url = get_database_url()
+            if database_url and "supabase.co" in database_url:
+                # Extract project ref from URL: postgres.PROJECT_REF or db.PROJECT_REF
+                match = re.search(r'@(?:db|aws-\d+-[^.]+\.pooler)\.([a-z0-9]+)\.supabase\.co', database_url)
+                if match:
+                    project_ref = match.group(1)
+                    supabase_url = f"https://{project_ref}.supabase.co"
+                    # For storage, we need the anon key which should be in secrets
+                    return None  # Require explicit SUPABASE_KEY
+
+        if supabase_url and supabase_key:
+            return create_client(supabase_url, supabase_key)
+        return None
+    except Exception:
+        return None
+
+
+def sanitize_filename(name: str) -> str:
+    """Sanitize wine name for use as filename."""
+    # Remove special characters, replace spaces with underscores
+    sanitized = re.sub(r'[^\w\s-]', '', name.lower())
+    sanitized = re.sub(r'[-\s]+', '_', sanitized)
+    return sanitized.strip('_')
+
+
+def upload_wine_image(wine_name: str, image_data: bytes, content_type: str = "image/png") -> Optional[str]:
+    """
+    Upload wine image to Supabase Storage.
+
+    Args:
+        wine_name: Name of the wine
+        image_data: Image bytes
+        content_type: MIME type (default: image/png)
+
+    Returns:
+        Public URL of uploaded image, or None if upload failed
+    """
+    try:
+        client = get_supabase_client()
+        if not client:
+            return None
+
+        # Generate filename
+        safe_name = sanitize_filename(wine_name)
+        extension = content_type.split('/')[-1]
+        filename = f"wines/{safe_name}.{extension}"
+
+        # Upload to 'wine-images' bucket
+        try:
+            response = client.storage.from_('wine-images').upload(
+                filename,
+                image_data,
+                {
+                    'content-type': content_type,
+                    'upsert': 'true'  # Overwrite if exists
+                }
+            )
+        except Exception as e:
+            # If bucket doesn't exist, return None
+            if "not found" in str(e).lower():
+                return None
+            raise
+
+        # Get public URL
+        public_url = client.storage.from_('wine-images').get_public_url(filename)
+        return public_url
+
+    except Exception as e:
+        # Fail gracefully - storage is optional
+        return None
+
+
+def get_wine_image_url(wine_name: str) -> Optional[str]:
+    """
+    Get public URL for wine image from Supabase Storage.
+
+    Args:
+        wine_name: Name of the wine
+
+    Returns:
+        Public URL of the image, or None if not found
+    """
+    try:
+        client = get_supabase_client()
+        if not client:
+            return None
+
+        safe_name = sanitize_filename(wine_name)
+
+        # Try common extensions
+        for ext in ['png', 'jpg', 'jpeg', 'webp']:
+            filename = f"wines/{safe_name}.{ext}"
+            try:
+                # Check if file exists
+                files = client.storage.from_('wine-images').list('wines', {
+                    'search': f'{safe_name}.{ext}'
+                })
+                if files:
+                    public_url = client.storage.from_('wine-images').get_public_url(filename)
+                    return public_url
+            except Exception:
+                continue
+
+        return None
+    except Exception:
+        return None
+
+
+def delete_wine_image(wine_name: str) -> bool:
+    """
+    Delete wine image from Supabase Storage.
+
+    Args:
+        wine_name: Name of the wine
+
+    Returns:
+        True if deleted, False otherwise
+    """
+    try:
+        client = get_supabase_client()
+        if not client:
+            return False
+
+        safe_name = sanitize_filename(wine_name)
+
+        # Try to delete all possible extensions
+        deleted = False
+        for ext in ['png', 'jpg', 'jpeg', 'webp']:
+            filename = f"wines/{safe_name}.{ext}"
+            try:
+                client.storage.from_('wine-images').remove([filename])
+                deleted = True
+            except Exception:
+                continue
+
+        return deleted
+    except Exception:
+        return False
