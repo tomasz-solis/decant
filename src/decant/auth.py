@@ -52,8 +52,8 @@ expiry_days = 30""", language="toml")
         cookie_config["expiry_days"]
     )
 
-    # Show login form
-    name, authentication_status, username = authenticator.login("Login to Decant", "main")
+    # Show login form (location parameter must be lowercase)
+    name, authentication_status, username = authenticator.login("Login to Decant", location="main")
 
     if authentication_status is False:
         st.error("Username/password is incorrect")
