@@ -1135,7 +1135,7 @@ Use encyclopedic wine knowledge. Make aggressive inferences."""
                     {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{base64_image}"}}
                 ]
             }],
-            max_tokens=800,
+            max_completion_tokens=800,
             temperature=OPENAI_TEMPERATURE
         )
 
