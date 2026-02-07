@@ -264,6 +264,84 @@ Provide JSON with: match_score (0-100), qualitative_analysis, key_alignment, key
 
         return prompt
 
+    def extract_wine_data(self, wine_name: str) -> WineExtraction:
+        """
+        Extract complete wine data from just a wine name using LLM.
+
+        Args:
+            wine_name: Wine name (e.g., "Fefiñanes Albariño 2022")
+
+        Returns:
+            WineExtraction object with all fields populated
+
+        Raises:
+            LLMError: If extraction fails after retries
+        """
+        # Sanitize input
+        wine_name = sanitize_text_input(wine_name)
+
+        # Build context from liked wines
+        context = ""
+        if len(self.liked_examples) > 0:
+            context = "\n\n## USER'S TASTE PROFILE (Recent Liked Wines):\n"
+            for _, wine in self.liked_examples.tail(3).iterrows():
+                context += f"- {wine['producer']}: Acidity {wine['acidity']}/10, Minerality {wine['minerality']}/10\n"
+
+        prompt = f"""Extract COMPLETE HIGH-DIMENSIONAL wine information from this wine name.
+
+{context}
+
+WINE NAME: {wine_name}
+
+BE AGGRESSIVE in inferring all attributes using your encyclopedic wine knowledge.
+
+## REQUIRED FIELDS:
+
+### Basic Info
+1. **wine_name**: Full name with vintage (e.g., "Fefiñanes Albariño 2022")
+2. **producer**: Winery name
+3. **vintage**: Year (or use current year if not specified)
+4. **notes**: Professional tasting notes based on typical characteristics
+5. **score**: Your quality rating 1-10 based on wine knowledge and reputation
+
+### WINE ORIGIN (MANDATORY - NEVER LEAVE BLANK)
+6. **country**: Country of origin - REQUIRED
+7. **region**: Specific wine region/appellation - REQUIRED
+
+### HIGH-DIMENSIONAL ATTRIBUTES
+8. **wine_color**: MUST be one of: "White", "Red", "Rosé", "Orange"
+9. **is_sparkling**: Boolean (True/False)
+10. **is_natural**: Boolean (True/False)
+11. **sweetness**: MUST be one of: "Dry", "Medium-Dry", "Medium-Sweet", "Sweet"
+
+### Core 5 Flavor Features (1-10 scale)
+12. **acidity**: 1-10 (crisp/tart = high)
+13. **minerality**: 1-10 (stony/saline = high)
+14. **fruitiness**: 1-10 (fruit-forward = high)
+15. **tannin**: 1-10 (grippy = high, whites typically 1-3)
+16. **body**: 1-10 (full-bodied = high)
+
+⚠️ **NEVER DEFAULT TO 5/10** - Use regional and varietal knowledge to infer accurate values.
+
+Return JSON only with these exact field names.
+"""
+
+        try:
+            messages = [
+                {"role": "system", "content": "You are a wine expert with encyclopedic knowledge of wines, producers, and regions. Return JSON only."},
+                {"role": "user", "content": prompt}
+            ]
+
+            response = self._call_openai_with_retry(messages)
+            extraction = WineExtraction(**response)
+            logger.info(f"Extracted wine data: {extraction.wine_name} ({extraction.producer})")
+            return extraction
+
+        except Exception as e:
+            error_msg = f"Failed to extract wine data from name '{wine_name}': {str(e)}"
+            logger.error(error_msg)
+            raise LLMError(error_msg) from e
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
