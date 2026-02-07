@@ -6,6 +6,7 @@ A Streamlit app for wine analytics and personalized recommendations using In-Con
 import sys
 import os
 import base64
+import json
 from pathlib import Path
 
 import streamlit as st
