@@ -1,0 +1,82 @@
+"""
+Simple authentication module for Decant.
+
+Provides password protection using streamlit-authenticator.
+"""
+
+import streamlit as st
+import streamlit_authenticator as stauth
+from typing import Optional
+
+
+def setup_authentication() -> Optional[str]:
+    """
+    Set up authentication and return username if logged in.
+
+    Returns:
+        Username if authenticated, None otherwise (will stop execution)
+    """
+    # Get credentials from secrets
+    try:
+        passwords = dict(st.secrets["passwords"])
+        cookie_config = dict(st.secrets["cookie"])
+    except (FileNotFoundError, KeyError):
+        # No auth configured, allow access
+        return "guest"
+
+    # Create credentials dict
+    credentials = {
+        "usernames": {
+            username: {
+                "name": username.title(),
+                "password": hashed_password
+            }
+            for username, hashed_password in passwords.items()
+        }
+    }
+
+    # Create authenticator
+    authenticator = stauth.Authenticate(
+        credentials,
+        cookie_config["name"],
+        cookie_config["key"],
+        cookie_config["expiry_days"]
+    )
+
+    # Show login form
+    name, authentication_status, username = authenticator.login("Login to Decant", "main")
+
+    if authentication_status is False:
+        st.error("Username/password is incorrect")
+        st.stop()
+    elif authentication_status is None:
+        st.warning("Please enter your username and password")
+        st.info("Default credentials: username=`admin`, password=`wine123`")
+        st.stop()
+
+    # Add logout button in sidebar
+    with st.sidebar:
+        st.write(f"Logged in as: **{name}**")
+        authenticator.logout("Logout", "sidebar")
+
+    return username
+
+
+def hash_password(password: str) -> str:
+    """
+    Generate hashed password for use in secrets.toml.
+
+    Usage:
+        python -c "from decant.auth import hash_password; print(hash_password('your_password'))"
+    """
+    return stauth.Hasher([password]).generate()[0]
+
+
+if __name__ == "__main__":
+    # Helper to generate password hashes
+    import sys
+    if len(sys.argv) > 1:
+        password = sys.argv[1]
+        print(f"Hashed password: {hash_password(password)}")
+    else:
+        print("Usage: python auth.py YOUR_PASSWORD")
