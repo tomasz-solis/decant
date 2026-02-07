@@ -21,9 +21,13 @@ from decant import VinoPredictor
 from decant.schema import WineExtraction
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant import database as db
+from decant.auth import setup_authentication
 
 # Load environment variables
 load_dotenv()
+
+# AUTHENTICATION - Must be first Streamlit command!
+username = setup_authentication()
 
 # Detect Streamlit Cloud environment
 IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud" or os.getenv("STREAMLIT_SHARING_MODE") is not None

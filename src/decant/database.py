@@ -215,8 +215,15 @@ def get_supabase_client() -> Optional[Client]:
 
 def sanitize_filename(name: str) -> str:
     """Sanitize wine name for use as filename."""
+    import unicodedata
+
+    # Normalize Unicode characters to ASCII equivalents
+    # NFD = decompose accented chars (ñ -> n + ~), then filter out combining marks
+    normalized = unicodedata.normalize('NFKD', name)
+    ascii_str = normalized.encode('ascii', 'ignore').decode('ascii')
+
     # Remove special characters, replace spaces with underscores
-    sanitized = re.sub(r'[^\w\s-]', '', name.lower())
+    sanitized = re.sub(r'[^\w\s-]', '', ascii_str.lower())
     sanitized = re.sub(r'[-\s]+', '_', sanitized)
     return sanitized.strip('_')
 

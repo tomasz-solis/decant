@@ -13,6 +13,8 @@ All these steps have been completed for you:
 - [x] `packages.txt` - System dependencies for Streamlit Cloud
 - [x] `.gitignore` - Configured to exclude secrets and sensitive files
 - [x] PostgreSQL database - 15 wines migrated to Supabase
+- [x] Supabase Storage - 15 wine photos uploaded to cloud storage
+- [x] Authentication - Password protection with streamlit-authenticator
 - [x] API key handling - Uses `st.secrets` for Streamlit Cloud
 - [x] Graceful degradation - Falls back to CSV if database unavailable
 
@@ -56,8 +58,24 @@ except (FileNotFoundError, KeyError):
 # Supabase PostgreSQL Database (Session Pooler - IPv4 compatible)
 DATABASE_URL = "postgresql://postgres.rageghyliafgxublfljb:rfq9eam2qpy.VDG6mwq@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
 
+# Supabase Storage (for wine images)
+SUPABASE_URL = "https://rageghyliafgxublfljb.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhZ2VnaHlsaWFmZ3h1YmxmbGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDU5NTIsImV4cCI6MjA4NTk4MTk1Mn0.gZCO0j8XXW3AX-im8khx6YSotcfBAnr6gpIdBAesPrM"
+
 # OpenAI API Key
 OPENAI_API_KEY = "sk-proj-your-actual-api-key-here"
+
+# Authentication
+[passwords]
+# CHANGE THIS PASSWORD AFTER FIRST LOGIN!
+# Generate new hash: python -m decant.auth YOUR_NEW_PASSWORD
+# Default: username="admin", password="wine123"
+admin = "$2b$12$PtPlOBLFwQEPoXR6/V2To.sJRnrnpOi2BSjlwuR7pkD.jE6WJueUC"
+
+[cookie]
+name = "decant_auth"
+key = "decant_secure_signature_key_8x7b2m9q"  # Random key for session cookies
+expiry_days = 30
 ```
 
 5. Click **Save**
@@ -205,11 +223,61 @@ Your app is now accessible to anyone with the link. Share it with wine enthusias
 
 **Example URL:** `https://decant-yourname.streamlit.app`
 
+## 🔐 Authentication Setup
+
+**Status:** ✅ Authentication is now configured!
+
+The app requires login before access:
+
+- **Default username:** `admin`
+- **Default password:** `wine123`
+- **⚠️ IMPORTANT:** Change the password immediately after first login!
+
+### Changing the Password:
+
+```bash
+# Generate a new password hash
+python -m decant.auth YOUR_NEW_PASSWORD
+
+# Copy the hash output, then update .streamlit/secrets.toml:
+[passwords]
+admin = "PASTE_NEW_HASH_HERE"
+```
+
+### Adding More Users:
+
+```toml
+[passwords]
+admin = "$2b$12$..."      # First user
+partner = "$2b$12$..."    # Second user (generate hash first)
+```
+
+**Note:** All users see the same wines - this provides password protection but does NOT separate data by user.
+
+## 📸 Supabase Storage Setup
+
+**Status:** ✅ All 15 wine photos migrated successfully!
+
+- **Bucket:** `wine-images` (public, 2MB file size limit)
+- **Location:** `wines/` folder
+- **RLS Policies:** 4 policies configured (SELECT, INSERT, UPDATE, DELETE)
+- **Access:** Anonymous (anon) role can read/write images
+
+### Photo Management:
+
+Photos are automatically uploaded to Supabase when you add a wine through the app. The app uses these functions:
+
+- `upload_wine_image()` - Upload new photos
+- `get_wine_image_url()` - Retrieve public URLs
+- `delete_wine_image()` - Remove photos
+
+All images have sanitized filenames (Unicode → ASCII conversion) for compatibility.
+
 ## 📝 Next Steps (Optional)
 
 - [ ] Add custom domain (Streamlit Cloud paid tier)
 - [ ] Set up GitHub Actions for automated testing
-- [ ] Add user authentication (streamlit-authenticator)
+- [x] Add user authentication (streamlit-authenticator) ✅ DONE
 - [ ] Implement multi-user support with user profiles
 - [ ] Add wine recommendation export (PDF/CSV)
 
