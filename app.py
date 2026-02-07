@@ -1066,14 +1066,23 @@ def extract_complete_wine_data(image_file, history_df):
 
 {context}
 
-BE AGGRESSIVE - Use your encyclopedic wine knowledge to infer ALL attributes. NEVER use 5/10 as a default value.
+## INSTRUCTIONS:
 
-## WINE STYLE INFERENCE EXAMPLES:
+Use your encyclopedic wine knowledge to infer ALL flavor attributes based on:
+1. The specific PRODUCER and their documented house style
+2. The REGION'S terroir and typical characteristics
+3. The GRAPE VARIETY and its typical profile
+4. The VINTAGE (if known) and its conditions
 
-**Mencía (Bierzo)**: acidity=7-8, minerality=7-8, fruitiness=8, tannin=6-7, body=6-7
-**Albariño (Rías Baixas)**: acidity=8-9, minerality=8-9, fruitiness=7, tannin=1-2, body=5-6
-**Tempranillo (Rioja)**: acidity=6, minerality=5, fruitiness=7, tannin=7-8, body=8
-**Pinot Noir (Burgundy)**: acidity=7, minerality=7, fruitiness=8, tannin=5-6, body=6
+DO NOT use generic defaults like 5.0. Each wine is unique - use your training data about this specific producer, region, and style.
+
+General regional tendencies (but always adjust for the specific producer):
+- Atlantic regions (Galicia, Loire, Chablis): Tend toward higher acidity + minerality
+- Mediterranean regions (Rioja, Tuscany, Rhône): Tend toward more body, moderate acidity
+- High-altitude wines: Often have higher acidity, more elegance
+- Warm climate wines: Often have riper fruit, fuller body
+
+Remember: Producers within the same region can be VERY different. Use your knowledge of the specific producer.
 
 Return JSON with these exact fields:
 
@@ -1081,7 +1090,7 @@ Return JSON with these exact fields:
   "wine_name": "Full name with vintage",
   "producer": "Winery name",
   "vintage": 2021,
-  "notes": "Professional tasting notes based on typical style",
+  "notes": "Professional tasting notes based on this producer's style",
   "score": 7.5,
   "price": 15.0,
   "country": "Spain",
@@ -1097,13 +1106,11 @@ Return JSON with these exact fields:
   "body": 6.5
 }}
 
-CRITICAL RULES:
-1. Use regional/varietal knowledge to infer flavor values - NEVER default to 5.0
-2. Atlantic wines (Galicia, Loire) → HIGH acidity + minerality
-3. Mediterranean wines (Rioja, Tuscany) → MEDIUM acidity, HIGHER body
-4. Whites typically have tannin 1-3, reds 5-9
-5. wine_color: MUST be "White", "Red", "Rosé", or "Orange"
-6. sweetness: MUST be "Dry", "Medium-Dry", "Medium-Sweet", or "Sweet"
+CONSTRAINTS:
+- Whites typically have tannin 1-3, reds 5-9
+- wine_color: MUST be "White", "Red", "Rosé", or "Orange"
+- sweetness: MUST be "Dry", "Medium-Dry", "Medium-Sweet", or "Sweet"
+- Use ACTUAL wine knowledge, not formula-based inference
 
 Return ONLY valid JSON."""
 
