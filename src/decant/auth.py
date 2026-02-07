@@ -21,8 +21,17 @@ def setup_authentication() -> Optional[str]:
         passwords = dict(st.secrets["passwords"])
         cookie_config = dict(st.secrets["cookie"])
     except (FileNotFoundError, KeyError):
-        # No auth configured, allow access
-        return "guest"
+        # Authentication required but not configured
+        st.error("🔒 Authentication not configured")
+        st.warning("Add credentials to `.streamlit/secrets.toml` to enable login.")
+        st.code("""[passwords]
+admin = "your-password-hash-here"
+
+[cookie]
+name = "decant_auth"
+key = "your-secure-key-here"
+expiry_days = 30""", language="toml")
+        st.stop()
 
     # Create credentials dict
     credentials = {
@@ -51,7 +60,6 @@ def setup_authentication() -> Optional[str]:
         st.stop()
     elif authentication_status is None:
         st.warning("Please enter your username and password")
-        st.info("Default credentials: username=`admin`, password=`wine123`")
         st.stop()
 
     # Add logout button in sidebar

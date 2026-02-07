@@ -29,6 +29,13 @@ load_dotenv()
 # AUTHENTICATION - Must be first Streamlit command!
 username = setup_authentication()
 
+# Initialize database (create tables if they don't exist)
+try:
+    db.init_database()
+except Exception as e:
+    # Table already exists or database not available - graceful fallback
+    pass
+
 # Detect Streamlit Cloud environment
 IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud" or os.getenv("STREAMLIT_SHARING_MODE") is not None
 

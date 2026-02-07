@@ -114,45 +114,48 @@ def calculate_wine_similarity(
     target_features: Dict[str, float]
 ) -> float:
     """
-    Calculate similarity between two wines using unified Palate Formula.
+    Calculate similarity between two wines using cosine similarity.
 
-    Uses Euclidean distance weighted by palate formula features.
+    UNIFIED ALGORITHM: Uses same 5D cosine similarity as PalateEngine for consistency.
 
     Args:
         wine_features: Features of wine in history
         target_features: Features of target wine to compare
 
     Returns:
-        Euclidean distance (lower = more similar)
+        Cosine similarity score (0-100, higher = more similar)
     """
-    # Calculate palate features for both wines
-    wine_palate = calculate_palate_features(wine_features)
-    target_palate = calculate_palate_features(target_features)
-
-    # Create feature vectors including both raw and derived features
+    # Create 5D feature vectors (same as PalateEngine)
     wine_vec = np.array([
         wine_features.get(ColumnNames.ACIDITY, 0),
-        wine_features.get(ColumnNames.MINERALITY, 0),
         wine_features.get(ColumnNames.FRUITINESS, 0),
-        wine_features.get(ColumnNames.TANNIN, 0),
         wine_features.get(ColumnNames.BODY, 0),
-        wine_palate[ColumnNames.STRUCTURE_SCORE] / 2,  # Normalize (0-20 → 0-10)
-        wine_palate[ColumnNames.ACIDITY_BODY_RATIO],
-        wine_palate[ColumnNames.PALATE_SCORE] / 3  # Normalize
+        wine_features.get(ColumnNames.TANNIN, 0),
+        wine_features.get(ColumnNames.MINERALITY, 0)
     ])
 
     target_vec = np.array([
         target_features.get(ColumnNames.ACIDITY, 0),
-        target_features.get(ColumnNames.MINERALITY, 0),
         target_features.get(ColumnNames.FRUITINESS, 0),
-        target_features.get(ColumnNames.TANNIN, 0),
         target_features.get(ColumnNames.BODY, 0),
-        target_palate[ColumnNames.STRUCTURE_SCORE] / 2,
-        target_palate[ColumnNames.ACIDITY_BODY_RATIO],
-        target_palate[ColumnNames.PALATE_SCORE] / 3
+        target_features.get(ColumnNames.TANNIN, 0),
+        target_features.get(ColumnNames.MINERALITY, 0)
     ])
 
-    return np.linalg.norm(wine_vec - target_vec)
+    # Handle zero vectors
+    norm_wine = np.linalg.norm(wine_vec)
+    norm_target = np.linalg.norm(target_vec)
+
+    if norm_wine == 0 or norm_target == 0:
+        return 0.0
+
+    # Calculate cosine similarity
+    similarity = np.dot(wine_vec, target_vec) / (norm_wine * norm_target)
+
+    # Normalize to 0-100 scale (similarity ranges from -1 to 1)
+    normalized = ((similarity + 1) / 2) * 100
+
+    return max(0, min(100, normalized))
 
 
 # Export key functions
