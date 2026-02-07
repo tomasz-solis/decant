@@ -351,11 +351,19 @@ def load_predictor():
 
 
 @st.cache_data
-def load_wine_data():
-    """Load wine data from PostgreSQL database with fallback to CSV."""
+def load_wine_data(user_id: str = "admin"):
+    """
+    Load wine data from PostgreSQL database with fallback to CSV.
+
+    Args:
+        user_id: User ID to filter wines. Defaults to 'admin' for backward compatibility.
+
+    Returns:
+        DataFrame with wine data filtered by user
+    """
     try:
-        # Try loading from database first
-        df = db.get_all_wines()
+        # Try loading from database first (filtered by user)
+        df = db.get_all_wines(user_id=user_id)
 
         if df is not None and len(df) > 0:
             # NaN PROTECTION: Fill missing values before any logic runs
@@ -1127,7 +1135,7 @@ def main():
         st.header("📊 Palate Summary")
 
         # Load wine features data with caching
-        df = load_wine_data()
+        df = load_wine_data(username)
 
         if df is not None:
             # 🌍 REGIONAL FILTER DROPDOWN
@@ -1284,7 +1292,7 @@ def main():
         st.caption("Enter wine name or upload a photo - AI extracts everything else")
 
         # Load history for self-learning context
-        history_df = load_wine_data()
+        history_df = load_wine_data(username)
 
         # Input mode selection
         input_mode = st.radio(
@@ -1757,6 +1765,7 @@ Desired JSON Structure:
 
                     # Save to PostgreSQL database
                     row_data = {
+                        'user_id': username,  # Add logged-in user
                         'wine_name': wine_data['wine_name'],
                         'producer': wine_data['producer'],
                         'vintage': wine_data['vintage'],
@@ -1925,7 +1934,7 @@ Desired JSON Structure:
         st.markdown("---")
 
         # Load data
-        history_df = load_wine_data()
+        history_df = load_wine_data(username)
 
         if history_df is not None and len(history_df) > 0:
             # Get only liked wines
@@ -1993,7 +2002,7 @@ Desired JSON Structure:
         st.caption("Browse your complete wine collection with all details")
 
         # Load data
-        gallery_df = load_wine_data()
+        gallery_df = load_wine_data(username)
 
         if gallery_df is not None and len(gallery_df) > 0:
             # Add search and filter options

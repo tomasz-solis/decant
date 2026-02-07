@@ -14,6 +14,16 @@ from supabase import create_client, Client
 from io import BytesIO
 import re
 
+try:
+    from psycopg_pool import ConnectionPool
+    POOL_AVAILABLE = True
+except ImportError:
+    POOL_AVAILABLE = False
+    ConnectionPool = None
+
+# Global connection pool
+_connection_pool: Optional[ConnectionPool] = None
+
 
 def get_database_url() -> Optional[str]:
     """Get database URL from Streamlit secrets or environment."""
@@ -23,28 +33,73 @@ def get_database_url() -> Optional[str]:
         return os.getenv("DATABASE_URL")
 
 
+def get_connection_pool():
+    """
+    Get or create connection pool.
+
+    Uses connection pooling to prevent resource exhaustion.
+    Pool configuration: min=1, max=5 connections.
+    Falls back to direct connection if pool not available.
+    """
+    global _connection_pool
+
+    if not POOL_AVAILABLE:
+        # Fallback: return None, will use direct connections
+        return None
+
+    if _connection_pool is None:
+        database_url = get_database_url()
+        if not database_url:
+            raise ValueError("DATABASE_URL not found in secrets or environment")
+
+        # Create pool with 1-5 connections
+        _connection_pool = ConnectionPool(
+            database_url,
+            min_size=1,
+            max_size=5,
+            open=False  # Don't open connections immediately
+        )
+
+    return _connection_pool
+
+
 def get_connection():
-    """Create database connection with error handling."""
-    database_url = get_database_url()
+    """Get database connection (from pool if available, otherwise direct)."""
+    pool = get_connection_pool()
 
-    if not database_url:
-        raise ValueError("DATABASE_URL not found in secrets or environment")
+    if pool is not None:
+        # Use pool
+        return pool.getconn()
+    else:
+        # Direct connection fallback
+        database_url = get_database_url()
+        if not database_url:
+            raise ValueError("DATABASE_URL not found in secrets or environment")
+        try:
+            return psycopg.connect(database_url)
+        except Exception as e:
+            raise ConnectionError(f"Failed to connect to database: {str(e)}")
 
-    try:
-        conn = psycopg.connect(database_url)
-        return conn
-    except Exception as e:
-        raise ConnectionError(f"Failed to connect to database: {str(e)}")
+
+def return_connection(conn):
+    """Return connection to pool (or close if no pool)."""
+    pool = get_connection_pool()
+    if pool is not None:
+        return_connection(conn)
+    else:
+        conn.close()
 
 
 def init_database():
     """Initialize database schema (create wines table if not exists)."""
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
-            # Create wines table with full schema
+            # Create wines table with full schema + user_id
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS wines (
                     id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL DEFAULT 'admin',
                     wine_name TEXT NOT NULL,
                     producer TEXT,
                     vintage FLOAT,
@@ -63,8 +118,55 @@ def init_database():
                     fruitiness FLOAT,
                     tannin FLOAT,
                     body FLOAT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+            """)
+
+            # Add user_id column if table already exists (migration)
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'wines' AND column_name = 'user_id'
+                    ) THEN
+                        ALTER TABLE wines ADD COLUMN user_id TEXT NOT NULL DEFAULT 'admin';
+                    END IF;
+                END $$;
+            """)
+
+            # Add updated_at column if table already exists (migration)
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'wines' AND column_name = 'updated_at'
+                    ) THEN
+                        ALTER TABLE wines ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                    END IF;
+                END $$;
+            """)
+
+            # Create UNIQUE constraint to prevent duplicates
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'unique_user_wine_vintage'
+                    ) THEN
+                        ALTER TABLE wines
+                        ADD CONSTRAINT unique_user_wine_vintage
+                        UNIQUE(user_id, wine_name, vintage);
+                    END IF;
+                END $$;
+            """)
+
+            # Create index on user_id for filtering
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_user_id ON wines(user_id);
             """)
 
             # Create index on wine_name for faster lookups
@@ -78,19 +180,22 @@ def init_database():
             """)
 
             conn.commit()
+    finally:
+        return_connection(conn)
 
 
 def add_wine(wine_data: Dict[str, Any]) -> bool:
-    """Add a wine to the database."""
-    with get_connection() as conn:
+    """Add a wine to the database with user attribution."""
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO wines (
-                    wine_name, producer, vintage, notes, score, liked, price,
+                    user_id, wine_name, producer, vintage, notes, score, liked, price,
                     country, region, wine_color, is_sparkling, is_natural, sweetness,
                     acidity, minerality, fruitiness, tannin, body
                 ) VALUES (
-                    %(wine_name)s, %(producer)s, %(vintage)s, %(notes)s, %(score)s, %(liked)s, %(price)s,
+                    %(user_id)s, %(wine_name)s, %(producer)s, %(vintage)s, %(notes)s, %(score)s, %(liked)s, %(price)s,
                     %(country)s, %(region)s, %(wine_color)s, %(is_sparkling)s, %(is_natural)s, %(sweetness)s,
                     %(acidity)s, %(minerality)s, %(fruitiness)s, %(tannin)s, %(body)s
                 )
@@ -98,20 +203,42 @@ def add_wine(wine_data: Dict[str, Any]) -> bool:
 
             conn.commit()
             return True
+    finally:
+        return_connection(conn)
 
 
-def get_all_wines() -> pd.DataFrame:
-    """Retrieve all wines as a pandas DataFrame."""
-    with get_connection() as conn:
+def get_all_wines(user_id: Optional[str] = None) -> pd.DataFrame:
+    """
+    Retrieve wines as a pandas DataFrame.
+
+    Args:
+        user_id: Optional user ID to filter wines. If None, returns all wines.
+
+    Returns:
+        DataFrame with wine data
+    """
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    wine_name, producer, vintage, notes, score, liked, price,
-                    country, region, wine_color, is_sparkling, is_natural, sweetness,
-                    acidity, minerality, fruitiness, tannin, body
-                FROM wines
-                ORDER BY created_at DESC
-            """)
+            if user_id:
+                cursor.execute("""
+                    SELECT
+                        user_id, wine_name, producer, vintage, notes, score, liked, price,
+                        country, region, wine_color, is_sparkling, is_natural, sweetness,
+                        acidity, minerality, fruitiness, tannin, body
+                    FROM wines
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                """, (user_id,))
+            else:
+                cursor.execute("""
+                    SELECT
+                        user_id, wine_name, producer, vintage, notes, score, liked, price,
+                        country, region, wine_color, is_sparkling, is_natural, sweetness,
+                        acidity, minerality, fruitiness, tannin, body
+                    FROM wines
+                    ORDER BY created_at DESC
+                """)
 
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
@@ -119,7 +246,7 @@ def get_all_wines() -> pd.DataFrame:
             if not rows:
                 # Return empty DataFrame with correct schema
                 return pd.DataFrame(columns=[
-                    'wine_name', 'producer', 'vintage', 'notes', 'score', 'liked', 'price',
+                    'user_id', 'wine_name', 'producer', 'vintage', 'notes', 'score', 'liked', 'price',
                     'country', 'region', 'wine_color', 'is_sparkling', 'is_natural', 'sweetness',
                     'acidity', 'minerality', 'fruitiness', 'tannin', 'body'
                 ])
@@ -132,53 +259,75 @@ def get_all_wines() -> pd.DataFrame:
             df['score'] = df['score'].astype(float)
 
             return df
+    finally:
+        return_connection(conn)
 
 
-def delete_wine(wine_name: str, vintage: Optional[float] = None) -> bool:
-    """Delete a wine from the database."""
-    with get_connection() as conn:
+def delete_wine(wine_name: str, user_id: str, vintage: Optional[float] = None) -> bool:
+    """Delete a wine from the database for a specific user."""
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
             if vintage:
                 cursor.execute("""
                     DELETE FROM wines
-                    WHERE wine_name = %s AND vintage = %s
-                """, (wine_name, vintage))
+                    WHERE user_id = %s AND wine_name = %s AND vintage = %s
+                """, (user_id, wine_name, vintage))
             else:
                 cursor.execute("""
                     DELETE FROM wines
-                    WHERE wine_name = %s
-                """, (wine_name,))
+                    WHERE user_id = %s AND wine_name = %s
+                """, (user_id, wine_name))
 
             conn.commit()
             return True
+    finally:
+        return_connection(conn)
 
 
-def wine_exists(wine_name: str, vintage: Optional[float] = None) -> bool:
-    """Check if a wine already exists in the database."""
-    with get_connection() as conn:
+def wine_exists(wine_name: str, user_id: str, vintage: Optional[float] = None) -> bool:
+    """Check if a wine already exists in the database for a specific user."""
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
             if vintage:
                 cursor.execute("""
                     SELECT COUNT(*) FROM wines
-                    WHERE wine_name = %s AND vintage = %s
-                """, (wine_name, vintage))
+                    WHERE user_id = %s AND wine_name = %s AND vintage = %s
+                """, (user_id, wine_name, vintage))
             else:
                 cursor.execute("""
                     SELECT COUNT(*) FROM wines
-                    WHERE wine_name = %s
-                """, (wine_name,))
+                    WHERE user_id = %s AND wine_name = %s
+                """, (user_id, wine_name))
 
             count = cursor.fetchone()[0]
             return count > 0
+    finally:
+        return_connection(conn)
 
 
-def get_wine_count() -> int:
-    """Get total number of wines in database."""
-    with get_connection() as conn:
+def get_wine_count(user_id: Optional[str] = None) -> int:
+    """
+    Get total number of wines in database.
+
+    Args:
+        user_id: Optional user ID to filter wines. If None, counts all wines.
+
+    Returns:
+        Count of wines
+    """
+    conn = get_connection()
+    try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM wines")
+            if user_id:
+                cursor.execute("SELECT COUNT(*) FROM wines WHERE user_id = %s", (user_id,))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM wines")
             count = cursor.fetchone()[0]
             return count
+    finally:
+        return_connection(conn)
 
 
 # ===== Supabase Storage Functions =====
