@@ -23,6 +23,7 @@ from decant.schema import WineExtraction
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant import database as db
 from decant.auth import setup_authentication
+from pydantic import ValidationError
 
 # Load environment variables
 load_dotenv()
