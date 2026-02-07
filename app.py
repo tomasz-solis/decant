@@ -56,7 +56,7 @@ st.set_page_config(
     page_title="Decant - Taste, with confidence",
     page_icon="🍷",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"  # Collapsed on mobile for better UX
 )
 
 # 2026 Bento Dark Mode CSS
@@ -313,13 +313,108 @@ st.markdown("""
         50% { left: 100%; }
     }
 
-    /* Responsive Breakpoints */
+    /* Responsive Breakpoints - OPTIMIZED FOR IN-SHOP MOBILE USE */
     @media (max-width: 768px) {
+        /* Compact header for more screen real estate */
         .main-title {
-            font-size: 1.8em;
+            font-size: 1.5em;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
         }
+
+        .subtitle {
+            font-size: 0.85em;
+            margin-bottom: 16px;
+        }
+
+        /* Tighter spacing on mobile */
         .glass-card {
-            padding: 16px;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 12px;
+        }
+
+        /* BIGGER BUTTONS for in-shop quick taps */
+        .stButton > button {
+            height: 56px !important;
+            font-size: 1.1em !important;
+            font-weight: 700 !important;
+            border-radius: 12px;
+        }
+
+        /* Wine images - optimized for mobile viewing */
+        .wine-card-img, .wine-card-img-placeholder {
+            height: 240px;  /* Smaller on mobile to see more content */
+        }
+
+        /* Single column layout - essential for shop browsing */
+        .bento-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+        }
+
+        /* CRITICAL: Better touch targets (Apple HIG 44px minimum) */
+        .stSelectbox, .stTextInput, .stNumberInput, .stSlider {
+            min-height: 48px !important;
+        }
+
+        /* File uploader - make it huge and obvious for quick photo capture */
+        .stFileUploader {
+            padding: 24px !important;
+            margin: 16px 0 !important;
+        }
+
+        .stFileUploader label {
+            font-size: 1.2em !important;
+            font-weight: 600 !important;
+        }
+
+        /* Sidebar collapsed by default on mobile */
+        [data-testid="stSidebar"] {
+            min-width: 0;
+        }
+
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            margin-left: -21rem;
+        }
+
+        /* Main content full width on mobile */
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            max-width: 100% !important;
+        }
+
+        /* Columns stack vertically on mobile - CRITICAL for readability */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 100% !important;
+            min-width: 100% !important;
+        }
+
+        /* Force stacking for multi-column layouts (3+ columns) */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 8px !important;
+        }
+
+        /* Metrics more compact on mobile */
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        /* Tab navigation bigger for easier tapping */
+        .stTabs [data-baseweb="tab-list"] button {
+            min-height: 48px !important;
+            font-size: 1em !important;
+        }
+
+        /* Image preview on mobile - contain to screen */
+        img {
+            max-width: 100% !important;
+            height: auto !important;
         }
     }
 
@@ -327,11 +422,52 @@ st.markdown("""
         .bento-grid {
             grid-template-columns: repeat(2, 1fr);
         }
+        .wine-card-img, .wine-card-img-placeholder {
+            height: 320px;  /* Medium height for tablets */
+        }
     }
 
     @media (min-width: 1201px) {
         .bento-grid {
             grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Landscape Mobile Optimization - For horizontal phone in shop */
+    @media (max-width: 900px) and (orientation: landscape) {
+        .main-title {
+            font-size: 1.2em;
+            margin-bottom: 2px;
+        }
+        .subtitle {
+            font-size: 0.8em;
+            margin-bottom: 8px;
+        }
+        .glass-card {
+            padding: 8px;
+            margin: 6px 0;
+        }
+        .stButton > button {
+            height: 44px !important;
+            font-size: 0.95em !important;
+        }
+        /* Compact metrics in landscape */
+        [data-testid="stMetric"] {
+            padding: 6px;
+        }
+    }
+
+    /* Small phones (iPhone SE, etc) - Extra compact */
+    @media (max-width: 375px) {
+        .main-title {
+            font-size: 1.3em;
+        }
+        .glass-card {
+            padding: 10px;
+        }
+        .stButton > button {
+            height: 52px !important;
+            font-size: 1em !important;
         }
     }
 </style>
@@ -1303,14 +1439,18 @@ def main():
         )
 
         if input_mode == "📝 Enter Wine Name":
-            # Text input mode
+            # Text input mode - MOBILE-OPTIMIZED with voice input hint
+            st.markdown("### 🍷 Enter Wine Name")
+            st.caption("Type or use voice input (tap microphone on mobile keyboard)")
+
             wine_name_input = st.text_input(
                 "Wine Name",
                 placeholder="e.g., Fefiñanes Albariño 2022",
-                help="Enter the wine name - AI will extract all details"
+                help="💬 Mobile tip: Use voice input for faster entry!",
+                label_visibility="collapsed"
             )
 
-            if wine_name_input and st.button("🔍 Extract Wine Data", type="primary", width="stretch"):
+            if wine_name_input and st.button("🔍 CHECK THIS WINE", type="primary", width="stretch"):
                 with st.spinner("🧠 AI is extracting wine details from name..."):
                     predictor = load_predictor()
                     if predictor:
@@ -1346,12 +1486,16 @@ def main():
                         st.rerun()
 
         else:
-            # Photo upload mode
+            # Photo upload mode - MOBILE-OPTIMIZED for in-shop use
+            st.markdown("### 📸 Snap a Photo")
+            st.caption("Point your camera at the wine label - AI does the rest!")
+
             uploaded_file = st.file_uploader(
-                "📸 Take or upload wine bottle photo",
+                "Tap to open camera or choose photo",
                 type=["jpg", "jpeg", "png"],
-                help="Snap a photo of the label - AI extracts everything automatically",
-                label_visibility="visible"
+                help="📱 On mobile: Opens camera automatically | 💻 On desktop: Upload from files",
+                label_visibility="visible",
+                accept_multiple_files=False
             )
 
             if uploaded_file:
@@ -1589,15 +1733,16 @@ Desired JSON Structure:
                 # CHECK: Display score only if it exists AND is calculated (not None, not just initialized)
                 if display_match_score is not None and palate_score is not None:
                     # DISPLAY: Show the actual calculated score (even if 0, it's a real calculation)
+                    # MOBILE-OPTIMIZED: Larger text, clearer verdict for in-shop quick glance
                     st.markdown(f"""
-<div class="glass-card glow" style="text-align: center; padding: 40px 30px; margin: 24px 0; position: relative;">
-    <p style="color: #A0A0A8; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+<div class="glass-card glow" style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
+    <p style="color: #A0A0A8; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
         Palate Recommendation Score
     </p>
-    <div class="match-score-gradient" style="font-size: 80px; margin: 0; font-family: 'Geist', 'Inter', sans-serif;">
+    <div class="match-score-gradient" style="font-size: clamp(60px, 15vw, 80px); margin: 0; font-family: 'Geist', 'Inter', sans-serif; line-height: 1;">
         {display_match_score:.1f}%
     </div>
-    <p style="color: #E8E8EB; margin: 16px 0 0 0; font-size: 16px; font-weight: 500;">{palate_score.verdict}</p>
+    <p style="color: #E8E8EB; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1759,6 +1904,28 @@ Desired JSON Structure:
                     wine_data['liked'] = bool(liked_input)  # Ensure boolean
                     wine_data['price'] = float(price_input)  # Price is now always in Quick Log
 
+                    # Input validation - catch invalid data early
+                    validation_errors = []
+
+                    if not wine_data.get('wine_name') or wine_data['wine_name'].strip() == '':
+                        validation_errors.append("Wine name is required")
+
+                    if wine_data['score'] < 1 or wine_data['score'] > 10:
+                        validation_errors.append(f"Score must be 1-10 (got {wine_data['score']})")
+
+                    if wine_data['price'] < 0:
+                        validation_errors.append(f"Price cannot be negative (got {wine_data['price']})")
+
+                    # Validate flavor features (must be 1-10)
+                    for feature in ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']:
+                        value = wine_data.get(feature, 0)
+                        if value < 1 or value > 10:
+                            validation_errors.append(f"{feature.capitalize()} must be 1-10 (got {value})")
+
+                    if validation_errors:
+                        st.error(f"🚫 Cannot save wine - please fix these issues:\n" + "\n".join(f"• {err}" for err in validation_errors))
+                        st.stop()
+
                     # Validate high-dimensional fields
                     wine_data['is_sparkling'] = bool(wine_data.get('is_sparkling', False))
                     wine_data['is_natural'] = bool(wine_data.get('is_natural', False))
@@ -1790,13 +1957,14 @@ Desired JSON Structure:
                     }
 
                     try:
-                        # Try saving to database first
-                        db.add_wine(row_data)
+                        # Try saving to database first (with loading indicator)
+                        with st.spinner("💾 Saving wine to database..."):
+                            db.add_wine(row_data)
                         st.success("✅ Wine saved to database!")
 
                     except Exception as db_error:
                         # Fallback to CSV if database fails
-                        st.warning(f"⚠️ Database unavailable, saving to CSV: {str(db_error)}")
+                        st.warning(f"⚠️ Database temporarily unavailable, saving locally")
 
                         csv_path = Path("data/history.csv")
                         if csv_path.exists():

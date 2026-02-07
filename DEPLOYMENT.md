@@ -252,7 +252,7 @@ admin = "$2b$12$..."      # First user
 partner = "$2b$12$..."    # Second user (generate hash first)
 ```
 
-**Note:** All users see the same wines - this provides password protection but does NOT separate data by user.
+**✨ Multi-User Support:** Each user has their own private wine collection! Wines are isolated by `user_id` so you and your partner maintain separate tasting histories. The app supports up to 2-3 users comfortably.
 
 ## 📸 Supabase Storage Setup
 
