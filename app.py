@@ -1061,126 +1061,84 @@ def extract_complete_wine_data(image_file, history_df):
                 for _, wine in liked_wines.iterrows():
                     context += f"- {wine.get('wine_name', 'Unknown')}: Acidity {wine.get('acidity', 0)}/10, Minerality {wine.get('minerality', 0)}/10\n"
 
-        # AGGRESSIVE HIGH-DIMENSIONAL extraction prompt
+        # AGGRESSIVE HIGH-DIMENSIONAL extraction prompt (JSON format)
         prompt = f"""Analyze this wine bottle and extract COMPLETE HIGH-DIMENSIONAL wine information.
 
 {context}
 
-BE AGGRESSIVE - infer ALL attributes from the label and your wine knowledge.
+BE AGGRESSIVE - Use your encyclopedic wine knowledge to infer ALL attributes. NEVER use 5/10 as a default value.
 
-## REQUIRED FIELDS:
+## WINE STYLE INFERENCE EXAMPLES:
 
-**Basic Info:**
-WINE_NAME: [Full name with vintage, e.g. "Fefiñanes Albariño 2022"]
-PRODUCER: [Winery name]
-VINTAGE: [Year]
-TASTING_NOTES: [Professional tasting notes]
-OVERALL_SCORE: [Your rating 1-10]
-PRICE_EUR: [Estimated retail price in EUR]
+**Mencía (Bierzo)**: acidity=7-8, minerality=7-8, fruitiness=8, tannin=6-7, body=6-7
+**Albariño (Rías Baixas)**: acidity=8-9, minerality=8-9, fruitiness=7, tannin=1-2, body=5-6
+**Tempranillo (Rioja)**: acidity=6, minerality=5, fruitiness=7, tannin=7-8, body=8
+**Pinot Noir (Burgundy)**: acidity=7, minerality=7, fruitiness=8, tannin=5-6, body=6
 
-**WINE ORIGIN (MANDATORY - NEVER LEAVE BLANK):**
-COUNTRY: [Country of origin - REQUIRED]
-- Use label text, producer location, or wine style knowledge
-- Examples: Spain, France, Italy, USA, Germany, Portugal
+Return JSON with these exact fields:
 
-REGION: [Specific wine region/appellation - REQUIRED]
-- Look for DO, DOCa, AOC, AVA, or regional indicators
-- Examples:
-  * Albariño → Rías Baixas
-  * Rioja label → Rioja
-  * Bordeaux château → Bordeaux
-  * Barolo → Piedmont
-- If no specific region visible, use producer's primary region
-- NEVER leave as "Unknown" - use your encyclopedic wine knowledge
-- Common Spanish DOs: Rías Baixas, Ribera del Duero, Rioja, Priorat
-- Common French AOCs: Bordeaux, Burgundy, Champagne, Rhône
-- Common Italian DOCs: Tuscany, Piedmont, Veneto
+{{
+  "wine_name": "Full name with vintage",
+  "producer": "Winery name",
+  "vintage": 2021,
+  "notes": "Professional tasting notes based on typical style",
+  "score": 7.5,
+  "price": 15.0,
+  "country": "Spain",
+  "region": "Bierzo",
+  "wine_color": "Red",
+  "is_sparkling": false,
+  "is_natural": false,
+  "sweetness": "Dry",
+  "acidity": 7.5,
+  "minerality": 7.0,
+  "fruitiness": 8.0,
+  "tannin": 6.5,
+  "body": 6.5
+}}
 
-**HIGH-DIMENSIONAL ATTRIBUTES (AGGRESSIVE INFERENCE):**
+CRITICAL RULES:
+1. Use regional/varietal knowledge to infer flavor values - NEVER default to 5.0
+2. Atlantic wines (Galicia, Loire) → HIGH acidity + minerality
+3. Mediterranean wines (Rioja, Tuscany) → MEDIUM acidity, HIGHER body
+4. Whites typically have tannin 1-3, reds 5-9
+5. wine_color: MUST be "White", "Red", "Rosé", or "Orange"
+6. sweetness: MUST be "Dry", "Medium-Dry", "Medium-Sweet", or "Sweet"
 
-WINE_COLOR: [MUST be: "White", "Red", "Rosé", or "Orange"]
-- Look at bottle color, label design, grape variety
-
-IS_SPARKLING: [Boolean: true or false]
-- true if Champagne, Cava, Prosecco, or "Espumante"
-- Check for bubbles indication on label
-
-IS_NATURAL: [Boolean: true or false]
-- true if label shows "organic", "bio", "natural", "biodynamic"
-- Check for certification badges
-
-SWEETNESS: [MUST be: "Dry", "Medium-Dry", "Medium-Sweet", or "Sweet"]
-- Infer from region/style:
-  * Albariño/Verdejo → "Dry"
-  * German Kabinett → "Medium-Sweet"
-  * Sauternes/Moscato → "Sweet"
-  * Champagne Brut → "Dry"
-  * Default table wine → "Dry"
-
-**CORE 5 FLAVOR FEATURES (1-10 scale):**
-ACIDITY: [1-10]
-MINERALITY: [1-10]
-FRUITINESS: [1-10]
-TANNIN: [1-10 - whites typically 1-3]
-BODY: [1-10]
-
-Use encyclopedic wine knowledge. Make aggressive inferences."""
+Return ONLY valid JSON."""
 
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{
+                "role": "system",
+                "content": "You are a wine expert with encyclopedic knowledge. Return JSON only."
+            }, {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
                     {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{base64_image}"}}
                 ]
             }],
+            response_format={"type": "json_object"},
             max_completion_tokens=800,
             temperature=OPENAI_TEMPERATURE
         )
 
         content = response.choices[0].message.content
 
-        # Parse fields
-        import re
-        from datetime import datetime
+        # Parse JSON response
+        raw_data = json.loads(content)
 
-        def extract_field(text, field_name):
-            match = re.search(f'{field_name}:\\s*(.+)', text, re.IGNORECASE)
-            return match.group(1).strip() if match else ''
+        # Ensure liked field exists (user will set)
+        raw_data['liked'] = None
 
-        def extract_number(text, field_name):
-            match = re.search(f'{field_name}:\\s*(\\d+\\.?\\d*)', text, re.IGNORECASE)
-            return float(match.group(1)) if match else 0  # Return 0 if not found - predictor will infer
+        # Map price_eur to price if needed
+        if 'price_eur' in raw_data and 'price' not in raw_data:
+            raw_data['price'] = raw_data['price_eur']
 
-        def extract_boolean(text, field_name):
-            match = re.search(f'{field_name}:\\s*(true|false)', text, re.IGNORECASE)
-            return match.group(1).lower() == 'true' if match else False
-
-        # Extract raw data from LLM response
-        raw_data = {
-            'wine_name': extract_field(content, 'WINE_NAME'),
-            'producer': extract_field(content, 'PRODUCER'),
-            'vintage': int(extract_number(content, 'VINTAGE')) or 0,
-            'notes': extract_field(content, 'TASTING_NOTES'),
-            'score': extract_number(content, 'OVERALL_SCORE'),
-            'liked': None,  # User will set
-            'price': extract_number(content, 'PRICE_EUR') or 0.0,
-            # WINE ORIGIN (AI-extracted)
-            'country': extract_field(content, 'COUNTRY') or 'Unknown',
-            'region': extract_field(content, 'REGION') or 'Unknown',
-            # HIGH-DIMENSIONAL ATTRIBUTES
-            'wine_color': extract_field(content, 'WINE_COLOR') or 'White',
-            'is_sparkling': extract_boolean(content, 'IS_SPARKLING'),
-            'is_natural': extract_boolean(content, 'IS_NATURAL'),
-            'sweetness': extract_field(content, 'SWEETNESS') or 'Dry',
-            # Core 5 flavor features
-            'acidity': extract_number(content, 'ACIDITY') or 5.0,  # Default to mid-range
-            'minerality': extract_number(content, 'MINERALITY') or 5.0,
-            'fruitiness': extract_number(content, 'FRUITINESS') or 5.0,
-            'tannin': extract_number(content, 'TANNIN') or 3.0,  # Lower default for whites
-            'body': extract_number(content, 'BODY') or 5.0
-        }
+        # Ensure all required fields exist with reasonable fallbacks
+        if 'price' not in raw_data:
+            raw_data['price'] = 0.0
 
         # SECURITY FIX: Validate extracted data before returning
         from pydantic import ValidationError
