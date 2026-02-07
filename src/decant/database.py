@@ -210,31 +210,71 @@ def add_wine(wine_data: Dict[str, Any]) -> bool:
         return_connection(conn)
 
 
-def get_all_wines(user_id: str) -> pd.DataFrame:
+def get_user_group(user_id: str) -> list:
     """
-    Retrieve wines as a pandas DataFrame filtered by user.
+    Get list of user IDs in the same group (for shared collections).
+
+    Groups are defined in SHARED_GROUPS setting. If user not in any group,
+    returns just the user_id.
 
     Args:
-        user_id: User ID to filter wines (required for data isolation)
+        user_id: User ID to check
 
     Returns:
-        DataFrame with wine data for the specified user
+        List of user IDs that share the same wine collection
+    """
+    # Define shared groups here (can be moved to secrets later)
+    # Format: list of groups, where each group is a list of usernames
+    try:
+        import streamlit as st
+        # Try to get from secrets first
+        shared_groups = st.secrets.get("SHARED_GROUPS", [])
+    except (FileNotFoundError, KeyError, AttributeError):
+        # Default: tomasz and karolina share collection
+        shared_groups = [["tomasz", "karolina"]]
+
+    # Find which group the user belongs to
+    for group in shared_groups:
+        if user_id in group:
+            return group
+
+    # Not in any group, return just the user
+    return [user_id]
+
+
+def get_all_wines(user_id: str) -> pd.DataFrame:
+    """
+    Retrieve wines as a pandas DataFrame filtered by user group.
+
+    If user belongs to a shared group (e.g., couple), returns wines
+    from all users in that group. Otherwise returns only user's wines.
+
+    Args:
+        user_id: User ID to filter wines
+
+    Returns:
+        DataFrame with wine data for the user's group
     """
     if not user_id:
         raise ValueError("user_id is required for data isolation")
 
+    # Get all users in the same group
+    group_users = get_user_group(user_id)
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            # Build WHERE clause for multiple users
+            placeholders = ','.join(['%s'] * len(group_users))
+            cursor.execute(f"""
                 SELECT
                     user_id, wine_name, producer, vintage, notes, score, liked, price,
                     country, region, wine_color, is_sparkling, is_natural, sweetness,
                     acidity, minerality, fruitiness, tannin, body
                 FROM wines
-                WHERE user_id = %s
+                WHERE user_id IN ({placeholders})
                 ORDER BY created_at DESC
-            """, (user_id,))
+            """, tuple(group_users))
 
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
