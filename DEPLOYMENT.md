@@ -2,17 +2,19 @@
 
 > Documentation created with Claude AI assistance
 
-This guide will walk you through deploying Decant to Streamlit Cloud.
+This guide will walk you through deploying Decant to Streamlit Cloud with PostgreSQL persistence.
 
 ## ✅ Pre-Deployment Checklist
 
 All these steps have been completed for you:
 
-- [x] `app.py` - Main application entry point
-- [x] `requirements.txt` - All Python dependencies listed
+- [x] `app.py` - Main application entry point with PostgreSQL integration
+- [x] `requirements.txt` - All Python dependencies including psycopg[binary]
+- [x] `packages.txt` - System dependencies for Streamlit Cloud
 - [x] `.gitignore` - Configured to exclude secrets and sensitive files
+- [x] PostgreSQL database - 15 wines migrated to Supabase
 - [x] API key handling - Uses `st.secrets` for Streamlit Cloud
-- [x] Essential data files - Allowed in git for deployment
+- [x] Graceful degradation - Falls back to CSV if database unavailable
 
 ## 🛠️ Step 1: Prepare Your Repository
 
@@ -39,27 +41,31 @@ except (FileNotFoundError, KeyError):
     api_key = os.getenv("OPENAI_API_KEY")
 ```
 
-## 🔐 Step 2: Set Up OpenAI API Key in Streamlit Cloud
+## 🔐 Step 2: Set Up Secrets in Streamlit Cloud
 
-**IMPORTANT:** Never commit your actual API key to GitHub!
+**IMPORTANT:** Never commit your actual API keys or database credentials to GitHub!
 
 ### In Streamlit Cloud:
 
 1. Go to https://share.streamlit.io/
 2. Deploy your app (connect to GitHub repo)
 3. Once deployed, go to: **Your App → ⚙️ Settings → Secrets**
-4. Add your secret in TOML format:
+4. Add your secrets in TOML format:
 
 ```toml
+# Supabase PostgreSQL Database (Session Pooler - IPv4 compatible)
+DATABASE_URL = "postgresql://postgres.rageghyliafgxublfljb:rfq9eam2qpy.VDG6mwq@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+
+# OpenAI API Key
 OPENAI_API_KEY = "sk-proj-your-actual-api-key-here"
 ```
 
 5. Click **Save**
-6. The app will automatically restart with the new secret
+6. The app will automatically restart with the new secrets
 
 ### Reference File:
 
-See `.streamlit/secrets.toml.example` for the exact structure.
+See `.streamlit/secrets.toml` (excluded from git) for the exact structure.
 
 ## 📦 Step 3: Initialize Git Repository (If Not Already Done)
 
@@ -122,44 +128,63 @@ Test these features:
 
 ## 📊 Data Persistence
 
-### Important Notes:
+### PostgreSQL Database (Supabase) ✅
 
-- **Local changes will NOT sync to Streamlit Cloud automatically**
-- The deployed app starts with the data committed to GitHub
-- Each time you add wines locally, you need to commit and push to update cloud:
+**Good news**: Your app now uses PostgreSQL for persistent storage!
+
+- **Database**: Supabase (rageghyliafgxublfljb.supabase.co)
+- **Region**: EU (eu-central-1)
+- **Current Data**: 15 wines migrated successfully
+- **Connection**: Session Pooler (IPv4 compatible)
+
+### How It Works:
+
+1. **New wines** saved through the app go directly to PostgreSQL
+2. **Changes persist** across app restarts and deployments
+3. **No git commits needed** for data updates
+4. **CSV fallback** available if database is unavailable
+
+### Database Backup (Optional):
+
+To backup your PostgreSQL data to CSV:
 
 ```bash
-git add data/history.csv data/processed/wine_features.csv
-git commit -m "Update wine collection"
-git push
+python3 -c "
+import sys; sys.path.insert(0, 'src')
+from decant.database import get_all_wines
+df = get_all_wines()
+df.to_csv('data/backup.csv', index=False)
+print(f'Backed up {len(df)} wines')
+"
 ```
-
-- Streamlit Cloud will auto-redeploy on push
-
-### Alternative: External Database (Optional)
-
-For true persistence without git commits, consider:
-- Streamlit Cloud connection to PostgreSQL/MySQL
-- Google Sheets integration
-- Airtable API
-- AWS S3 bucket
 
 ## 🐛 Troubleshooting
 
 ### Issue: "OPENAI_API_KEY not found"
 **Solution:** Go to Settings → Secrets in Streamlit Cloud and add your key
 
-### Issue: "No module named 'decant'"
-**Solution:** Ensure `requirements.txt` includes `-e .` to install local package
+### Issue: "Database unavailable, falling back to CSV"
+**Solution:**
+- Check DATABASE_URL is correctly set in Streamlit Cloud secrets
+- Verify Supabase project is active (not paused)
+- Ensure using Session Pooler: `aws-1-eu-central-1.pooler.supabase.com:5432`
+- Check Supabase project status at https://supabase.com/dashboard
 
-### Issue: "File not found: data/history.csv"
-**Solution:** Make sure the file is committed to GitHub (check `.gitignore` exceptions)
+### Issue: "Tenant or user not found" (database error)
+**Solution:**
+- Verify username format: `postgres.rageghyliafgxublfljb`
+- Check password is correct in DATABASE_URL
+- Ensure using correct pooler endpoint (`aws-1-` not `aws-0-`)
+
+### Issue: "No module named 'psycopg'"
+**Solution:** Ensure `requirements.txt` includes `psycopg[binary]==3.3.2`
 
 ### Issue: App is slow/timing out
 **Solution:**
 - Check OpenAI API rate limits
 - Consider caching with `@st.cache_data`
 - Reduce image size before upload
+- Monitor Supabase connection pooling limits
 
 ## 🔄 Updating Your Deployed App
 
