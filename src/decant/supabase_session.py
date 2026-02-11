@@ -2,6 +2,28 @@ import streamlit as st
 from supabase import Client, create_client
 
 
+def _normalize_secret_string(raw_value: object, secret_name: str) -> str:
+    """Normalize and validate secret strings from Streamlit secrets."""
+    if raw_value is None:
+        raise ValueError(f"{secret_name} is missing")
+
+    value = str(raw_value).strip()
+    quote_pairs = [
+        ('"', '"'),
+        ("'", "'"),
+        ("“", "”"),
+        ("‘", "’"),
+    ]
+    for left_quote, right_quote in quote_pairs:
+        if value.startswith(left_quote) and value.endswith(right_quote) and len(value) >= 2:
+            value = value[1:-1].strip()
+            break
+
+    if not value:
+        raise ValueError(f"{secret_name} is empty")
+    return value
+
+
 def _get_supabase_credentials(username: str) -> tuple[str, str]:
     """Map Streamlit username to Supabase email/password from secrets."""
     users = st.secrets["supabase_users"]
@@ -15,7 +37,10 @@ def _get_supabase_credentials(username: str) -> tuple[str, str]:
         raise ValueError(f"Unknown Streamlit user '{username}' for Supabase auth")
 
     email_key, password_key = credential_map[username]
-    return users[email_key], users[password_key]
+    return (
+        _normalize_secret_string(users[email_key], f"supabase_users.{email_key}"),
+        _normalize_secret_string(users[password_key], f"supabase_users.{password_key}"),
+    )
 
 
 def get_supabase_client() -> Client:
@@ -33,7 +58,9 @@ def get_supabase_client() -> Client:
     if cached_client is not None and cached_username == username:
         return cached_client
 
-    sb = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    supabase_url = _normalize_secret_string(st.secrets["SUPABASE_URL"], "SUPABASE_URL")
+    supabase_key = _normalize_secret_string(st.secrets["SUPABASE_KEY"], "SUPABASE_KEY")
+    sb = create_client(supabase_url, supabase_key)
     email, password = _get_supabase_credentials(username)
 
     auth_response = sb.auth.sign_in_with_password(

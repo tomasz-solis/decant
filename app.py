@@ -68,6 +68,23 @@ def check_required_supabase_secrets() -> None:
         )
         st.stop()
 
+    required_top_level_keys = ["SUPABASE_URL", "SUPABASE_KEY"]
+    missing_top_level_keys = []
+    for key in required_top_level_keys:
+        try:
+            value = st.secrets[key]
+        except (FileNotFoundError, KeyError):
+            value = None
+        if value is None or str(value).strip() == "":
+            missing_top_level_keys.append(key)
+
+    if missing_top_level_keys:
+        st.error(
+            "❌ Missing required secret(s): "
+            + ", ".join(missing_top_level_keys)
+        )
+        st.stop()
+
     st.session_state["_supabase_startup_checked"] = True
 
 
@@ -649,8 +666,38 @@ def load_wine_data(username):
         df = repo_list_wines(sb)
         return ensure_wine_df(df)
     except Exception as e:
+        st.session_state.pop("_wine_df_empty_debug", None)
         st.error(f"❌ Supabase error while loading wines: {e}")
         return ensure_wine_df(None)
+
+
+def clear_wine_data_cache() -> None:
+    """Clear cached wine data when cache decorators are enabled."""
+    clear_fn = getattr(load_wine_data, "clear", None)
+    if callable(clear_fn):
+        clear_fn()
+
+
+def show_empty_data_diagnostics() -> None:
+    """Show actionable hints when no wines are returned."""
+    diagnostics = st.session_state.get("_wine_df_empty_debug")
+    if not diagnostics:
+        return
+
+    configured_cellar_id = diagnostics.get("configured_cellar_id")
+    accessible_cellar_ids = diagnostics.get("accessible_cellar_ids") or []
+    probe_error = diagnostics.get("probe_error")
+
+    if accessible_cellar_ids and configured_cellar_id not in accessible_cellar_ids:
+        st.warning(
+            "No rows matched the configured `CELLAR_ID`. "
+            "Update `CELLAR_ID` in Streamlit Cloud secrets to one of the accessible values below."
+        )
+        st.code("\n".join(accessible_cellar_ids), language="text")
+        return
+
+    if probe_error:
+        st.caption(f"Debug hint: unable to inspect accessible cellar IDs ({probe_error}).")
 
 
 def should_display_vintage(vintage_value):
@@ -2062,7 +2109,7 @@ Desired JSON Structure:
                             st.info("🔄 Features synced successfully")
 
                     # Clear cached data to force reload
-                    load_wine_data.clear()
+                    clear_wine_data_cache()
 
                     st.success(f"✅ Saved {wine_data['wine_name']} to your collection!")
                     st.balloons()
@@ -2151,14 +2198,14 @@ Desired JSON Structure:
                                 merged_df.to_csv(csv_path, index=False)
 
                                 st.success(f"✅ Restored {len(new_wines)} new wines! ({len(existing_df)} existing wines kept)")
-                                load_wine_data.clear()  # Clear cache
+                                clear_wine_data_cache()
                             else:
                                 st.info("✅ No new wines to add. All uploaded wines already exist!")
                         else:
                             # No existing data, just save uploaded file
                             uploaded_df.to_csv(csv_path, index=False)
                             st.success(f"✅ Restored {len(uploaded_df)} wines!")
-                            load_wine_data.clear()  # Clear cache
+                            clear_wine_data_cache()
 
                 except Exception as e:
                     st.error(f"❌ Error reading CSV: {str(e)}")
@@ -2420,6 +2467,7 @@ Desired JSON Structure:
                         st.markdown('</div>', unsafe_allow_html=True)  # Close wine-card
         else:
             st.info("No wines in your collection yet. Add wines to see them here!")
+            show_empty_data_diagnostics()
 
 
 if __name__ == "__main__":
