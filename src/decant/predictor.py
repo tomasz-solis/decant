@@ -18,7 +18,7 @@ from typing import List, Tuple, Optional
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError, RateLimitError, APIError
-from pydantic import BaseModel, Field, confloat
+from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from decant.schema import WineFeatures, WineExtraction
@@ -42,8 +42,10 @@ from decant.utils import (
 class PalateMatch(BaseModel):
     """LLM output for wine recommendation with structured validation."""
 
-    match_score: confloat(ge=0, le=100) = Field(
+    match_score: float = Field(
         ...,
+        ge=0,
+        le=100,
         description="Match score from 0-100 indicating palate compatibility"
     )
     qualitative_analysis: str = Field(
