@@ -24,7 +24,7 @@ from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant.auth import setup_authentication
 from pydantic import ValidationError
 from decant.supabase_session import get_supabase_client,get_user_supabase
-from decant.wines_repo import list_wines as repo_list_wines, add_wine as repo_add_wine
+from decant.wines_repo import list_wines as repo_list_wines, repo_add_wine
 
 # Load environment variables
 load_dotenv()
@@ -88,12 +88,6 @@ username = setup_authentication()
 
 check_required_supabase_secrets()
 DEBUG_MODE = is_debug_enabled()
-
-try:
-    st.session_state["sb"] = get_supabase_client()
-except Exception as e:
-    st.error(f"❌ Supabase authentication failed: {e}")
-    st.stop()
 
 # Detect Streamlit Cloud environment
 IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud" or os.getenv("STREAMLIT_SHARING_MODE") is not None
@@ -646,27 +640,14 @@ def ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
     return safe_df
 
 
-@st.cache_data
 def load_wine_data(username):
-    sb = get_user_supabase()
-    CELLAR_ID = st.secrets["CELLAR_ID"]
     """
-    Load wine data from Supabase wines table (RLS-authenticated session).
-
-    Args:
-        user_id: Kept for cache key compatibility; data is filtered by cellar_id.
-
-    Returns:
-        DataFrame with wines for the shared cellar
+    Load wine data for the shared cellar using an RLS-authenticated Supabase session.
     """
     try:
-        sb_client = st.session_state.get("sb")
-        if sb_client is None:
-            raise RuntimeError("Supabase client not initialized in session state")
-
-        df = repo_list_wines(sb_client)
+        sb = get_user_supabase()
+        df = repo_list_wines(sb)
         return ensure_wine_df(df)
-
     except Exception as e:
         st.error(f"❌ Supabase error while loading wines: {e}")
         return ensure_wine_df(None)
@@ -2064,7 +2045,7 @@ Desired JSON Structure:
 
                     try:
                         with st.spinner("💾 Saving wine to Supabase..."):
-                            repo_add_wine(st.session_state["sb"], row_data)
+                            repo_add_wine(get_user_supabase(), row_data)
                         st.success("✅ Wine saved to Supabase!")
                     except Exception as supabase_error:
                         st.error(f"❌ Supabase error while saving wine: {supabase_error}")

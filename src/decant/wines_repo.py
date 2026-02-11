@@ -27,13 +27,12 @@ def _is_debug_enabled() -> bool:
     return bool(debug_value)
 
 
-def list_wines(sb: Client) -> pd.DataFrame:
+def repo_list_wines(sb: Client) -> pd.DataFrame:
     """Return wines for the shared cellar ordered by newest first."""
-    cellar_id = _get_cellar_id()
     res = (
         sb.table("wines")
         .select("*")
-        .eq("cellar_id", cellar_id)
+        .eq("cellar_id", st.secrets["CELLAR_ID"])
         .order("created_at", desc=True)
         .execute()
     )
@@ -52,10 +51,14 @@ def list_wines(sb: Client) -> pd.DataFrame:
     return df
 
 
-def add_wine(sb: Client, payload: dict[str, Any]) -> dict[str, Any]:
+def repo_add_wine(sb: Client, row_data: dict[str, Any]) -> dict[str, Any]:
     """Insert a wine row scoped to a cellar."""
-    row_payload = {**payload}
-    row_payload["cellar_id"] = _get_cellar_id()
-    response = sb.table("wines").insert(row_payload).execute()
+    row_data["cellar_id"] = st.secrets["CELLAR_ID"]
+    response = sb.table("wines").insert(row_data).execute()
     data = response.data or []
     return data[0] if data else {}
+
+
+def list_wines(sb: Client) -> pd.DataFrame:
+    """Backward-compatible wrapper."""
+    return repo_list_wines(sb)
