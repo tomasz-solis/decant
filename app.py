@@ -23,7 +23,7 @@ from decant.schema import WineExtraction
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant.auth import setup_authentication
 from pydantic import ValidationError
-from decant.supabase_session import get_supabase_client
+from decant.supabase_session import get_supabase_client,get_user_supabase
 from decant.wines_repo import list_wines as repo_list_wines, add_wine as repo_add_wine
 
 # Load environment variables
@@ -647,7 +647,9 @@ def ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_data
-def load_wine_data(user_id: str = "admin"):
+def load_wine_data(username):
+    sb = get_user_supabase()
+    CELLAR_ID = st.secrets["CELLAR_ID"]
     """
     Load wine data from Supabase wines table (RLS-authenticated session).
 

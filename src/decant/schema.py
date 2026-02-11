@@ -2,7 +2,7 @@
 
 from datetime import date as DateType
 from typing import List, Optional
-from pydantic import BaseModel, Field, conint, confloat
+from pydantic import BaseModel, Field
 
 
 class TastingNotes(BaseModel):
@@ -17,11 +17,11 @@ class TastingNotes(BaseModel):
 class WineScores(BaseModel):
     """Numerical scores for wine attributes."""
 
-    acidity: conint(ge=1, le=10) = Field(..., description="Acidity level (1-10)")
-    body: conint(ge=1, le=10) = Field(..., description="Body weight (1-10)")
-    complexity: conint(ge=1, le=10) = Field(..., description="Complexity (1-10)")
-    finish: conint(ge=1, le=10) = Field(..., description="Finish length (1-10)")
-    overall: confloat(ge=1.0, le=10.0) = Field(..., description="Overall score (1-10)")
+    acidity: int = Field(..., ge=1, le=10, description="Acidity level (1-10)")
+    body: int = Field(..., ge=1, le=10, description="Body weight (1-10)")
+    complexity: int = Field(..., ge=1, le=10, description="Complexity (1-10)")
+    finish: int = Field(..., ge=1, le=10, description="Finish length (1-10)")
+    overall: float = Field(..., ge=1.0, le=10.0, description="Overall score (1-10)")
 
 
 class Wine(BaseModel):
@@ -92,11 +92,11 @@ class WineFeatures(BaseModel):
     """
 
     # Core 5 flavor features (1-10 scale, allows decimals like 5.5, 6.7)
-    acidity: confloat(ge=1.0, le=10.0) = Field(..., description="Perceived acidity level (1=low, 10=high)")
-    minerality: confloat(ge=1.0, le=10.0) = Field(..., description="Mineral character (1=low, 10=high)")
-    fruitiness: confloat(ge=1.0, le=10.0) = Field(..., description="Fruit intensity (1=low, 10=high)")
-    tannin: confloat(ge=1.0, le=10.0) = Field(..., description="Tannin level (1=low, 10=high)")
-    body: confloat(ge=1.0, le=10.0) = Field(..., description="Body weight (1=light, 10=full)")
+    acidity: float = Field(..., ge=1.0, le=10.0, description="Perceived acidity level (1=low, 10=high)")
+    minerality: float = Field(..., ge=1.0, le=10.0, description="Mineral character (1=low, 10=high)")
+    fruitiness: float = Field(..., ge=1.0, le=10.0, description="Fruit intensity (1=low, 10=high)")
+    tannin: float = Field(..., ge=1.0, le=10.0, description="Tannin level (1=low, 10=high)")
+    body: float = Field(..., ge=1.0, le=10.0, description="Body weight (1=light, 10=full)")
 
     # Metadata
     reasoning: Optional[str] = Field(None, description="Brief explanation of feature extraction")
@@ -113,7 +113,7 @@ class WineExtraction(BaseModel):
     producer: str = Field(..., description="Producer/winery name")
     vintage: int = Field(..., ge=1900, le=2100, description="Vintage year")
     notes: str = Field(..., description="Professional tasting notes")
-    score: confloat(ge=1.0, le=10.0) = Field(..., description="Quality score 1-10")
+    score: float = Field(..., ge=1.0, le=10.0, description="Quality score 1-10")
 
     # WINE ORIGIN (AUTO-EXTRACTED)
     country: str = Field(..., description="Country of origin (e.g., Spain, France, Italy)")
@@ -126,8 +126,8 @@ class WineExtraction(BaseModel):
     sweetness: str = Field(..., description="Sweetness level: Dry, Medium-Dry, Medium-Sweet, or Sweet")
 
     # Core 5 flavor features (allows decimals like 5.5, 6.7)
-    acidity: confloat(ge=1.0, le=10.0) = Field(..., description="Acidity level")
-    minerality: confloat(ge=1.0, le=10.0) = Field(..., description="Minerality level")
-    fruitiness: confloat(ge=1.0, le=10.0) = Field(..., description="Fruitiness level")
-    tannin: confloat(ge=1.0, le=10.0) = Field(..., description="Tannin level")
-    body: confloat(ge=1.0, le=10.0) = Field(..., description="Body level")
+    acidity: float = Field(..., ge=1.0, le=10.0, description="Acidity level")
+    minerality: float = Field(..., ge=1.0, le=10.0, description="Minerality level")
+    fruitiness: float = Field(..., ge=1.0, le=10.0, description="Fruitiness level")
+    tannin: float = Field(..., ge=1.0, le=10.0, description="Tannin level")
+    body: float = Field(..., ge=1.0, le=10.0, description="Body level")

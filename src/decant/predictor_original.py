@@ -12,7 +12,7 @@ from typing import List, Tuple, Optional
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel, Field, confloat
+from pydantic import BaseModel, Field
 
 from decant.schema import WineFeatures, WineExtraction
 from decant.palate_engine import PalateEngine, PalateScore
@@ -22,8 +22,10 @@ from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE
 class PalateMatch(BaseModel):
     """LLM output for wine recommendation with structured validation."""
 
-    match_score: confloat(ge=0, le=100) = Field(
+    match_score: float = Field(
         ...,
+        ge=0,
+        le=100,
         description="Match score from 0-100 indicating palate compatibility"
     )
     qualitative_analysis: str = Field(

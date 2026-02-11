@@ -8,21 +8,27 @@ replacing ephemeral CSV storage on Streamlit Cloud.
 import os
 import psycopg
 import pandas as pd
-from typing import Optional, Dict, Any, BinaryIO
+from typing import Optional, Dict, Any, TYPE_CHECKING
 import streamlit as st
-from supabase import create_client, Client
-from io import BytesIO
+from supabase import create_client
 import re
 
+if TYPE_CHECKING:
+    from supabase import Client as SupabaseClient
+    from psycopg_pool import ConnectionPool as ConnectionPoolType
+else:
+    SupabaseClient = Any
+    ConnectionPoolType = Any
+
 try:
-    from psycopg_pool import ConnectionPool
+    from psycopg_pool import ConnectionPool as PsycopgConnectionPool
     POOL_AVAILABLE = True
 except ImportError:
     POOL_AVAILABLE = False
-    ConnectionPool = None
+    PsycopgConnectionPool = None
 
 # Global connection pool
-_connection_pool: Optional[ConnectionPool] = None
+_connection_pool: Optional[ConnectionPoolType] = None
 
 
 def get_cellar_id() -> str:
@@ -63,9 +69,11 @@ def get_connection_pool():
         database_url = get_database_url()
         if not database_url:
             raise ValueError("DATABASE_URL not found in secrets or environment")
+        if PsycopgConnectionPool is None:
+            return None
 
         # Create and open pool with 1-5 connections
-        _connection_pool = ConnectionPool(
+        _connection_pool = PsycopgConnectionPool(
             database_url,
             min_size=1,
             max_size=5
@@ -413,7 +421,7 @@ def get_wine_count(user_id: Optional[str] = None) -> int:
 
 # ===== Supabase Storage Functions =====
 
-def get_supabase_client() -> Optional[Client]:
+def get_supabase_client() -> Optional[SupabaseClient]:
     """Get Supabase client for storage operations."""
     try:
         # Get credentials from secrets or environment

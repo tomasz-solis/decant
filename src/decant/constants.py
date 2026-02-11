@@ -7,7 +7,7 @@ and improve type safety.
 
 from enum import Enum
 from typing import Tuple
-from pydantic import BaseModel, Field, confloat
+from pydantic import BaseModel, Field
 
 
 # =======================
@@ -161,11 +161,11 @@ class AlgorithmConstants:
 class TechnicalProfile(BaseModel):
     """Validation schema for LLM-extracted technical wine profile."""
 
-    acidity: confloat(ge=1.0, le=10.0) = Field(..., description="Acidity level (1-10)")
-    fruitiness: confloat(ge=1.0, le=10.0) = Field(..., description="Fruitiness level (1-10)")
-    body: confloat(ge=1.0, le=10.0) = Field(..., description="Body level (1-10)")
-    minerality: confloat(ge=1.0, le=10.0) = Field(..., description="Minerality level (1-10)")
-    tannin: confloat(ge=1.0, le=10.0) = Field(..., description="Tannin level (1-10)")
+    acidity: float = Field(..., ge=1.0, le=10.0, description="Acidity level (1-10)")
+    fruitiness: float = Field(..., ge=1.0, le=10.0, description="Fruitiness level (1-10)")
+    body: float = Field(..., ge=1.0, le=10.0, description="Body level (1-10)")
+    minerality: float = Field(..., ge=1.0, le=10.0, description="Minerality level (1-10)")
+    tannin: float = Field(..., ge=1.0, le=10.0, description="Tannin level (1-10)")
 
 
 class WineMetadata(BaseModel):
@@ -191,8 +191,8 @@ class ImageExtractionResponse(BaseModel):
     producer: str = Field(..., min_length=1)
     vintage: int = Field(..., ge=1900, le=2100)
     tasting_notes: str = Field(..., min_length=10)
-    overall_score: confloat(ge=1.0, le=10.0)
-    price_eur: confloat(ge=0.0)
+    overall_score: float = Field(..., ge=1.0, le=10.0)
+    price_eur: float = Field(..., ge=0.0)
 
     # Geography
     country: str = Field(..., min_length=1)
@@ -205,11 +205,11 @@ class ImageExtractionResponse(BaseModel):
     sweetness: Sweetness
 
     # Features
-    acidity: confloat(ge=1.0, le=10.0)
-    minerality: confloat(ge=1.0, le=10.0)
-    fruitiness: confloat(ge=1.0, le=10.0)
-    tannin: confloat(ge=1.0, le=10.0)
-    body: confloat(ge=1.0, le=10.0)
+    acidity: float = Field(..., ge=1.0, le=10.0)
+    minerality: float = Field(..., ge=1.0, le=10.0)
+    fruitiness: float = Field(..., ge=1.0, le=10.0)
+    tannin: float = Field(..., ge=1.0, le=10.0)
+    body: float = Field(..., ge=1.0, le=10.0)
 
 
 # =======================
