@@ -25,6 +25,18 @@ except ImportError:
 _connection_pool: Optional[ConnectionPool] = None
 
 
+def get_cellar_id() -> str:
+    """Get shared cellar ID from Streamlit secrets or environment."""
+    try:
+        cellar_id = st.secrets["CELLAR_ID"]
+    except (FileNotFoundError, KeyError):
+        cellar_id = os.getenv("CELLAR_ID")
+
+    if not cellar_id:
+        raise ValueError("CELLAR_ID not found in secrets or environment")
+    return cellar_id
+
+
 def get_database_url() -> Optional[str]:
     """Get database URL from Streamlit secrets or environment."""
     try:
@@ -99,6 +111,7 @@ def init_database():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS wines (
                     id SERIAL PRIMARY KEY,
+                    cellar_id TEXT NOT NULL DEFAULT 'default_cellar',
                     user_id TEXT NOT NULL DEFAULT 'admin',
                     wine_name TEXT NOT NULL,
                     producer TEXT,
@@ -136,6 +149,19 @@ def init_database():
                 END $$;
             """)
 
+            # Add cellar_id column if table already exists (migration)
+            cursor.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'wines' AND column_name = 'cellar_id'
+                    ) THEN
+                        ALTER TABLE wines ADD COLUMN cellar_id TEXT NOT NULL DEFAULT 'default_cellar';
+                    END IF;
+                END $$;
+            """)
+
             # Add updated_at column if table already exists (migration)
             cursor.execute("""
                 DO $$
@@ -169,6 +195,11 @@ def init_database():
                 CREATE INDEX IF NOT EXISTS idx_user_id ON wines(user_id);
             """)
 
+            # Create index on cellar_id for filtering
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_cellar_id ON wines(cellar_id);
+            """)
+
             # Create index on wine_name for faster lookups
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_wine_name ON wines(wine_name);
@@ -186,20 +217,23 @@ def init_database():
 
 def add_wine(wine_data: Dict[str, Any]) -> bool:
     """Add a wine to the database with user attribution."""
+    row_data = dict(wine_data)
+    row_data["cellar_id"] = get_cellar_id()
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO wines (
-                    user_id, wine_name, producer, vintage, notes, score, liked, price,
+                    cellar_id, user_id, wine_name, producer, vintage, notes, score, liked, price,
                     country, region, wine_color, is_sparkling, is_natural, sweetness,
                     acidity, minerality, fruitiness, tannin, body
                 ) VALUES (
-                    %(user_id)s, %(wine_name)s, %(producer)s, %(vintage)s, %(notes)s, %(score)s, %(liked)s, %(price)s,
+                    %(cellar_id)s, %(user_id)s, %(wine_name)s, %(producer)s, %(vintage)s, %(notes)s, %(score)s, %(liked)s, %(price)s,
                     %(country)s, %(region)s, %(wine_color)s, %(is_sparkling)s, %(is_natural)s, %(sweetness)s,
                     %(acidity)s, %(minerality)s, %(fruitiness)s, %(tannin)s, %(body)s
                 )
-            """, wine_data)
+            """, row_data)
 
             conn.commit()
             return True
@@ -260,6 +294,7 @@ def get_all_wines(user_id: str) -> pd.DataFrame:
 
     # Get all users in the same group
     group_users = get_user_group(user_id)
+    cellar_id = get_cellar_id()
 
     conn = get_connection()
     try:
@@ -272,9 +307,10 @@ def get_all_wines(user_id: str) -> pd.DataFrame:
                     country, region, wine_color, is_sparkling, is_natural, sweetness,
                     acidity, minerality, fruitiness, tannin, body
                 FROM wines
-                WHERE user_id IN ({placeholders})
+                WHERE cellar_id = %s
+                  AND user_id IN ({placeholders})
                 ORDER BY created_at DESC
-            """, tuple(group_users))
+            """, tuple([cellar_id] + group_users))
 
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
@@ -301,19 +337,20 @@ def get_all_wines(user_id: str) -> pd.DataFrame:
 
 def delete_wine(wine_name: str, user_id: str, vintage: Optional[float] = None) -> bool:
     """Delete a wine from the database for a specific user."""
+    cellar_id = get_cellar_id()
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             if vintage:
                 cursor.execute("""
                     DELETE FROM wines
-                    WHERE user_id = %s AND wine_name = %s AND vintage = %s
-                """, (user_id, wine_name, vintage))
+                    WHERE cellar_id = %s AND user_id = %s AND wine_name = %s AND vintage = %s
+                """, (cellar_id, user_id, wine_name, vintage))
             else:
                 cursor.execute("""
                     DELETE FROM wines
-                    WHERE user_id = %s AND wine_name = %s
-                """, (user_id, wine_name))
+                    WHERE cellar_id = %s AND user_id = %s AND wine_name = %s
+                """, (cellar_id, user_id, wine_name))
 
             conn.commit()
             return True
@@ -323,19 +360,20 @@ def delete_wine(wine_name: str, user_id: str, vintage: Optional[float] = None) -
 
 def wine_exists(wine_name: str, user_id: str, vintage: Optional[float] = None) -> bool:
     """Check if a wine already exists in the database for a specific user."""
+    cellar_id = get_cellar_id()
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             if vintage:
                 cursor.execute("""
                     SELECT COUNT(*) FROM wines
-                    WHERE user_id = %s AND wine_name = %s AND vintage = %s
-                """, (user_id, wine_name, vintage))
+                    WHERE cellar_id = %s AND user_id = %s AND wine_name = %s AND vintage = %s
+                """, (cellar_id, user_id, wine_name, vintage))
             else:
                 cursor.execute("""
                     SELECT COUNT(*) FROM wines
-                    WHERE user_id = %s AND wine_name = %s
-                """, (user_id, wine_name))
+                    WHERE cellar_id = %s AND user_id = %s AND wine_name = %s
+                """, (cellar_id, user_id, wine_name))
 
             count = cursor.fetchone()[0]
             return count > 0
@@ -353,13 +391,20 @@ def get_wine_count(user_id: Optional[str] = None) -> int:
     Returns:
         Count of wines
     """
+    cellar_id = get_cellar_id()
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             if user_id:
-                cursor.execute("SELECT COUNT(*) FROM wines WHERE user_id = %s", (user_id,))
+                cursor.execute(
+                    "SELECT COUNT(*) FROM wines WHERE cellar_id = %s AND user_id = %s",
+                    (cellar_id, user_id),
+                )
             else:
-                cursor.execute("SELECT COUNT(*) FROM wines")
+                cursor.execute(
+                    "SELECT COUNT(*) FROM wines WHERE cellar_id = %s",
+                    (cellar_id,),
+                )
             count = cursor.fetchone()[0]
             return count
     finally:

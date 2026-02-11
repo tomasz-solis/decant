@@ -21,22 +21,65 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from decant import VinoPredictor
 from decant.schema import WineExtraction
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
-from decant import database as db
 from decant.auth import setup_authentication
 from pydantic import ValidationError
+from decant.supabase_session import get_supabase_client
+from decant.wines_repo import list_wines as repo_list_wines, add_wine as repo_add_wine
 
 # Load environment variables
 load_dotenv()
 
+
+def check_required_supabase_secrets() -> None:
+    """Fail fast when required Supabase secrets are missing."""
+    if st.session_state.get("_supabase_startup_checked"):
+        return
+
+    try:
+        cellar_id = st.secrets["CELLAR_ID"]
+    except (FileNotFoundError, KeyError):
+        st.error("❌ Missing required secret: CELLAR_ID")
+        st.stop()
+
+    if not cellar_id:
+        st.error("❌ CELLAR_ID cannot be empty")
+        st.stop()
+
+    try:
+        supabase_users = st.secrets["supabase_users"]
+    except (FileNotFoundError, KeyError):
+        st.error("❌ Missing required secret section: [supabase_users]")
+        st.stop()
+
+    required_user_keys = [
+        "tomasz_email",
+        "tomasz_password",
+        "karolina_email",
+        "karolina_password",
+    ]
+    missing_user_keys = [
+        key for key in required_user_keys
+        if key not in supabase_users or not supabase_users[key]
+    ]
+    if missing_user_keys:
+        st.error(
+            "❌ Missing required [supabase_users] keys: "
+            + ", ".join(missing_user_keys)
+        )
+        st.stop()
+
+    st.session_state["_supabase_startup_checked"] = True
+
 # AUTHENTICATION - Must be first Streamlit command!
 username = setup_authentication()
 
-# Initialize database (create tables if they don't exist)
+check_required_supabase_secrets()
+
 try:
-    db.init_database()
+    st.session_state["sb"] = get_supabase_client()
 except Exception as e:
-    # Table already exists or database not available - graceful fallback
-    pass
+    st.error(f"❌ Supabase authentication failed: {e}")
+    st.stop()
 
 # Detect Streamlit Cloud environment
 IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud" or os.getenv("STREAMLIT_SHARING_MODE") is not None
@@ -491,52 +534,22 @@ def load_predictor():
 @st.cache_data
 def load_wine_data(user_id: str = "admin"):
     """
-    Load wine data from PostgreSQL database with fallback to CSV.
+    Load wine data from Supabase wines table (RLS-authenticated session).
 
     Args:
-        user_id: User ID to filter wines. Defaults to 'admin' for backward compatibility.
+        user_id: Kept for cache key compatibility; data is filtered by cellar_id.
 
     Returns:
-        DataFrame with wine data filtered by user
+        DataFrame with wines for the shared cellar
     """
     try:
-        # Try loading from database first (filtered by user)
-        df = db.get_all_wines(user_id=user_id)
+        sb_client = st.session_state.get("sb")
+        if sb_client is None:
+            raise RuntimeError("Supabase client not initialized in session state")
 
-        if df is not None and len(df) > 0:
-            # NaN PROTECTION: Fill missing values before any logic runs
-            # Numerical columns -> 0
-            numerical_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body',
-                             'score', 'price', 'vintage']
-            for col in numerical_cols:
-                if col in df.columns:
-                    df[col] = df[col].fillna(0)
-
-            # Boolean-like numerical columns (stored as float) -> 0
-            for col in ['is_sparkling', 'is_natural']:
-                if col in df.columns:
-                    df[col] = df[col].fillna(0).astype(int)
-
-            # Text columns -> 'Unknown'
-            text_cols = ['wine_name', 'producer', 'notes', 'country', 'region',
-                        'wine_color', 'sweetness']
-            for col in text_cols:
-                if col in df.columns:
-                    df[col] = df[col].fillna('Unknown').astype(str)
-
-            # Boolean columns -> False
-            if 'liked' in df.columns:
-                df['liked'] = df['liked'].fillna(False)
-
+        df = repo_list_wines(sb_client)
+        if df is None or df.empty:
             return df
-
-    except Exception as e:
-        st.warning(f"⚠️ Database unavailable, falling back to CSV: {str(e)}")
-
-    # Fallback to CSV if database fails
-    data_path = Path("data/processed/wine_features.csv")
-    if data_path.exists():
-        df = pd.read_csv(data_path)
 
         # NaN PROTECTION: Fill missing values before any logic runs
         numerical_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body',
@@ -560,7 +573,9 @@ def load_wine_data(user_id: str = "admin"):
 
         return df
 
-    return None
+    except Exception as e:
+        st.error(f"❌ Supabase error while loading wines: {e}")
+        return None
 
 
 def should_display_vintage(vintage_value):
@@ -1897,9 +1912,8 @@ Desired JSON Structure:
                     wine_data['is_sparkling'] = bool(wine_data.get('is_sparkling', False))
                     wine_data['is_natural'] = bool(wine_data.get('is_natural', False))
 
-                    # Save to PostgreSQL database
+                    # Save to Supabase wines table (RLS-authenticated session)
                     row_data = {
-                        'user_id': username,  # Add logged-in user
                         'wine_name': wine_data['wine_name'],
                         'producer': wine_data['producer'],
                         'vintage': wine_data['vintage'],
@@ -1924,35 +1938,12 @@ Desired JSON Structure:
                     }
 
                     try:
-                        # Try saving to database first (with loading indicator)
-                        with st.spinner("💾 Saving wine to database..."):
-                            db.add_wine(row_data)
-                        st.success("✅ Wine saved to database!")
-
-                    except Exception as db_error:
-                        # Fallback to CSV if database fails
-                        st.warning(f"⚠️ Database temporarily unavailable, saving locally")
-
-                        csv_path = Path("data/history.csv")
-                        if csv_path.exists():
-                            df_history = pd.read_csv(csv_path)
-                            for col in row_data.keys():
-                                if col not in df_history.columns:
-                                    df_history[col] = None
-                            df_history = pd.concat([df_history, pd.DataFrame([row_data])], ignore_index=True)
-                        else:
-                            df_history = pd.DataFrame([row_data])
-
-                        df_history['liked'] = df_history['liked'].astype(bool)
-                        df_history['price'] = df_history['price'].astype(float)
-                        df_history['score'] = df_history['score'].astype(float)
-                        df_history.to_csv(csv_path, index=False)
-
-                        if IS_STREAMLIT_CLOUD:
-                            st.warning(
-                                "⚠️ **CSV Fallback on Streamlit Cloud**: Data will be reset when app restarts. "
-                                "Please check your database connection."
-                            )
+                        with st.spinner("💾 Saving wine to Supabase..."):
+                            repo_add_wine(st.session_state["sb"], row_data)
+                        st.success("✅ Wine saved to Supabase!")
+                    except Exception as supabase_error:
+                        st.error(f"❌ Supabase error while saving wine: {supabase_error}")
+                        st.stop()
 
                     # Sync features
                     import subprocess
@@ -1983,7 +1974,7 @@ Desired JSON Structure:
                     st.info("Please check that price is a valid number and liked is true/false")
                 except Exception as e:
                     st.error(f"Error saving: {str(e)}")
-                    st.info("Check that data/history.csv exists and is writable")
+                    st.info("Check Supabase configuration and RLS permissions")
 
             else:
                 # No data extracted yet
