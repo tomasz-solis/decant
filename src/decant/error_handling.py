@@ -1,8 +1,4 @@
-"""
-Standardized Error Handling for Decant
-
-Provides consistent error handling patterns across all modules.
-"""
+"""Error handling patterns for Decant."""
 
 import logging
 from typing import Optional, Callable, Any, TypeVar, Dict
@@ -36,17 +32,7 @@ class FileOperationError(DecantError):
 
 
 def handle_llm_error(error: Exception, operation: str, fallback_value: Any = None) -> Any:
-    """
-    Standardized LLM error handling.
-
-    Args:
-        error: Exception that occurred
-        operation: Description of operation
-        fallback_value: Value to return on error
-
-    Returns:
-        fallback_value if error is recoverable, otherwise raises
-    """
+    """Handle LLM errors: return fallback for recoverable, raise for others."""
     error_type = type(error).__name__
 
     # Validation errors - log and return fallback
@@ -80,17 +66,7 @@ def safe_execute(
     fallback_value: T,
     error_message: str = "Operation failed"
 ) -> Callable[..., T]:
-    """
-    Decorator for safe function execution with fallback.
-
-    Args:
-        func: Function to execute
-        fallback_value: Value to return on error
-        error_message: Error message to log
-
-    Returns:
-        Wrapped function that returns fallback on error
-    """
+    """Decorator that returns fallback_value on any exception."""
     @wraps(func)
     def wrapper(*args, **kwargs) -> T:
         try:
@@ -107,17 +83,7 @@ def validate_llm_response(
     expected_keys: list,
     operation: str
 ) -> bool:
-    """
-    Validate LLM response has expected structure.
-
-    Args:
-        response: LLM response dict
-        expected_keys: List of required keys
-        operation: Operation name for logging
-
-    Returns:
-        True if valid, False otherwise
-    """
+    """Check that response dict contains all expected keys."""
     if not isinstance(response, dict):
         logger.error(f"LLM response is not a dict during {operation}: {type(response)}")
         return False

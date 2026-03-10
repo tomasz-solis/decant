@@ -1,14 +1,4 @@
-"""
-Wine preference predictor with error handling, caching, and retry logic.
-
-This is the improved version of predictor.py with:
-- Comprehensive error handling
-- LLM response caching
-- Retry logic with exponential backoff
-- Input sanitization
-- Consistent division by zero protection
-- Documented magic numbers via Constants
-"""
+"""Wine preference predictor using in-context learning with OpenAI."""
 
 import os
 import json
@@ -67,23 +57,9 @@ class PalateMatch(BaseModel):
 
 
 class VinoPredictor:
-    """
-    Wine preference predictor using In-Context Learning.
-
-    Features:
-    - Error handling with retries
-    - LLM response caching
-    - Input sanitization
-    - Comprehensive logging
-    """
+    """Wine preference predictor using in-context learning."""
 
     def __init__(self, data_path: Optional[Path] = None):
-        """
-        Initialize predictor with wine features data.
-
-        Args:
-            data_path: Path to wine_features.csv. If None, uses default location.
-        """
         # Load environment variables
         load_dotenv()
 
@@ -138,16 +114,7 @@ class VinoPredictor:
             self.disliked_examples = pd.DataFrame()
 
     def _select_liked_examples(self, top_n: int = 3, target_wine: Optional[dict] = None) -> pd.DataFrame:
-        """
-        Select top N liked wines based on palate formula.
-
-        Args:
-            top_n: Number of examples to return
-            target_wine: Optional dict with wine_color, sweetness, is_sparkling for exact matching
-
-        Returns:
-            DataFrame with top liked wines
-        """
+        """Select top N liked wines, optionally prioritizing matching style attributes."""
         if len(self.df) == 0:
             return pd.DataFrame()
 
@@ -156,22 +123,17 @@ class VinoPredictor:
         if len(liked_df) == 0:
             return pd.DataFrame()
 
-        # REFACTORED: Use centralized palate formula instead of duplicating logic
         liked_df = add_palate_features_to_dataframe(liked_df)
 
-        # EXACT STYLE MATCHING: Prioritize wines with same attributes
         if target_wine and 'wine_color' in liked_df.columns:
-            # Bonus points for matching color
             if 'wine_color' in target_wine and 'wine_color' in liked_df.columns:
                 color_match = liked_df['wine_color'] == target_wine['wine_color']
                 liked_df.loc[color_match, 'palate_score'] += Constants.COLOR_MATCH_BONUS
 
-            # Bonus for matching sweetness
             if 'sweetness' in target_wine and 'sweetness' in liked_df.columns:
                 sweetness_match = liked_df['sweetness'] == target_wine['sweetness']
                 liked_df.loc[sweetness_match, 'palate_score'] += Constants.SWEETNESS_MATCH_BONUS
 
-            # Bonus for matching sparkling
             if 'is_sparkling' in target_wine and 'is_sparkling' in liked_df.columns:
                 sparkling_match = liked_df['is_sparkling'] == target_wine['is_sparkling']
                 liked_df.loc[sparkling_match, 'palate_score'] += Constants.SPARKLING_MATCH_BONUS
@@ -191,24 +153,13 @@ class VinoPredictor:
         if len(disliked_df) == 0:
             return pd.DataFrame()
 
-        # REFACTORED: Use centralized palate formula
         disliked_df = add_palate_features_to_dataframe(disliked_df)
 
         # Take wines with lowest palate score
         return disliked_df.nsmallest(min(bottom_n, len(disliked_df)), 'palate_score')
 
     def _build_context_prompt(self, features: WineFeatures) -> str:
-        """
-        Build ICL prompt with examples and new wine features.
-
-        COMPRESSED VERSION - Removed redundant instructions.
-
-        Args:
-            features: Extracted features for the new wine
-
-        Returns:
-            Formatted prompt with context examples
-        """
+        """Build in-context learning prompt with liked/disliked examples."""
         prompt = """You are a wine sommelier analyzing palate compatibility based on tasting history.
 
 ## LIKED WINES ✓
@@ -267,18 +218,7 @@ Provide JSON with: match_score (0-100), qualitative_analysis, key_alignment, key
         return prompt
 
     def extract_wine_data(self, wine_name: str) -> WineExtraction:
-        """
-        Extract complete wine data from just a wine name using LLM.
-
-        Args:
-            wine_name: Wine name (e.g., "Fefiñanes Albariño 2022")
-
-        Returns:
-            WineExtraction object with all fields populated
-
-        Raises:
-            LLMError: If extraction fails after retries
-        """
+        """Extract complete wine data from a wine name using LLM."""
         # Sanitize input
         wine_name = sanitize_text_input(wine_name)
 
@@ -289,13 +229,13 @@ Provide JSON with: match_score (0-100), qualitative_analysis, key_alignment, key
             for _, wine in self.liked_examples.tail(3).iterrows():
                 context += f"- {wine['producer']}: Acidity {wine['acidity']}/10, Minerality {wine['minerality']}/10\n"
 
-        prompt = f"""Extract COMPLETE HIGH-DIMENSIONAL wine information from this wine name.
+        prompt = f"""Extract wine information from this wine name.
 
 {context}
 
 WINE NAME: {wine_name}
 
-BE AGGRESSIVE in inferring all attributes using your encyclopedic wine knowledge.
+Infer all attributes using wine knowledge.
 
 ## REQUIRED FIELDS:
 
@@ -351,21 +291,8 @@ Return JSON only with these exact field names.
         reraise=True
     )
     def _call_openai_with_retry(self, messages: list, response_format: dict = None) -> dict:
-        """
-        Call OpenAI API with automatic retry on transient errors.
-
-        Args:
-            messages: Chat messages
-            response_format: Response format specification
-
-        Returns:
-            Parsed JSON response
-
-        Raises:
-            OpenAIError: If all retries fail
-        """
+        """Call OpenAI API with retry on transient errors."""
         try:
-            # SECURITY FIX: Check rate limits before API call
             try:
                 self.rate_limiter.check_and_increment()
             except RLError as e:
@@ -388,8 +315,6 @@ Return JSON only with these exact field names.
                 temperature=OPENAI_TEMPERATURE
             )
 
-            # Record cost (estimate based on model pricing)
-            # GPT-4o pricing: ~$0.005 per 1K input tokens, ~$0.015 per 1K output tokens
             if hasattr(completion, 'usage'):
                 input_tokens = completion.usage.prompt_tokens
                 output_tokens = completion.usage.completion_tokens
@@ -419,17 +344,7 @@ Return JSON only with these exact field names.
             raise
 
     def extract_features(self, tasting_notes: str) -> Optional[WineFeatures]:
-        """
-        Extract numerical features from tasting notes using LLM.
-
-        WITH CACHING: Identical tasting notes return cached features.
-
-        Args:
-            tasting_notes: Free-form wine tasting notes
-
-        Returns:
-            Validated WineFeatures object or None on error
-        """
+        """Extract numerical features from tasting notes using LLM (cached)."""
         # Sanitize input
         tasting_notes = sanitize_text_input(tasting_notes, max_length=Constants.MAX_TEXT_INPUT_LENGTH)
 

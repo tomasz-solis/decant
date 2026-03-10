@@ -1,11 +1,4 @@
-"""
-Comprehensive tests for PalateEngine.
-
-Tests the core recommendation algorithm including:
-- Cosine similarity calculations
-- Bayesian confidence factor
-- Edge cases and error handling
-"""
+"""Tests for PalateEngine."""
 
 import pytest
 import numpy as np

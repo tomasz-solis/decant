@@ -1,8 +1,4 @@
-"""
-Utility functions for Decant.
-
-Includes error handling, caching, input sanitization, and logging.
-"""
+"""Utility functions for input sanitization, caching, and data validation."""
 
 import hashlib
 import json
@@ -21,33 +17,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# =======================
-# INPUT SANITIZATION
-# =======================
-
 def sanitize_text_input(text: str, max_length: int = 5000) -> str:
-    """
-    Sanitize user text input to prevent prompt injection.
-
-    IMPROVED DEFENSE: Handles multi-line injections, various bypass attempts.
-
-    Args:
-        text: Raw user input
-        max_length: Maximum allowed length
-
-    Returns:
-        Sanitized text
-    """
+    """Sanitize user text input to prevent prompt injection."""
     if not text:
         return ""
 
     # Truncate to max length
     text = text[:max_length]
 
-    # COMPREHENSIVE PROMPT INJECTION PATTERNS
-    # Handles: multi-line, punctuation-separated, case variations
     dangerous_patterns = [
-        # Ignore commands (with flexible spacing/punctuation)
         r'ignore[\s\.\,\:\;]+previous',
         r'ignore[\s\.\,\:\;]+all',
         r'ignore[\s\.\,\:\;]+the',
@@ -79,7 +57,7 @@ def sanitize_text_input(text: str, max_length: int = 5000) -> str:
         r'---+\s*system',
         r'```\s*system',
 
-        # Extract/reveal patterns (data exfiltration)
+        # Extract/reveal patterns
         r'print\s+your',
         r'reveal\s+your',
         r'what\s+are\s+your',
@@ -98,7 +76,6 @@ def sanitize_text_input(text: str, max_length: int = 5000) -> str:
     # Strip leading/trailing whitespace
     text = text.strip()
 
-    # SEMANTIC VALIDATION: Warn if input looks suspicious
     if len(text) > 0:
         suspicious_indicators = [
             'extract', 'override', 'bypass', 'jailbreak',
@@ -112,16 +89,7 @@ def sanitize_text_input(text: str, max_length: int = 5000) -> str:
 
 
 def validate_image_upload(file_bytes: bytes, max_size_mb: int = 10) -> bool:
-    """
-    Validate uploaded image file.
-
-    Args:
-        file_bytes: Raw file bytes
-        max_size_mb: Maximum file size in MB
-
-    Returns:
-        True if valid, False otherwise
-    """
+    """Validate uploaded image file by size and magic bytes."""
     # Check size
     size_mb = len(file_bytes) / (1024 * 1024)
     if size_mb > max_size_mb:
@@ -146,25 +114,10 @@ def validate_image_upload(file_bytes: bytes, max_size_mb: int = 10) -> bool:
     return False
 
 
-# =======================
-# LLM RESPONSE CACHING
-# =======================
-
 class LLMCache:
-    """
-    Simple file-based cache for LLM responses.
-
-    Reduces API costs by caching responses for identical inputs.
-    """
+    """File-based cache for LLM responses with TTL expiry."""
 
     def __init__(self, cache_dir: Optional[Path] = None, ttl_hours: int = 24):
-        """
-        Initialize cache.
-
-        Args:
-            cache_dir: Directory for cache files (default: .cache/llm)
-            ttl_hours: Time-to-live in hours for cache entries
-        """
         if cache_dir is None:
             cache_dir = Path.cwd() / '.cache' / 'llm'
 
@@ -175,7 +128,6 @@ class LLMCache:
         logger.info(f"LLM cache initialized at {self.cache_dir}")
 
     def _get_cache_key(self, prompt: str, model: str, **kwargs) -> str:
-        """Generate cache key from prompt and parameters."""
         # Include model and kwargs in hash
         cache_input = {
             'prompt': prompt,
@@ -186,17 +138,7 @@ class LLMCache:
         return hashlib.sha256(cache_str.encode()).hexdigest()
 
     def get(self, prompt: str, model: str, **kwargs) -> Optional[Any]:
-        """
-        Get cached response if available and not expired.
-
-        Args:
-            prompt: LLM prompt
-            model: Model name
-            **kwargs: Additional parameters
-
-        Returns:
-            Cached response or None
-        """
+        """Get cached response if available and not expired."""
         cache_key = self._get_cache_key(prompt, model, **kwargs)
         cache_file = self.cache_dir / f"{cache_key}.json"
 
@@ -221,15 +163,7 @@ class LLMCache:
             return None
 
     def set(self, prompt: str, model: str, response: Any, **kwargs) -> None:
-        """
-        Store response in cache.
-
-        Args:
-            prompt: LLM prompt
-            model: Model name
-            response: Response to cache
-            **kwargs: Additional parameters
-        """
+        """Store response in cache."""
         cache_key = self._get_cache_key(prompt, model, **kwargs)
         cache_file = self.cache_dir / f"{cache_key}.json"
 
@@ -247,7 +181,6 @@ class LLMCache:
             logger.error(f"Error writing cache: {e}")
 
     def clear(self) -> None:
-        """Clear all cache files."""
         for cache_file in self.cache_dir.glob("*.json"):
             cache_file.unlink()
         logger.info("Cache cleared")
@@ -258,14 +191,7 @@ _llm_cache = LLMCache()
 
 
 def with_llm_cache(func: Callable) -> Callable:
-    """
-    Decorator to add caching to LLM API calls.
-
-    Usage:
-        @with_llm_cache
-        def extract_features(self, tasting_notes: str) -> WineFeatures:
-            ...
-    """
+    """Decorator to cache LLM API call results."""
     @wraps(func)
     def wrapper(*args, **kwargs):
         # Extract prompt from args/kwargs
@@ -299,22 +225,8 @@ def with_llm_cache(func: Callable) -> Callable:
     return wrapper
 
 
-# =======================
-# ERROR HANDLING
-# =======================
-
 def safe_divide(numerator: float, denominator: float, default: float = 0.0) -> float:
-    """
-    Safely divide two numbers, handling zero division.
-
-    Args:
-        numerator: Number to divide
-        denominator: Number to divide by
-        default: Value to return if division by zero
-
-    Returns:
-        Result of division or default
-    """
+    """Divide with zero-division protection."""
     if denominator == 0:
         logger.warning(f"Division by zero: {numerator}/{denominator}, returning {default}")
         return default
@@ -322,31 +234,13 @@ def safe_divide(numerator: float, denominator: float, default: float = 0.0) -> f
 
 
 def handle_api_error(error: Exception, operation: str) -> None:
-    """
-    Log API errors with context.
-
-    Args:
-        error: Exception that occurred
-        operation: Description of operation that failed
-    """
+    """Log API errors with context."""
     error_type = type(error).__name__
     logger.error(f"API error during {operation}: {error_type} - {str(error)}")
 
 
-# =======================
-# DATA VALIDATION
-# =======================
-
 def validate_wine_features(features: dict) -> bool:
-    """
-    Validate wine feature dict before processing.
-
-    Args:
-        features: Dict with wine features
-
-    Returns:
-        True if valid, False otherwise
-    """
+    """Validate wine feature dict has required keys in valid range."""
     required_features = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
 
     for feature in required_features:
@@ -366,26 +260,17 @@ def validate_wine_features(features: dict) -> bool:
     return True
 
 
-# =======================
-# CONSTANTS (Legacy compatibility)
-# =======================
 
-# NOTE: Constants have been moved to decant.constants module for better organization.
-# This class is kept for backward compatibility but imports from the new location.
+
 
 from decant.constants import AlgorithmConstants
 
 class Constants:
-    """
-    Legacy Constants class for backward compatibility.
-
-    DEPRECATED: Use decant.constants.AlgorithmConstants directly.
-    This class will be removed in a future version.
-    """
+    """Legacy constants wrapper. Use AlgorithmConstants directly."""
 
     # Import all constants from new module
     EXPONENTIAL_ALPHA = AlgorithmConstants.EXPONENTIAL_ALPHA
-    BAYESIAN_ALPHA = EXPONENTIAL_ALPHA  # Legacy name (deprecated - misleading)
+    BAYESIAN_ALPHA = EXPONENTIAL_ALPHA
 
     ACIDITY_BODY_EPSILON = AlgorithmConstants.ACIDITY_BODY_EPSILON
     ACIDITY_BODY_WEIGHT = AlgorithmConstants.ACIDITY_BODY_WEIGHT
@@ -398,14 +283,6 @@ class Constants:
     MAX_TEXT_INPUT_LENGTH = AlgorithmConstants.MAX_TEXT_INPUT_LENGTH
     MAX_IMAGE_SIZE_MB = AlgorithmConstants.MAX_IMAGE_SIZE_MB
 
-    # Verdict thresholds moved to Verdict enum
-    LIKELIHOOD_STRONG_MATCH = 75.0  # Use Verdict.STRONG_MATCH.threshold instead
-    LIKELIHOOD_WORTH_TRYING = 60.0  # Use Verdict.WORTH_TRYING.threshold instead
-    LIKELIHOOD_EXPLORE = 45.0       # Use Verdict.EXPLORE.threshold instead
-
-
-# Export convenience function to get constants
-def get_constant(name: str) -> Any:
-    """Get a constant value by name."""
-    logger.warning("get_constant() is deprecated. Import from decant.constants instead.")
-    return getattr(Constants, name)
+    LIKELIHOOD_STRONG_MATCH = 75.0
+    LIKELIHOOD_WORTH_TRYING = 60.0
+    LIKELIHOOD_EXPLORE = 45.0

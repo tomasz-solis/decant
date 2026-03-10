@@ -1,27 +1,4 @@
-"""
-Rate Limiter for OpenAI API Calls
-
-Prevents cost overruns and API abuse by enforcing:
-1. Request rate limits (requests/minute, requests/hour)
-2. Cost limits ($ per hour)
-3. Sliding window tracking
-
-Usage:
-    from decant.rate_limiter import RateLimiter
-
-    limiter = RateLimiter(
-        requests_per_minute=20,
-        requests_per_hour=500,
-        cost_limit_per_hour=5.0
-    )
-
-    # Before making API call
-    if limiter.check_and_increment():
-        response = client.chat.completions.create(...)
-        limiter.record_cost(cost=0.02)
-    else:
-        raise RateLimitError("Rate limit exceeded")
-"""
+"""Sliding window rate limiter for OpenAI API calls."""
 
 import time
 import logging
@@ -61,11 +38,7 @@ class RateLimitError(Exception):
 
 
 class RateLimiter:
-    """
-    Sliding window rate limiter for OpenAI API calls.
-
-    Thread-safe for concurrent use (uses time-based windows, not locks).
-    """
+    """Sliding window rate limiter for OpenAI API calls."""
 
     def __init__(
         self,
@@ -73,14 +46,6 @@ class RateLimiter:
         requests_per_hour: int = 500,
         cost_limit_per_hour: float = 5.0
     ):
-        """
-        Initialize rate limiter.
-
-        Args:
-            requests_per_minute: Maximum requests per minute (default: 20)
-            requests_per_hour: Maximum requests per hour (default: 500)
-            cost_limit_per_hour: Maximum cost per hour in USD (default: $5.00)
-        """
         self.config = RateLimitConfig(
             requests_per_minute=requests_per_minute,
             requests_per_hour=requests_per_hour,

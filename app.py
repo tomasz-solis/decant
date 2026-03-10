@@ -100,8 +100,9 @@ def is_debug_enabled() -> bool:
     return bool(debug_value)
 
 
-# AUTHENTICATION - Must be first Streamlit command!
-username = setup_authentication()
+# AUTHENTICATION - guests can browse, login required to save
+username = setup_authentication(guest_allowed=True)
+is_guest = username is None
 
 check_required_supabase_secrets()
 DEBUG_MODE = is_debug_enabled()
@@ -383,7 +384,7 @@ st.markdown("""
         50% { left: 100%; }
     }
 
-    /* Responsive Breakpoints - OPTIMIZED FOR IN-SHOP MOBILE USE */
+    /* Responsive Breakpoints - Mobile */
     @media (max-width: 768px) {
         /* Compact header for more screen real estate */
         .main-title {
@@ -404,7 +405,7 @@ st.markdown("""
             border-radius: 12px;
         }
 
-        /* BIGGER BUTTONS for in-shop quick taps */
+        /* Larger buttons for touch targets */
         .stButton > button {
             height: 56px !important;
             font-size: 1.1em !important;
@@ -423,7 +424,7 @@ st.markdown("""
             gap: 12px;
         }
 
-        /* CRITICAL: Better touch targets (Apple HIG 44px minimum) */
+        /* Touch targets (44px minimum per Apple HIG) */
         .stSelectbox, .stTextInput, .stNumberInput, .stSlider {
             min-height: 48px !important;
         }
@@ -455,7 +456,7 @@ st.markdown("""
             max-width: 100% !important;
         }
 
-        /* Columns stack vertically on mobile - CRITICAL for readability */
+        /* Columns stack vertically on mobile */
         [data-testid="column"] {
             width: 100% !important;
             flex: 100% !important;
@@ -659,10 +660,16 @@ def ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def load_wine_data(username):
     """
-    Load wine data for the shared cellar using an RLS-authenticated Supabase session.
+    Load wine data for the shared cellar using a Supabase session.
+
+    Uses authenticated session when logged in, anon client for guests.
     """
     try:
-        sb = get_user_supabase()
+        if username:
+            sb = get_user_supabase()
+        else:
+            from decant.supabase_session import get_anon_supabase
+            sb = get_anon_supabase()
         df = repo_list_wines(sb)
         return ensure_wine_df(df)
     except Exception as e:
@@ -954,7 +961,7 @@ def calculate_similarity(wine_features, target_features):
 
 def create_master_radar(features, global_avg, color_avg, wine_color="White"):
     """
-    MASTER RADAR with 3 series for Deep UI Alignment:
+    Radar chart with 3 series:
 
     Series 1 (Dashed Grey): Global Average of all liked wines
     Series 2 (Solid Color): Style Target - liked wines of current color
@@ -979,9 +986,9 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
     }
     colors = style_colors.get(wine_color, style_colors['White'])
 
-    # Safe extraction helper - NO 5/10 DEFAULTS
+    # Safe extraction helper
     def safe_get(obj, attr):
-        """Extract value with NO generic defaults."""
+        """Extract value, returning None for missing/zero/NaN."""
         try:
             val = getattr(obj, attr, None)
             return val if (val is not None and val != 0 and not pd.isna(val)) else None
@@ -1205,8 +1212,8 @@ def extract_complete_wine_data(image_file, history_df):
                 for _, wine in liked_wines.iterrows():
                     context += f"- {wine.get('wine_name', 'Unknown')}: Acidity {wine.get('acidity', 0)}/10, Minerality {wine.get('minerality', 0)}/10\n"
 
-        # AGGRESSIVE HIGH-DIMENSIONAL extraction prompt (JSON format)
-        prompt = f"""Analyze this wine bottle and extract COMPLETE HIGH-DIMENSIONAL wine information.
+        # Extraction prompt (JSON format)
+        prompt = f"""Analyze this wine bottle and extract complete wine information.
 
 {context}
 
@@ -1291,7 +1298,7 @@ Return ONLY valid JSON."""
         if 'price' not in raw_data:
             raw_data['price'] = 0.0
 
-        # SECURITY FIX: Validate extracted data before returning
+        # Validate extracted data before returning
         from pydantic import ValidationError
         from decant.constants import WineColor, Sweetness
 
@@ -1365,6 +1372,10 @@ def main():
     <p class="subtitle">Taste, with confidence.</p>
 </div>
 """, unsafe_allow_html=True)
+
+    # Guest mode banner
+    if is_guest:
+        st.info("👀 **Guest mode** — You can browse the collection. Log in to add wines.")
 
     # Streamlit Cloud deployment warning (persistent at top)
     if IS_STREAMLIT_CLOUD:
@@ -1574,7 +1585,7 @@ def main():
         )
 
         if input_mode == "📝 Enter Wine Name":
-            # Text input mode - MOBILE-OPTIMIZED with voice input hint
+            # Text input mode
             st.markdown("### 🍷 Enter Wine Name")
             st.caption("Type or use voice input (tap microphone on mobile keyboard)")
 
@@ -1591,7 +1602,7 @@ def main():
                     if predictor:
                         extraction = predictor.extract_wine_data(wine_name_input)
 
-                        # Convert to dict with HIGH-DIMENSIONAL attributes + GEOGRAPHY
+                        # Convert to dict
                         wine_data = {
                             'wine_name': extraction.wine_name,
                             'producer': extraction.producer,
@@ -1603,7 +1614,6 @@ def main():
                             # WINE ORIGIN (AI-extracted)
                             'country': extraction.country,
                             'region': extraction.region,
-                            # HIGH-DIMENSIONAL ATTRIBUTES (AI-inferred)
                             'wine_color': extraction.wine_color,
                             'is_sparkling': extraction.is_sparkling,
                             'is_natural': extraction.is_natural,
@@ -1621,7 +1631,7 @@ def main():
                         st.rerun()
 
         else:
-            # Photo upload mode - MOBILE-OPTIMIZED for in-shop use
+            # Photo upload mode
             st.markdown("### 📸 Snap a Photo")
             st.caption("Point your camera at the wine label - AI does the rest!")
 
@@ -1646,6 +1656,10 @@ def main():
                         if wine_data:
                             st.session_state['wine_data'] = wine_data
                             st.session_state['last_upload'] = uploaded_file.name
+                            # Store raw file bytes so we can save the photo later
+                            uploaded_file.seek(0)
+                            st.session_state['uploaded_photo_bytes'] = uploaded_file.read()
+                            st.session_state['uploaded_photo_name'] = uploaded_file.name
                             st.success("✅ Wine analyzed! All fields extracted automatically")
                             st.rerun()
 
@@ -1656,8 +1670,7 @@ def main():
             # Display wine name prominently with geography
             st.markdown(f"## 🍷 {wine_data['wine_name']}")
 
-            # 🌍 BULLETPROOF LOCATION HEADER - Explicit mapping to prevent NaNs
-            # Explicitly map from wine_data with fallbacks
+            # Location header with NaN-safe fallbacks
             country = wine_data.get('country', None)
             region = wine_data.get('region', None)
 
@@ -1678,7 +1691,7 @@ def main():
             elif country != 'Unknown':
                 st.markdown(f"### 📍 {country}")
 
-            # 🎯 VISUAL STYLE HEADER - Categorical Clarity
+            # Style header
             wine_color = wine_data.get('wine_color', 'White')
             region = wine_data.get('region', 'Unknown')
             is_sparkling = wine_data.get('is_sparkling', False)
@@ -2030,8 +2043,11 @@ Desired JSON Structure:
                     else:
                         st.markdown(f"**Vintage:** NV")
 
-            # Large, prominent Save button
-            if st.button("💾 SAVE TO MY COLLECTION", type="primary", width="stretch"):
+            # Large, prominent Save button (login required)
+            if is_guest:
+                st.warning("🔒 Log in to save wines to your collection")
+
+            if st.button("💾 SAVE TO MY COLLECTION", type="primary", width="stretch", disabled=is_guest):
                 # Validate and update user inputs
                 try:
                     # Type validation with high-dimensional attributes
@@ -2098,15 +2114,16 @@ Desired JSON Structure:
                         st.error(f"❌ Supabase error while saving wine: {supabase_error}")
                         st.stop()
 
-                    # Sync features
-                    import subprocess
-                    sync_script = Path("scripts/sync_features.py")
-                    if sync_script.exists():
-                        result = subprocess.run([sys.executable, str(sync_script)], cwd=Path.cwd(), capture_output=True, text=True)
-                        if result.returncode != 0:
-                            st.warning(f"⚠️ Sync script error: {result.stderr}")
-                        else:
-                            st.info("🔄 Features synced successfully")
+                    # Save uploaded photo if available
+                    photo_bytes = st.session_state.get('uploaded_photo_bytes')
+                    photo_name = st.session_state.get('uploaded_photo_name')
+                    if photo_bytes and wine_data.get('wine_name'):
+                        import io
+                        photo_file = io.BytesIO(photo_bytes)
+                        photo_file.name = photo_name or "photo.jpg"
+                        saved_path = save_wine_image(photo_file, wine_data['wine_name'])
+                        if saved_path:
+                            st.info("📸 Photo saved")
 
                     # Clear cached data to force reload
                     clear_wine_data_cache()
@@ -2115,10 +2132,8 @@ Desired JSON Structure:
                     st.balloons()
 
                     # Clear session state to start fresh
-                    if 'wine_data' in st.session_state:
-                        del st.session_state['wine_data']
-                    if 'last_upload' in st.session_state:
-                        del st.session_state['last_upload']
+                    for key in ['wine_data', 'last_upload', 'uploaded_photo_bytes', 'uploaded_photo_name']:
+                        st.session_state.pop(key, None)
 
                     st.info("🍷 Ready for next wine! Add another above.")
 
@@ -2141,74 +2156,76 @@ Desired JSON Structure:
         # Data persistence controls (Download/Upload)
         col_data1, col_data2 = st.columns([1, 1])
         with col_data1:
-            # Download button
-            csv_path = Path("data/history.csv")
-            if csv_path.exists():
-                history_csv = csv_path.read_text()
+            # Download from Supabase data already loaded
+            tab2_df = ensure_wine_df(load_wine_data(username))
+            if not tab2_df.empty:
+                csv_data = tab2_df.to_csv(index=False)
                 st.download_button(
                     label="📥 Download My Collection (CSV)",
-                    data=history_csv,
+                    data=csv_data,
                     file_name="decant_wine_history.csv",
                     mime="text/csv",
-                    help="Backup your wine collection. Essential on Streamlit Cloud free tier!"
+                    help="Backup your wine collection"
                 )
             else:
                 st.info("No history data yet. Add wines first!")
 
         with col_data2:
-            # Upload button (restore from backup)
-            uploaded_file = st.file_uploader(
-                "📤 Restore from Backup",
-                type=['csv'],
-                help="Upload a previously downloaded CSV to restore your collection",
-                key='restore_history'
-            )
+            if is_guest:
+                st.info("🔒 Log in to restore from backup")
+            else:
+                # Upload button (restore from backup)
+                uploaded_file = st.file_uploader(
+                    "📤 Restore from Backup",
+                    type=['csv'],
+                    help="Upload a previously downloaded CSV to restore your collection",
+                    key='restore_history'
+                )
 
-            if uploaded_file is not None:
-                try:
-                    # Read uploaded CSV
-                    uploaded_df = pd.read_csv(uploaded_file)
+                if uploaded_file is not None:
+                    try:
+                        uploaded_df = pd.read_csv(uploaded_file)
 
-                    # Validate schema (check for required columns)
-                    required_cols = ['wine_name', 'score', 'liked']
-                    missing_cols = [col for col in required_cols if col not in uploaded_df.columns]
+                        required_cols = ['wine_name', 'score', 'liked']
+                        missing_cols = [col for col in required_cols if col not in uploaded_df.columns]
 
-                    if missing_cols:
-                        st.error(f"❌ Invalid CSV: Missing columns {missing_cols}")
-                    else:
-                        # Merge with existing data (avoid duplicates by wine_name + vintage)
-                        csv_path = Path("data/history.csv")
-                        if csv_path.exists():
-                            existing_df = pd.read_csv(csv_path)
+                        if missing_cols:
+                            st.error(f"❌ Invalid CSV: Missing columns {missing_cols}")
+                        else:
+                            # Dedup against existing Supabase data
+                            existing_df = ensure_wine_df(load_wine_data(username))
 
-                            # Create unique key for deduplication
-                            existing_df['_key'] = existing_df['wine_name'] + '_' + existing_df.get('vintage', 'NV').astype(str)
-                            uploaded_df['_key'] = uploaded_df['wine_name'] + '_' + uploaded_df.get('vintage', 'NV').astype(str)
-
-                            # Keep only new wines from uploaded file
-                            new_wines = uploaded_df[~uploaded_df['_key'].isin(existing_df['_key'])]
+                            if not existing_df.empty:
+                                existing_keys = (
+                                    existing_df['wine_name'].astype(str) + '_'
+                                    + existing_df['vintage'].fillna('NV').astype(str)
+                                )
+                                uploaded_keys = (
+                                    uploaded_df['wine_name'].astype(str) + '_'
+                                    + uploaded_df['vintage'].fillna('NV').astype(str) if 'vintage' in uploaded_df.columns
+                                    else uploaded_df['wine_name'].astype(str) + '_NV'
+                                )
+                                new_wines = uploaded_df[~uploaded_keys.isin(existing_keys)]
+                            else:
+                                new_wines = uploaded_df
 
                             if len(new_wines) > 0:
-                                # Drop temporary key column
-                                new_wines = new_wines.drop(columns=['_key'])
-                                existing_df = existing_df.drop(columns=['_key'])
-
-                                # Append new wines
-                                merged_df = pd.concat([existing_df, new_wines], ignore_index=True)
-                                merged_df.to_csv(csv_path, index=False)
-
-                                st.success(f"✅ Restored {len(new_wines)} new wines! ({len(existing_df)} existing wines kept)")
+                                sb = get_user_supabase()
+                                imported = 0
+                                for _, row in new_wines.iterrows():
+                                    try:
+                                        row_data = row.dropna().to_dict()
+                                        repo_add_wine(sb, row_data)
+                                        imported += 1
+                                    except Exception as row_err:
+                                        st.warning(f"⚠️ Skipped {row.get('wine_name', '?')}: {row_err}")
+                                st.success(f"✅ Imported {imported} new wines!")
                                 clear_wine_data_cache()
                             else:
                                 st.info("✅ No new wines to add. All uploaded wines already exist!")
-                        else:
-                            # No existing data, just save uploaded file
-                            uploaded_df.to_csv(csv_path, index=False)
-                            st.success(f"✅ Restored {len(uploaded_df)} wines!")
-                            clear_wine_data_cache()
 
-                except Exception as e:
-                    st.error(f"❌ Error reading CSV: {str(e)}")
+                    except Exception as e:
+                        st.error(f"❌ Error reading CSV: {str(e)}")
 
         st.markdown("---")
 

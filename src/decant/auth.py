@@ -9,29 +9,34 @@ import streamlit_authenticator as stauth
 from typing import Optional
 
 
-def setup_authentication() -> Optional[str]:
+def setup_authentication(guest_allowed: bool = True) -> Optional[str]:
     """
     Set up authentication and return username if logged in.
 
+    Args:
+        guest_allowed: If True, unauthenticated users can browse in read-only
+                       guest mode.  If False, the app stops until login.
+
     Returns:
-        Username if authenticated, None otherwise (will stop execution)
+        Username if authenticated, None for guest mode.
     """
     # Get credentials from secrets
     try:
         passwords = dict(st.secrets["passwords"])
         cookie_config = dict(st.secrets["cookie"])
     except (FileNotFoundError, KeyError):
-        # Authentication required but not configured
-        st.error("🔒 Authentication not configured")
-        st.warning("Add credentials to `.streamlit/secrets.toml` to enable login.")
-        st.code("""[passwords]
+        if not guest_allowed:
+            st.error("🔒 Authentication not configured")
+            st.warning("Add credentials to `.streamlit/secrets.toml` to enable login.")
+            st.code("""[passwords]
 admin = "your-password-hash-here"
 
 [cookie]
 name = "decant_auth"
 key = "your-secure-key-here"
 expiry_days = 30""", language="toml")
-        st.stop()
+            st.stop()
+        return None
 
     # Create credentials dict
     credentials = {
@@ -56,8 +61,10 @@ expiry_days = 30""", language="toml")
     try:
         authenticator.login()
     except Exception as e:
-        st.error(f"Login error: {e}")
-        st.stop()
+        if not guest_allowed:
+            st.error(f"Login error: {e}")
+            st.stop()
+        return None
 
     # Get authentication status from session state
     authentication_status = st.session_state.get("authentication_status")
@@ -66,10 +73,15 @@ expiry_days = 30""", language="toml")
 
     if authentication_status is False:
         st.error("Username/password is incorrect")
-        st.stop()
+        if not guest_allowed:
+            st.stop()
+        return None
     elif authentication_status is None:
-        st.warning("Please enter your username and password")
-        st.stop()
+        # Not logged in — guest mode
+        if not guest_allowed:
+            st.warning("Please enter your username and password")
+            st.stop()
+        return None
 
     # Add logout button in sidebar
     with st.sidebar:

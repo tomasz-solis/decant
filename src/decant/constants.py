@@ -1,18 +1,9 @@
-"""
-Decant Constants and Enums
-
-Centralized constants, enums, and magic values to eliminate string duplication
-and improve type safety.
-"""
+"""Constants, enums, and validation schemas for Decant."""
 
 from enum import Enum
 from typing import Tuple
 from pydantic import BaseModel, Field
 
-
-# =======================
-# WINE ATTRIBUTE ENUMS
-# =======================
 
 class WineColor(str, Enum):
     """Wine color categories."""
@@ -58,10 +49,6 @@ class Verdict(Enum):
             return cls.DIFFERENT_STYLE
 
 
-# =======================
-# COLUMN NAME CONSTANTS
-# =======================
-
 class ColumnNames:
     """CSV column names to avoid string hardcoding."""
 
@@ -104,59 +91,26 @@ class ColumnNames:
         return [cls.ACIDITY, cls.MINERALITY, cls.FRUITINESS, cls.TANNIN, cls.BODY]
 
 
-# =======================
-# ALGORITHM CONSTANTS
-# =======================
-
 class AlgorithmConstants:
-    """
-    Algorithm constants with documentation.
+    """Algorithm tuning parameters."""
 
-    Previously in utils.Constants - moved here for better organization.
-    """
+    EXPONENTIAL_ALPHA = 0.4        # Confidence decay coefficient
+    ACIDITY_BODY_EPSILON = 0.1     # Division-by-zero guard for acidity/body ratio
+    ACIDITY_BODY_WEIGHT = 2.0      # Weight for acidity/body ratio in palate score
 
-    # EXPONENTIAL CONFIDENCE
-    # α = 0.4 chosen as balanced coefficient
-    # - Lower (0.2-0.3): More conservative, slower confidence growth
-    # - Higher (0.5-0.6): More aggressive, faster confidence growth
-    # - 0.4: Balanced - reaches 70% confidence at 3 wines, 86% at 5 wines
-    # Validated via cross-validation in notebooks/03_exponential_decay_analysis.ipynb
-    EXPONENTIAL_ALPHA = 0.4
-
-    # FEATURE ENGINEERING
-    # Small epsilon to prevent division by zero in acidity/body ratio
-    # 0.1 chosen as minimal offset that doesn't significantly affect results
-    ACIDITY_BODY_EPSILON = 0.1
-
-    # PALATE FORMULA WEIGHTS
-    # Acidity/Body ratio multiplied by 2 in palate score calculation
-    # Empirically determined to give appropriate weight to this derived feature
-    ACIDITY_BODY_WEIGHT = 2.0
-
-    # STYLE MATCHING BONUSES
-    # Bonus points added to palate score for exact style matches
-    # Used in In-Context Learning example selection
     COLOR_MATCH_BONUS = 5.0
     SWEETNESS_MATCH_BONUS = 3.0
     SPARKLING_MATCH_BONUS = 2.0
 
-    # CACHING
-    LLM_CACHE_TTL_HOURS = 24  # Cache LLM responses for 24 hours
+    LLM_CACHE_TTL_HOURS = 24
+    MAX_TEXT_INPUT_LENGTH = 5000
+    MAX_IMAGE_SIZE_MB = 10
 
-    # INPUT LIMITS
-    MAX_TEXT_INPUT_LENGTH = 5000  # Max characters for tasting notes
-    MAX_IMAGE_SIZE_MB = 10        # Max image upload size
-
-    # RETRY CONFIGURATION
     MAX_RETRIES = 3
     RETRY_MIN_WAIT_SECONDS = 2
     RETRY_MAX_WAIT_SECONDS = 10
     RETRY_MULTIPLIER = 1
 
-
-# =======================
-# LLM RESPONSE VALIDATION SCHEMAS
-# =======================
 
 class TechnicalProfile(BaseModel):
     """Validation schema for LLM-extracted technical wine profile."""
@@ -212,10 +166,6 @@ class ImageExtractionResponse(BaseModel):
     body: float = Field(..., ge=1.0, le=10.0)
 
 
-# =======================
-# FEATURE RANGE CONSTANTS
-# =======================
-
 class FeatureRanges:
     """Valid ranges for wine features."""
 
@@ -232,10 +182,6 @@ class FeatureRanges:
     MAX_PRICE = 10000.0  # Reasonable upper limit
 
 
-# =======================
-# FILE PATH CONSTANTS
-# =======================
-
 class FilePaths:
     """Standard file paths used in the application."""
 
@@ -249,10 +195,6 @@ class FilePaths:
     HISTORY_CSV = "data/history.csv"
     WINE_FEATURES_CSV = "data/processed/wine_features.csv"
 
-
-# =======================
-# UI CONSTANTS
-# =======================
 
 class UIConstants:
     """UI-related constants."""
