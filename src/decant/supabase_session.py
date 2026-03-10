@@ -77,6 +77,22 @@ def get_supabase_client() -> Client:
     return sb
 
 
+def get_anon_supabase() -> Client:
+    """Return a Supabase client using only the anon key (no user auth).
+
+    Suitable for read-only guest access where RLS allows anon SELECT.
+    """
+    cached = st.session_state.get("supabase_anon_client")
+    if cached is not None:
+        return cached
+
+    supabase_url = _normalize_secret_string(st.secrets["SUPABASE_URL"], "SUPABASE_URL")
+    supabase_key = _normalize_secret_string(st.secrets["SUPABASE_KEY"], "SUPABASE_KEY")
+    sb = create_client(supabase_url, supabase_key)
+    st.session_state["supabase_anon_client"] = sb
+    return sb
+
+
 def get_user_supabase() -> Client:
     """Backward-compatible alias."""
     return get_supabase_client()

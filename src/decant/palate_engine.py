@@ -1,14 +1,4 @@
-"""
-PalateEngine: Dynamic Wine Preference Engine
-
-Solves the cold-start problem in personalized taste profiles using:
-- LLM-based feature extraction (1-10 scale for 5 dimensions)
-- Cosine similarity for flavor profile alignment
-- Bayesian-inspired confidence weighting for statistical uncertainty
-
-Author: Decant Team
-Date: 2026-02-05
-"""
+"""Wine preference matching engine using cosine similarity and confidence decay."""
 
 import numpy as np
 import pandas as pd
@@ -67,18 +57,7 @@ class PalateScore:
 
 
 class PalateEngine:
-    """
-    Dynamic Wine Preference Engine
-
-    Handles the transition from raw wine names to dynamic match scores using:
-    1. LLM-based feature extraction (delegated to predictor)
-    2. Cosine similarity for flavor alignment (Metric A)
-    3. Bayesian confidence weighting (Metric B)
-
-    Key Innovation: Separates "flavor similarity" from "match confidence"
-    - 86% similarity + 1 wine → 65% likelihood (low confidence)
-    - 86% similarity + 10 wines → 85% likelihood (high confidence)
-    """
+    """Calculates wine match scores using cosine similarity and confidence decay."""
 
     def __init__(self, history_df: Optional[pd.DataFrame] = None):
         """
@@ -118,13 +97,7 @@ class PalateEngine:
             )
 
     def cosine_similarity(self, vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-        """
-        Calculate cosine similarity between two vectors
-
-        Formula: cos(θ) = (A · B) / (||A|| ||B||)
-
-        Returns value in range [-1, 1], normalized to [0, 100] for percentage
-        """
+        """Cosine similarity normalized to 0-100 scale."""
         # Handle zero vectors
         norm_a = np.linalg.norm(vec_a)
         norm_b = np.linalg.norm(vec_b)
@@ -142,46 +115,14 @@ class PalateEngine:
         return max(0, min(100, normalized))
 
     def exponential_confidence_factor(self, n_samples: int) -> float:
-        """
-        Calculate exponential confidence penalty based on sample size.
-
-        RENAMED: Previously called "bayesian_confidence_factor" but this is NOT
-        Bayesian statistics - it's exponential decay. True Bayesian would use
-        prior distributions and posterior updates.
-
-        Formula: 1 - e^(-α * N)  where α = 0.4
-
-        Rationale:
-        - With 1 wine: confidence = 0.33 (33% confident)
-        - With 3 wines: confidence = 0.70 (70% confident)
-        - With 5 wines: confidence = 0.86 (86% confident)
-        - With 10 wines: confidence = 0.98 (98% confident)
-        - Asymptotes to 1.0 (full confidence)
-
-        This penalizes matches when we have insufficient data to be confident.
-        The α=0.4 coefficient provides balanced confidence growth
-        (validated via cross-validation in notebook 03).
-
-        Args:
-            n_samples: Number of liked wines in history
-
-        Returns:
-            Confidence factor between 0 and 1
-        """
+        """Confidence factor: 1 - e^(-α * N) where α = 0.4."""
         from decant.constants import AlgorithmConstants
         return 1 - math.exp(-AlgorithmConstants.EXPONENTIAL_ALPHA * n_samples)
 
-    # Legacy alias for backward compatibility
     def bayesian_confidence_factor(self, n_samples: int) -> float:
-        """
-        DEPRECATED: Use exponential_confidence_factor() instead.
-
-        This function name is misleading - the algorithm is exponential decay,
-        not Bayesian statistics.
-        """
+        """Deprecated: use exponential_confidence_factor() instead."""
         import warnings
         warnings.warn(
-            "bayesian_confidence_factor() is deprecated and misleading. "
             "Use exponential_confidence_factor() instead.",
             DeprecationWarning,
             stacklevel=2
@@ -193,16 +134,7 @@ class PalateEngine:
         wine_features: Dict[str, float],
         wine_color: Optional[str] = None
     ) -> PalateScore:
-        """
-        Calculate dual-metric match score for a wine
-
-        Args:
-            wine_features: Dict with acidity, fruitiness, body, tannin, minerality
-            wine_color: Optional color for color-specific matching
-
-        Returns:
-            PalateScore with both metrics and explanation
-        """
+        """Calculate match score for a wine against user's ideal profile."""
         # Convert to vector
         current_wine = WineVector.from_dict(wine_features)
         current_vec = current_wine.to_array()
@@ -247,12 +179,7 @@ class PalateEngine:
             ideal_vec = self.ideal_profile.to_array()
             n_samples = self.n_liked
 
-        # METRIC A: Palate Match (Cosine Similarity)
-        # Pure flavor profile alignment, independent of confidence
         palate_match = self.cosine_similarity(current_vec, ideal_vec)
-
-        # METRIC B: Likelihood Score (Exponential-adjusted)
-        # Applies confidence penalty based on sample size using exponential decay
         confidence_factor = self.exponential_confidence_factor(n_samples)
         likelihood_score = palate_match * confidence_factor
 
@@ -280,15 +207,7 @@ class PalateEngine:
         )
 
     def get_profile_vector(self, wine_color: Optional[str] = None) -> Optional[np.ndarray]:
-        """
-        Get the ideal profile vector (for radar charts)
-
-        Args:
-            wine_color: Optional color for color-specific profile
-
-        Returns:
-            numpy array with 5 features, or None if no history
-        """
+        """Get the ideal profile vector, optionally filtered by wine color."""
         if self.ideal_profile is None:
             return None
 
@@ -311,35 +230,14 @@ class PalateEngine:
         return self.ideal_profile.to_array()
 
     def explain_metrics(self) -> Dict[str, str]:
-        """
-        Get human-readable explanations of the two metrics
-
-        Returns:
-            Dict with metric names and explanations
-        """
+        """Return metric name → description mapping."""
         return {
-            "Flavor Profile Alignment": (
-                "Cosine similarity between the wine's flavor vector and your ideal profile. "
-                "Measures how similar the wine is to what you typically enjoy (0-100%)."
-            ),
-            "Match Likelihood": (
-                "Bayesian-adjusted confidence score. Takes flavor alignment and applies a "
-                "penalty based on how many wines you've tried. With more data, this converges "
-                "to the alignment score. Explains why a wine might 'look' like a match (86%) "
-                "but only have 65% likelihood—you simply haven't tried enough wines yet."
-            )
+            "Flavor Profile Alignment": "Cosine similarity between this wine and your ideal profile (0-100%).",
+            "Match Likelihood": "Flavor alignment adjusted by confidence from sample size (0-100%)."
         }
 
     def get_confidence_breakdown(self, n_samples: int) -> Dict[str, float]:
-        """
-        Get confidence factor for different sample sizes (for visualization)
-
-        Args:
-            n_samples: Number of wines in history
-
-        Returns:
-            Dict with sample sizes and corresponding confidence factors
-        """
+        """Return confidence factors for various sample sizes."""
         sample_sizes = [1, 2, 3, 5, 10, 15, 20, 30, 50]
         return {
             f"{n}_wines": round(self.bayesian_confidence_factor(n), 3)
@@ -351,21 +249,7 @@ class PalateEngine:
         current_wine: Dict[str, float],
         wine_color: Optional[str] = None
     ):
-        """
-        Generate dynamic Plotly radar chart comparing current wine to user's ideal
-
-        Per Principal-level spec:
-        - Black Solid Line: Current Wine
-        - Red/Pink Area: User's Ideal Target (Mean of liked wines)
-        - Axes: 1-10 scale for all 5 dimensions
-
-        Args:
-            current_wine: Dict with acidity, fruitiness, body, tannin, minerality
-            wine_color: Optional color for color-specific profile
-
-        Returns:
-            Plotly Figure object (or None if plotly not available)
-        """
+        """Generate Plotly radar chart comparing current wine to ideal profile."""
         if not PLOTLY_AVAILABLE:
             return None
 
@@ -460,49 +344,17 @@ class PalateEngine:
         wine_color: Optional[str] = None,
         include_chart: bool = True
     ) -> Dict:
-        """
-        SINGLE SOURCE OF TRUTH for UI data
-
-        Returns unified JSON object containing ALL data the UI needs.
-        NO HARDCODED VALUES - everything comes from PalateEngine calculations.
-
-        Args:
-            wine_features: Dict with wine features
-            wine_color: Optional wine color
-            include_chart: Whether to include Plotly chart (default True)
-
-        Returns:
-            Dict with:
-            - match_likelihood: THE authoritative number (0-100)
-            - flavor_alignment: Raw similarity (0-100)
-            - confidence_score: Bayesian confidence (0-100)
-            - n_samples: Number of wines in history
-            - verdict: Human-readable verdict
-            - explanation: Detailed explanation
-            - plotly_chart: Plotly figure (if include_chart=True)
-            - plotly_json: Chart as JSON string (if include_chart=True)
-
-        UI GUARDRAIL: The UI must use 'match_likelihood' EVERYWHERE
-        to prevent number soup and discrepancies.
-        """
+        """Return all match data needed for UI rendering."""
         # Calculate match score
         score = self.calculate_match(wine_features, wine_color)
 
-        # Build unified output
         ui_data = {
-            # PRIMARY METRIC - Use this EVERYWHERE in UI
             "match_likelihood": score.likelihood_score,
-
-            # SUPPORTING METRICS - For transparency
             "flavor_alignment": score.palate_match,
             "confidence_score": score.confidence_factor * 100,
             "n_samples": score.n_samples,
-
-            # QUALITATIVE DATA
             "verdict": score.verdict,
             "explanation": score.explanation,
-
-            # METADATA
             "wine_color": wine_color,
             "metric_definitions": self.explain_metrics()
         }
