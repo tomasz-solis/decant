@@ -2,7 +2,6 @@
 
 import os
 import json
-from pathlib import Path
 from typing import List, Tuple, Optional
 
 import pandas as pd
@@ -59,55 +58,56 @@ class PalateMatch(BaseModel):
 class VinoPredictor:
     """Wine preference predictor using in-context learning."""
 
-    def __init__(self, data_path: Optional[Path] = None):
-        # Load environment variables
+    def __init__(self, history_df: pd.DataFrame):
+        """Initialise the predictor with a pre-loaded wine history.
+
+        The caller owns data loading. This decouples the predictor from
+        any specific storage backend and makes it testable with synthetic
+        DataFrames.
+
+        Args:
+            history_df: Wine history with the schema produced by
+                `decant.services.data_access.load_history`. May be empty.
+        """
         load_dotenv()
 
-        # Initialize OpenAI client
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
 
         self.client = OpenAI(api_key=api_key)
 
-        # Initialize rate limiter
         self.rate_limiter = get_global_limiter(
             requests_per_minute=20,
             requests_per_hour=500,
-            cost_limit_per_hour=5.0
+            cost_limit_per_hour=5.0,
         )
         logger.info("Rate limiter initialized for API cost protection")
 
-        # Load wine features data
-        if data_path is None:
-            data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "wine_features.csv"
+        self.df = history_df if history_df is not None else pd.DataFrame()
+        logger.info(f"VinoPredictor initialised with {len(self.df)} wines")
 
-        try:
-            self.df = pd.read_csv(data_path)
-            logger.info(f"Loaded {len(self.df)} wines from history")
-        except FileNotFoundError:
-            logger.warning(f"Wine features file not found at {data_path}, starting with empty history")
-            self.df = pd.DataFrame()
-        except Exception as e:
-            logger.error(f"Error loading wine features: {e}")
-            self.df = pd.DataFrame()
-
-        # Select context examples
         self._refresh_context()
 
-    def _refresh_context(self):
-        """Refresh ICL context with latest history data (self-learning)."""
-        try:
-            # Reload data to get latest entries
-            data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "wine_features.csv"
-            if data_path.exists():
-                self.df = pd.read_csv(data_path)
+    def refresh_context(self, history_df: pd.DataFrame) -> None:
+        """Refresh ICL context with a fresh history DataFrame.
 
-            # Select fresh context examples
+        Call this after adding wines to keep the in-context examples
+        in sync with the latest data. The caller passes the new
+        DataFrame explicitly; no disk reads happen here.
+        """
+        self.df = history_df if history_df is not None else pd.DataFrame()
+        self._refresh_context()
+
+    def _refresh_context(self) -> None:
+        """Recompute liked/disliked example sets from self.df."""
+        try:
             self.liked_examples = self._select_liked_examples()
             self.disliked_examples = self._select_disliked_examples()
-
-            logger.info(f"Context: {len(self.liked_examples)} liked + {len(self.disliked_examples)} disliked wines")
+            logger.info(
+                f"Context: {len(self.liked_examples)} liked + "
+                f"{len(self.disliked_examples)} disliked wines"
+            )
         except Exception as e:
             logger.error(f"Error refreshing context: {e}")
             self.liked_examples = pd.DataFrame()
@@ -173,7 +173,7 @@ class VinoPredictor:
                 default=wine['acidity']
             )
             prompt += f"""
-{idx}. {wine['producer']} ({wine.get('vintage', 'NV')}) - ${wine['price_usd']:.2f}
+{idx}. {wine['producer']} ({wine.get('vintage', 'NV')}) - €{wine['price']:.2f}
    Acidity: {wine['acidity']}/10, Minerality: {wine['minerality']}/10, Fruitiness: {wine['fruitiness']}/10
    Tannin: {wine['tannin']}/10, Body: {wine['body']}/10, A/B Ratio: {acidity_body_ratio:.2f}
 """
@@ -189,7 +189,7 @@ class VinoPredictor:
                     default=wine['acidity']
                 )
                 prompt += f"""
-{idx}. {wine['producer']} ({wine.get('vintage', 'NV')}) - ${wine['price_usd']:.2f}
+{idx}. {wine['producer']} ({wine.get('vintage', 'NV')}) - €{wine['price']:.2f}
    Acidity: {wine['acidity']}/10, Minerality: {wine['minerality']}/10, Fruitiness: {wine['fruitiness']}/10
    Tannin: {wine['tannin']}/10, Body: {wine['body']}/10, A/B Ratio: {acidity_body_ratio:.2f}
 """

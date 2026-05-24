@@ -8,6 +8,7 @@ import os
 import base64
 import json
 from pathlib import Path
+from typing import Optional
 
 import streamlit as st
 import pandas as pd
@@ -546,15 +547,31 @@ st.markdown("""
 
 
 @st.cache_resource
-def load_predictor():
-    """Load predictor with caching."""
+def get_predictor():
+    """Build the VinoPredictor once per session.
+
+    The expensive parts (OpenAI client, rate limiter) are cached.
+    History is *not* cached here — call `refresh_predictor(df)` after
+    loading wines to point the predictor at the current data.
+    """
     try:
-        predictor = VinoPredictor()
-        return predictor
+        return VinoPredictor(history_df=pd.DataFrame())
     except Exception as e:
         st.error(f"Error loading predictor: {e}")
         st.info("💡 Make sure OPENAI_API_KEY is set in your .env file")
         return None
+
+
+def load_predictor(history_df: Optional[pd.DataFrame] = None):
+    """Return a ready-to-use predictor with current history loaded.
+
+    Kept for backward compatibility with existing call sites. New code
+    should call `get_predictor()` directly and pass the DataFrame.
+    """
+    predictor = get_predictor()
+    if predictor is not None and history_df is not None:
+        predictor.refresh_context(history_df)
+    return predictor
 
 
 EXPECTED_WINE_COLUMNS = [
@@ -1707,10 +1724,9 @@ def main():
 
             # 🎯 PALATE MATCH VERDICT - Move to TOP (Deep UI Alignment requirement)
             if history_df is not None and len(history_df) > 0:
-                from decant.predictor import VinoPredictor
-
-                # Initialize predictor
-                predictor = VinoPredictor()
+                # Reuse the cached predictor and point it at the latest history.
+                # history_df is already loaded by the caller (Supabase via load_history).
+                predictor = load_predictor(history_df=history_df)
 
                 # Calculate likelihood - HARDENED with style-based inference
                 wine_features_dict = {
