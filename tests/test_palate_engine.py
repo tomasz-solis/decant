@@ -195,30 +195,43 @@ class TestCalculateMatch:
         assert score.n_samples == 0
 
     def test_similar_wine_high_likelihood(self, sample_history):
-        """Similar wine to liked wines should have high likelihood."""
+        """A wine close to the ideal profile should score high under centred cosine.
+
+        Under v1 (plain cosine on positive vectors) every wine scored
+        85-100% because the cosine couldn't be negative. Under v2
+        (centred cosine) similarity to the ideal still produces high
+        scores, but the spread is real — see test_centring_creates_spread.
+        """
         engine = PalateEngine(sample_history)
 
-        # Test wine similar to Albariños
+        # Test wine very similar to the liked white-wine cluster.
         test_wine = {'acidity': 8.5, 'fruitiness': 7.5, 'body': 5.5, 'tannin': 1, 'minerality': 8.5}
         score = engine.calculate_match(test_wine, wine_color='White')
 
-        assert score.palate_match > 85.0  # High similarity
-        assert score.n_samples == 3  # 3 liked white wines
-        assert score.confidence_factor > 0.65  # Moderate confidence
-        assert score.likelihood_score > 60.0  # Should recommend
+        assert score.palate_match > 70.0
+        assert score.n_samples == 3
+        assert score.confidence_factor > 0.65
+        # Threshold for Strong Match is 60 on likelihood under v2.
+        assert score.likelihood_score > 60.0
 
-    def test_different_wine_moderate_likelihood(self, sample_history):
-        """Different wine should have moderate likelihood (cosine is generous)."""
+    def test_different_wine_low_score(self, sample_history):
+        """A wine opposite to liked patterns should score low under centred cosine.
+
+        v1 regression: this test previously had to assert only that the
+        score was "in valid range" because cosine inflation meant even
+        opposite wines scored above 50. v2 makes the spread real.
+        """
         engine = PalateEngine(sample_history)
 
-        # Test wine opposite to liked wines
+        # Wine that deviates from typical in directions OPPOSITE to liked wines:
+        # low acidity (liked are high), high tannin (liked are low),
+        # high body (liked are low), low minerality (liked are high).
         test_wine = {'acidity': 4, 'fruitiness': 5, 'body': 9, 'tannin': 9, 'minerality': 3}
         score = engine.calculate_match(test_wine)
 
-        # Cosine similarity is generous - even different wines can score high
-        # This is expected behavior in 5D feature space
-        assert score.palate_match > 0.0  # Valid range
-        assert score.likelihood_score < 100.0  # Valid range
+        # Should be well below the "Worth Trying" threshold (50).
+        assert score.palate_match < 50.0
+        assert score.likelihood_score < 50.0
 
     def test_color_specific_matching(self, sample_history):
         """Color-specific matching should use only same-color wines."""
@@ -246,16 +259,124 @@ class TestCalculateMatch:
         assert score.likelihood_score < 40.0  # Heavily penalized
 
     def test_verdict_thresholds(self, sample_history):
-        """Test verdict assignment based on likelihood thresholds."""
+        """Verdict assignment under v2 thresholds (60/50/40 on likelihood)."""
         engine = PalateEngine(sample_history)
 
-        # Mock different likelihood scores by testing different wines
-        # Strong Match: >= 75%
         strong_wine = {'acidity': 8.5, 'fruitiness': 7.5, 'body': 5.5, 'tannin': 1.5, 'minerality': 8.5}
         score_strong = engine.calculate_match(strong_wine)
 
-        if score_strong.likelihood_score >= 75:
+        if score_strong.likelihood_score >= 60:
             assert "💙" in score_strong.verdict or "Strong" in score_strong.verdict
+
+
+class TestCentredCosine:
+    """Behaviour of centred cosine, the v2 normalisation fix.
+
+    Tests assume a history with >= 3 wines so the centring path runs;
+    smaller histories fall back to plain cosine (tested elsewhere).
+    """
+
+    @pytest.fixture
+    def diverse_history(self):
+        """A history with both styles, so centring has meaningful spread."""
+        return pd.DataFrame([
+            # Liked: high acidity, low body, low tannin, high minerality
+            {'wine_name': 'A1', 'liked': True, 'wine_color': 'White',
+             'acidity': 9, 'fruitiness': 7, 'body': 4, 'tannin': 1, 'minerality': 9},
+            {'wine_name': 'A2', 'liked': True, 'wine_color': 'White',
+             'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8},
+            # Disliked: low acidity, high body, high tannin
+            {'wine_name': 'B1', 'liked': False, 'wine_color': 'Red',
+             'acidity': 4, 'fruitiness': 6, 'body': 9, 'tannin': 9, 'minerality': 3},
+            {'wine_name': 'B2', 'liked': False, 'wine_color': 'Red',
+             'acidity': 3, 'fruitiness': 5, 'body': 9, 'tannin': 9, 'minerality': 2},
+        ])
+
+    def test_wine_on_population_mean_scores_neutral(self, diverse_history):
+        """A wine sitting exactly on the population mean is neutral by
+        definition — no deviation to correlate with anything."""
+        engine = PalateEngine(diverse_history)
+        mean_wine = {
+            'acidity': float(engine.population_mean[0]),
+            'fruitiness': float(engine.population_mean[1]),
+            'body': float(engine.population_mean[2]),
+            'tannin': float(engine.population_mean[3]),
+            'minerality': float(engine.population_mean[4]),
+        }
+        score = engine.calculate_match(mean_wine)
+        assert abs(score.palate_match - 50.0) < 1.0
+
+    def test_wine_deviating_like_ideal_scores_high(self, diverse_history):
+        """A wine that deviates from the population in the same direction
+        as the ideal profile should score above 75."""
+        engine = PalateEngine(diverse_history)
+        # Exaggerate the liked-deviation: even higher acidity, even lower body
+        aligned_wine = {'acidity': 10, 'fruitiness': 7, 'body': 3, 'tannin': 1, 'minerality': 10}
+        score = engine.calculate_match(aligned_wine)
+        assert score.palate_match > 75.0
+
+    def test_wine_deviating_opposite_to_ideal_scores_low(self, diverse_history):
+        """A wine that deviates opposite to the ideal should score below 25."""
+        engine = PalateEngine(diverse_history)
+        # Opposite of ideal deviation: low acidity, high body, high tannin
+        opposite_wine = {'acidity': 2, 'fruitiness': 5, 'body': 10, 'tannin': 10, 'minerality': 1}
+        score = engine.calculate_match(opposite_wine)
+        assert score.palate_match < 25.0
+
+    def test_centred_cosine_uses_full_score_range(self, diverse_history):
+        """v1 regression: scores should now occupy more than just [75, 100].
+
+        Specifically, an aligned wine should score >75 and an
+        opposite wine should score <25, giving a spread of >50 points.
+        """
+        engine = PalateEngine(diverse_history)
+        aligned = engine.calculate_match(
+            {'acidity': 10, 'fruitiness': 7, 'body': 3, 'tannin': 1, 'minerality': 10}
+        )
+        opposite = engine.calculate_match(
+            {'acidity': 2, 'fruitiness': 5, 'body': 10, 'tannin': 10, 'minerality': 1}
+        )
+        spread = aligned.palate_match - opposite.palate_match
+        assert spread > 50.0, f"Expected real spread; got aligned={aligned.palate_match}, opposite={opposite.palate_match}"
+
+    def test_falls_back_to_plain_cosine_with_small_history(self):
+        """With < 3 rated wines, centring against a 1- or 2-sample mean
+        is meaningless. Fall back to plain cosine and document via the
+        score that the result is uncentred."""
+        small_history = pd.DataFrame([
+            {'wine_name': 'A', 'liked': True, 'wine_color': 'White',
+             'acidity': 9, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 9},
+        ])
+        engine = PalateEngine(small_history)
+        # Identical to the only wine in history → plain cosine = 100%.
+        score = engine.calculate_match(
+            {'acidity': 9, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 9}
+        )
+        assert score.palate_match > 95.0
+
+
+class TestPopulationMean:
+    """The population mean is the centring point for v2."""
+
+    def test_population_mean_includes_all_rated_wines(self):
+        """Population mean should average across both liked and disliked."""
+        df = pd.DataFrame([
+            {'wine_name': 'A', 'liked': True, 'wine_color': 'White',
+             'acidity': 10, 'fruitiness': 10, 'body': 10, 'tannin': 10, 'minerality': 10},
+            {'wine_name': 'B', 'liked': False, 'wine_color': 'Red',
+             'acidity': 0, 'fruitiness': 0, 'body': 0, 'tannin': 0, 'minerality': 0},
+        ])
+        engine = PalateEngine(df)
+        # Mean of [10, 0] is 5 on every dimension.
+        assert engine.population_mean is not None
+        np.testing.assert_array_almost_equal(
+            engine.population_mean, [5.0, 5.0, 5.0, 5.0, 5.0]
+        )
+
+    def test_no_population_mean_with_empty_history(self):
+        engine = PalateEngine(pd.DataFrame())
+        assert engine.population_mean is None
+        assert engine.n_total == 0
 
 
 class TestIdealProfileComputation:

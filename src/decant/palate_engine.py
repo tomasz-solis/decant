@@ -60,59 +60,125 @@ class PalateEngine:
     """Calculates wine match scores using cosine similarity and confidence decay."""
 
     def __init__(self, history_df: Optional[pd.DataFrame] = None):
-        """
-        Initialize the PalateEngine
+        """Initialise the PalateEngine.
 
         Args:
-            history_df: DataFrame with wine history (columns: wine_name, liked,
-                       acidity, fruitiness, body, tannin, minerality)
+            history_df: DataFrame with wine history. Required columns:
+                wine_name, liked, wine_color,
+                acidity, fruitiness, body, tannin, minerality.
         """
         self.history_df = history_df
         self.feature_cols = ['acidity', 'fruitiness', 'body', 'tannin', 'minerality']
 
-        # Dynamic Ideal Profile (Mean of all liked wines)
+        # Ideal profile: mean of liked wines (the "what you tend to enjoy" vector).
         self.ideal_profile: Optional[WineVector] = None
         self.n_liked: int = 0
+
+        # Population mean: mean of *all* rated wines, used as the centre point
+        # for centred cosine. With centred cosine, similarity measures whether
+        # a wine deviates from typical in the same direction as your liked
+        # wines, rather than whether the raw vectors point in similar directions.
+        # See docs/algorithm_v2.md for the rationale.
+        self.population_mean: Optional[np.ndarray] = None
+        self.n_total: int = 0
 
         if history_df is not None:
             self._compute_ideal_profile()
 
-    def _compute_ideal_profile(self):
-        """Compute the Dynamic Ideal Profile (mean of all liked wines)"""
+    def _compute_ideal_profile(self) -> None:
+        """Compute the ideal-profile vector (mean of liked wines) and the
+        population mean (mean of all rated wines).
+
+        The population mean is what makes centred cosine work. Without it,
+        cosine between positive-only vectors is bounded above 0 and the
+        score range degenerates.
+        """
         if self.history_df is None or len(self.history_df) == 0:
             return
+
+        # Population mean across everything rated (both liked and disliked).
+        self.n_total = len(self.history_df)
+        if self.n_total > 0:
+            pop_vals = self.history_df[self.feature_cols].mean()
+            self.population_mean = np.array([
+                pop_vals['acidity'],
+                pop_vals['fruitiness'],
+                pop_vals['body'],
+                pop_vals['tannin'],
+                pop_vals['minerality'],
+            ])
 
         liked_wines = self.history_df[self.history_df['liked'] == True]
         self.n_liked = len(liked_wines)
 
         if self.n_liked > 0:
-            # Calculate mean vector
             mean_vals = liked_wines[self.feature_cols].mean()
             self.ideal_profile = WineVector(
                 acidity=mean_vals['acidity'],
                 fruitiness=mean_vals['fruitiness'],
                 body=mean_vals['body'],
                 tannin=mean_vals['tannin'],
-                minerality=mean_vals['minerality']
+                minerality=mean_vals['minerality'],
             )
 
     def cosine_similarity(self, vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-        """Cosine similarity normalized to 0-100 scale."""
-        # Handle zero vectors
+        """Plain cosine similarity, mapped from [-1, 1] to [0, 100].
+
+        WARNING: For all-positive vectors (e.g. wine features in [1, 10]),
+        cosine is bounded approximately in [0.5, 1], which makes this
+        mapping produce scores compressed in [75, 100]. Use
+        `_centred_cosine` instead for matching against user profiles.
+        This method is kept because it's useful when comparing arbitrary
+        vectors (e.g., color similarities derived from histograms) where
+        the [-1, 1] range is genuinely available.
+        """
         norm_a = np.linalg.norm(vec_a)
         norm_b = np.linalg.norm(vec_b)
 
         if norm_a == 0 or norm_b == 0:
             return 0.0
 
-        # Calculate cosine similarity
         similarity = np.dot(vec_a, vec_b) / (norm_a * norm_b)
-
-        # Normalize to 0-100 scale (similarity ranges from -1 to 1)
-        # We use (similarity + 1) / 2 to map [-1, 1] → [0, 1]
         normalized = ((similarity + 1) / 2) * 100
-
         return max(0, min(100, normalized))
+
+    def _centred_cosine(
+        self,
+        vec_current: np.ndarray,
+        vec_ideal: np.ndarray,
+    ) -> float:
+        """Centred cosine similarity, mapped to [0, 100].
+
+        Both vectors are centred against `self.population_mean` before
+        the cosine is computed. The resulting cosine genuinely uses the
+        full [-1, 1] range:
+        - 1   = current wine deviates from population mean in the same
+                direction as the ideal profile (strong match)
+        - 0   = no correlation between the deviations (neutral)
+        - -1  = current wine deviates in the opposite direction (anti-match)
+
+        Falls back to plain `cosine_similarity` if the population mean
+        isn't available (fewer than 3 rated wines), since centring
+        against a noisy 1- or 2-sample mean adds noise rather than
+        removing it.
+        """
+        if self.population_mean is None or self.n_total < 3:
+            return self.cosine_similarity(vec_current, vec_ideal)
+
+        centred_current = vec_current - self.population_mean
+        centred_ideal = vec_ideal - self.population_mean
+
+        norm_c = np.linalg.norm(centred_current)
+        norm_i = np.linalg.norm(centred_ideal)
+
+        # If either centred vector is the zero vector, the wine sits
+        # exactly on the population mean — neutral by construction.
+        if norm_c == 0 or norm_i == 0:
+            return 50.0
+
+        cos = np.dot(centred_current, centred_ideal) / (norm_c * norm_i)
+        normalized = ((cos + 1) / 2) * 100
+        return max(0.0, min(100.0, normalized))
 
     def exponential_confidence_factor(self, n_samples: int) -> float:
         """Confidence factor: 1 - e^(-α * N) where α = 0.4."""
@@ -132,14 +198,24 @@ class PalateEngine:
     def calculate_match(
         self,
         wine_features: Dict[str, float],
-        wine_color: Optional[str] = None
+        wine_color: Optional[str] = None,
     ) -> PalateScore:
-        """Calculate match score for a wine against user's ideal profile."""
-        # Convert to vector
+        """Calculate a match score for a wine against the user's ideal profile.
+
+        Uses centred cosine similarity (see `_centred_cosine`) to avoid the
+        baseline inflation that plain cosine produces on positive-only
+        feature vectors. Scores are then multiplied by the exponential
+        confidence factor based on history size.
+
+        For color-specific matching, the color-filtered liked-wine mean is
+        used as the ideal vector. When no liked wine exists for the
+        requested color, the global ideal is used with `n_samples=0` so
+        the confidence factor reflects that we have no evidence for this
+        colour, not the (irrelevant) total count of liked wines.
+        """
         current_wine = WineVector.from_dict(wine_features)
         current_vec = current_wine.to_array()
 
-        # Check if we have history
         if self.ideal_profile is None or self.n_liked == 0:
             return PalateScore(
                 palate_match=50.0,
@@ -147,55 +223,67 @@ class PalateEngine:
                 n_samples=0,
                 confidence_factor=0.0,
                 verdict="🔍 First Wine",
-                explanation="No history yet - this will establish your baseline"
+                explanation="No history yet - this will establish your baseline",
             )
 
-        # Color-specific matching (if requested)
         if wine_color and self.history_df is not None:
             color_liked = self.history_df[
-                (self.history_df['liked'] == True) &
-                (self.history_df['wine_color'] == wine_color)
+                (self.history_df['liked'] == True)
+                & (self.history_df['wine_color'] == wine_color)
             ]
 
             if len(color_liked) > 0:
-                # Use color-specific profile
                 color_mean = color_liked[self.feature_cols].mean()
                 ideal_vec = np.array([
                     color_mean['acidity'],
                     color_mean['fruitiness'],
                     color_mean['body'],
                     color_mean['tannin'],
-                    color_mean['minerality']
+                    color_mean['minerality'],
                 ])
                 n_samples = len(color_liked)
             else:
-                # Fall back to global profile BUT with n_samples=0
-                # BUG FIX: Previously used self.n_liked which inflated confidence
-                # for colors never tried. Now correctly uses 0 samples.
+                # No liked wine of this colour yet. We can still compute a
+                # similarity against the global profile, but confidence
+                # must be zero — we have no evidence for this colour.
                 ideal_vec = self.ideal_profile.to_array()
-                n_samples = 0  # FIXED: Was self.n_liked (incorrect)
+                n_samples = 0
         else:
-            # Use global profile
             ideal_vec = self.ideal_profile.to_array()
             n_samples = self.n_liked
 
-        palate_match = self.cosine_similarity(current_vec, ideal_vec)
+        palate_match = self._centred_cosine(current_vec, ideal_vec)
         confidence_factor = self.exponential_confidence_factor(n_samples)
         likelihood_score = palate_match * confidence_factor
 
-        # Generate verdict based on likelihood (not raw similarity)
-        if likelihood_score >= 75:
+        # Thresholds calibrated for centred cosine output.
+        # palate_match >= 65 corresponds to centred-cosine >= 0.3
+        # (positive alignment with liked-deviation pattern).
+        # See docs/algorithm_v2.md for the derivation.
+        if likelihood_score >= 60:
             verdict = "💙 Strong Match"
-            explanation = f"High flavor alignment ({palate_match:.0f}%) with strong confidence ({n_samples} wines)"
-        elif likelihood_score >= 60:
+            explanation = (
+                f"High flavor alignment ({palate_match:.0f}%) with "
+                f"strong confidence ({n_samples} wines)"
+            )
+        elif likelihood_score >= 50:
             verdict = "🧡 Worth Trying"
-            explanation = f"Good alignment ({palate_match:.0f}%), moderate confidence ({n_samples} wines)"
-        elif likelihood_score >= 45:
+            explanation = (
+                f"Good alignment ({palate_match:.0f}%), moderate "
+                f"confidence ({n_samples} wines)"
+            )
+        elif likelihood_score >= 40:
             verdict = "🟡 Explore"
-            explanation = f"Moderate alignment ({palate_match:.0f}%), building confidence ({n_samples} wines)"
+            explanation = (
+                f"Moderate alignment ({palate_match:.0f}%), building "
+                f"confidence ({n_samples} wines)"
+            )
         else:
             verdict = "⚪ Different Style"
-            explanation = f"Low alignment ({palate_match:.0f}%) - departure from your usual profile"
+            explanation = (
+                f"Low alignment ({palate_match:.0f}%) - departure from "
+                f"your usual profile"
+            )
 
         return PalateScore(
             palate_match=round(palate_match, 1),
@@ -203,7 +291,7 @@ class PalateEngine:
             n_samples=n_samples,
             confidence_factor=round(confidence_factor, 2),
             verdict=verdict,
-            explanation=explanation
+            explanation=explanation,
         )
 
     def get_profile_vector(self, wine_color: Optional[str] = None) -> Optional[np.ndarray]:

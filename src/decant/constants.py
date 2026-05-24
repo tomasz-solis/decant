@@ -22,10 +22,14 @@ class Sweetness(str, Enum):
 
 
 class Verdict(Enum):
-    """Match verdicts with thresholds and display strings."""
-    STRONG_MATCH = ("💙 Strong Match", 75.0)
-    WORTH_TRYING = ("🧡 Worth Trying", 60.0)
-    EXPLORE = ("🟡 Explore", 45.0)
+    """Match verdicts with thresholds and display strings.
+
+    Thresholds operate on `likelihood_score` (palate_match * confidence_factor).
+    Calibrated for centred cosine output; see docs/algorithm_v2.md.
+    """
+    STRONG_MATCH = ("💙 Strong Match", 60.0)
+    WORTH_TRYING = ("🧡 Worth Trying", 50.0)
+    EXPLORE = ("🟡 Explore", 40.0)
     DIFFERENT_STYLE = ("⚪ Different Style", 0.0)
     FIRST_WINE = ("🔍 First Wine", 0.0)
 
