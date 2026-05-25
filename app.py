@@ -22,9 +22,15 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from decant import VinoPredictor
 from decant.schema import WineExtraction
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
-from decant.auth import setup_authentication
 from pydantic import ValidationError
-from decant.supabase_session import get_supabase_client,get_user_supabase
+from decant.supabase_session import (
+    current_user_email,
+    get_anon_supabase,
+    get_supabase_client,
+    get_user_supabase,
+    is_authenticated,
+)
+from decant.ui.auth_form import render_auth_block
 from decant.wines_repo import list_wines as repo_list_wines, repo_add_wine
 
 # Load environment variables
@@ -32,58 +38,27 @@ load_dotenv()
 
 
 def check_required_supabase_secrets() -> None:
-    """Fail fast when required Supabase secrets are missing."""
+    """Fail fast when required Supabase secrets are missing.
+
+    Phase 2: only four keys are required at startup. No section headers.
+    The household account credentials are entered by the user at sign-in
+    time, not stored in TOML.
+    """
     if st.session_state.get("_supabase_startup_checked"):
         return
 
-    try:
-        cellar_id = st.secrets["CELLAR_ID"]
-    except (FileNotFoundError, KeyError):
-        st.error("❌ Missing required secret: CELLAR_ID")
-        st.stop()
-
-    if not cellar_id:
-        st.error("❌ CELLAR_ID cannot be empty")
-        st.stop()
-
-    try:
-        supabase_users = st.secrets["supabase_users"]
-    except (FileNotFoundError, KeyError):
-        st.error("❌ Missing required secret section: [supabase_users]")
-        st.stop()
-
-    required_user_keys = [
-        "tomasz_email",
-        "tomasz_password",
-        "karolina_email",
-        "karolina_password",
-    ]
-    missing_user_keys = [
-        key for key in required_user_keys
-        if key not in supabase_users or not supabase_users[key]
-    ]
-    if missing_user_keys:
-        st.error(
-            "❌ Missing required [supabase_users] keys: "
-            + ", ".join(missing_user_keys)
-        )
-        st.stop()
-
-    required_top_level_keys = ["SUPABASE_URL", "SUPABASE_KEY"]
-    missing_top_level_keys = []
-    for key in required_top_level_keys:
+    required_keys = ["SUPABASE_URL", "SUPABASE_KEY", "CELLAR_ID", "OPENAI_API_KEY"]
+    missing = []
+    for key in required_keys:
         try:
             value = st.secrets[key]
         except (FileNotFoundError, KeyError):
             value = None
         if value is None or str(value).strip() == "":
-            missing_top_level_keys.append(key)
+            missing.append(key)
 
-    if missing_top_level_keys:
-        st.error(
-            "❌ Missing required secret(s): "
-            + ", ".join(missing_top_level_keys)
-        )
+    if missing:
+        st.error("❌ Missing required secret(s): " + ", ".join(missing))
         st.stop()
 
     st.session_state["_supabase_startup_checked"] = True
@@ -101,11 +76,12 @@ def is_debug_enabled() -> bool:
     return bool(debug_value)
 
 
-# AUTHENTICATION - guests can browse, login required to save
-username = setup_authentication(guest_allowed=True)
-is_guest = username is None
-
+# Authentication: anonymous browsing is allowed by default. Sign-in is
+# rendered in the sidebar (see render_auth_block) and unlocks Tab 1 +
+# any RLS-protected operation. There is no Streamlit-side username
+# concept anymore — `is_authenticated()` checks the Supabase session.
 check_required_supabase_secrets()
+is_guest = not is_authenticated()
 DEBUG_MODE = is_debug_enabled()
 
 # Detect Streamlit Cloud environment
@@ -128,7 +104,7 @@ st.set_page_config(
     page_title="Decant - Taste, with confidence",
     page_icon="🍷",
     layout="wide",
-    initial_sidebar_state="collapsed"  # Collapsed on mobile for better UX
+    initial_sidebar_state="auto"
 )
 
 # 2026 Bento Dark Mode CSS
@@ -675,17 +651,17 @@ def ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
     return safe_df
 
 
-def load_wine_data(username):
-    """
-    Load wine data for the shared cellar using a Supabase session.
+def load_wine_data():
+    """Load wine data for the shared cellar.
 
-    Uses authenticated session when logged in, anon client for guests.
+    Uses the authenticated client when the user is signed in (write-capable
+    session, RLS sees the user), or the anon client for guests (read-only,
+    RLS must allow anon SELECT on the wines table).
     """
     try:
-        if username:
+        if is_authenticated():
             sb = get_user_supabase()
         else:
-            from decant.supabase_session import get_anon_supabase
             sb = get_anon_supabase()
         df = repo_list_wines(sb)
         return ensure_wine_df(df)
@@ -1402,15 +1378,27 @@ def main():
             "Use the 📥 Download button in Analytics to backup your collection regularly."
         )
 
-    # Create tabs for main navigation
+    # Three tabs always created so Streamlit tab indexing stays stable.
+    # Tab 1 (Add Wine) content is gated below by is_authenticated() — anonymous
+    # users see a sign-in nudge inside the tab rather than a hidden tab.
+    # This avoids the AttributeError that would come from `with None:` if we
+    # tried to skip tab1 entirely, and keeps the layout consistent.
     tab1, tab2, tab3 = st.tabs(["🍷 Add Wine", "📊 My Palate Maps", "🖼️ Wine Gallery"])
 
-    # Sidebar
+    # Sidebar: auth block sits on top so the login affordance is the
+    # first thing a guest sees. Palate summary follows below.
     with st.sidebar:
+        # Contact email pulled from secrets so it's not hardcoded.
+        # Defaults to a placeholder if missing — the app shouldn't break
+        # over a missing decorative field.
+        contact_email = st.secrets.get("CONTACT_EMAIL", "tomasz.solis@gmail.com")
+        render_auth_block(contact_email=str(contact_email))
+        st.markdown("---")
+
         st.header("📊 Palate Summary")
 
         # Load wine features data with caching
-        df = ensure_wine_df(load_wine_data(username))
+        df = ensure_wine_df(load_wine_data())
 
         # 🌍 REGIONAL FILTER DROPDOWN
         if not df.empty and 'region' in df.columns:
@@ -1585,584 +1573,597 @@ def main():
         st.markdown("---")
         st.info("Decant uses AI to predict wine compatibility based on your tasting history.")
 
-    # 🍷 TAB 1: Add Wine
+    # 🍷 TAB 1: Add Wine — content is gated by is_authenticated() below.
+    # We always create 3 tabs so Streamlit's tab indexing stays stable;
+    # if the user isn't signed in, Tab 1 just shows a sign-in nudge.
     with tab1:
-        st.markdown("### 🍷 Add Wine to Collection")
-        st.caption("Enter wine name or upload a photo - AI extracts everything else")
+        # Auth gate: anonymous users see a sign-in nudge instead of the add UI.
+        # This closes the OpenAI abuse vector — no Vision API or extraction
+        # calls are reachable without a signed-in session.
+        if not is_authenticated():
+            st.markdown("### 🍷 Add Wine to Collection")
+            st.info(
+                "Sign in to add wines and use the AI extraction feature. "
+                "Browsing the gallery and palate maps doesn't require an account."
+            )
+            st.caption("Use the sign-in form in the sidebar.")
+        else:
+            st.markdown("### 🍷 Add Wine to Collection")
+            st.caption("Enter wine name or upload a photo - AI extracts everything else")
 
-        # Load history for self-learning context
-        history_df = ensure_wine_df(load_wine_data(username))
+            # Load history for self-learning context
+            history_df = ensure_wine_df(load_wine_data())
 
-        # Input mode selection
-        input_mode = st.radio(
-            "Input Method",
-            ["📝 Enter Wine Name", "📸 Upload Photo"],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-
-        if input_mode == "📝 Enter Wine Name":
-            # Text input mode
-            st.markdown("### 🍷 Enter Wine Name")
-            st.caption("Type or use voice input (tap microphone on mobile keyboard)")
-
-            wine_name_input = st.text_input(
-                "Wine Name",
-                placeholder="e.g., Fefiñanes Albariño 2022",
-                help="💬 Mobile tip: Use voice input for faster entry!",
+            # Input mode selection
+            input_mode = st.radio(
+                "Input Method",
+                ["📝 Enter Wine Name", "📸 Upload Photo"],
+                horizontal=True,
                 label_visibility="collapsed"
             )
 
-            if wine_name_input and st.button("🔍 CHECK THIS WINE", type="primary", width="stretch"):
-                with st.spinner("🧠 AI is extracting wine details from name..."):
-                    predictor = load_predictor()
-                    if predictor:
-                        extraction = predictor.extract_wine_data(wine_name_input)
+            if input_mode == "📝 Enter Wine Name":
+                # Text input mode
+                st.markdown("### 🍷 Enter Wine Name")
+                st.caption("Type or use voice input (tap microphone on mobile keyboard)")
 
-                        # Convert to dict
-                        wine_data = {
-                            'wine_name': extraction.wine_name,
-                            'producer': extraction.producer,
-                            'vintage': extraction.vintage,
-                            'notes': extraction.notes,
-                            'score': float(extraction.score),
-                            'liked': None,  # User will set
-                            'price': 0.0,  # User will set
-                            # WINE ORIGIN (AI-extracted)
-                            'country': extraction.country,
-                            'region': extraction.region,
-                            'wine_color': extraction.wine_color,
-                            'is_sparkling': extraction.is_sparkling,
-                            'is_natural': extraction.is_natural,
-                            'sweetness': extraction.sweetness,
-                            # Core 5 flavor features
-                            'acidity': extraction.acidity,
-                            'minerality': extraction.minerality,
-                            'fruitiness': extraction.fruitiness,
-                            'tannin': extraction.tannin,
-                            'body': extraction.body
-                        }
+                wine_name_input = st.text_input(
+                    "Wine Name",
+                    placeholder="e.g., Fefiñanes Albariño 2022",
+                    help="💬 Mobile tip: Use voice input for faster entry!",
+                    label_visibility="collapsed"
+                )
 
-                        st.session_state['wine_data'] = wine_data
-                        st.success("✅ Wine data extracted!")
-                        st.rerun()
+                if wine_name_input and st.button("🔍 CHECK THIS WINE", type="primary", width="stretch"):
+                    with st.spinner("🧠 AI is extracting wine details from name..."):
+                        predictor = load_predictor()
+                        if predictor:
+                            extraction = predictor.extract_wine_data(wine_name_input)
 
-        else:
-            # Photo upload mode
-            st.markdown("### 📸 Snap a Photo")
-            st.caption("Point your camera at the wine label - AI does the rest!")
+                            # Convert to dict
+                            wine_data = {
+                                'wine_name': extraction.wine_name,
+                                'producer': extraction.producer,
+                                'vintage': extraction.vintage,
+                                'notes': extraction.notes,
+                                'score': float(extraction.score),
+                                'liked': None,  # User will set
+                                'price': 0.0,  # User will set
+                                # WINE ORIGIN (AI-extracted)
+                                'country': extraction.country,
+                                'region': extraction.region,
+                                'wine_color': extraction.wine_color,
+                                'is_sparkling': extraction.is_sparkling,
+                                'is_natural': extraction.is_natural,
+                                'sweetness': extraction.sweetness,
+                                # Core 5 flavor features
+                                'acidity': extraction.acidity,
+                                'minerality': extraction.minerality,
+                                'fruitiness': extraction.fruitiness,
+                                'tannin': extraction.tannin,
+                                'body': extraction.body
+                            }
 
-            uploaded_file = st.file_uploader(
-                "Tap to open camera or choose photo",
-                type=["jpg", "jpeg", "png"],
-                help="📱 On mobile: Opens camera automatically | 💻 On desktop: Upload from files",
-                label_visibility="visible",
-                accept_multiple_files=False
-            )
-
-            if uploaded_file:
-                # Show image preview
-                st.image(uploaded_file, caption="Wine Bottle", width="stretch")
-
-                # Auto-extract ALL data when photo is uploaded
-                if 'wine_data' not in st.session_state or st.session_state.get('last_upload') != uploaded_file.name:
-                    with st.spinner("🧠 AI is analyzing your wine... extracting all details"):
-                        uploaded_file.seek(0)
-                        wine_data = extract_complete_wine_data(uploaded_file, history_df)
-
-                        if wine_data:
                             st.session_state['wine_data'] = wine_data
-                            st.session_state['last_upload'] = uploaded_file.name
-                            # Store raw file bytes so we can save the photo later
-                            uploaded_file.seek(0)
-                            st.session_state['uploaded_photo_bytes'] = uploaded_file.read()
-                            st.session_state['uploaded_photo_name'] = uploaded_file.name
-                            st.success("✅ Wine analyzed! All fields extracted automatically")
+                            st.success("✅ Wine data extracted!")
                             st.rerun()
 
-        # Show extracted data if available
-        if 'wine_data' in st.session_state:
-            wine_data = st.session_state['wine_data']
-
-            # Display wine name prominently with geography
-            st.markdown(f"## 🍷 {wine_data['wine_name']}")
-
-            # Location header with NaN-safe fallbacks
-            country = wine_data.get('country', None)
-            region = wine_data.get('region', None)
-
-            # Convert None, NaN, empty string, or 'nan' string to 'Unknown'
-            if country is None or country == '' or str(country).lower() == 'nan' or (isinstance(country, float) and pd.isna(country)):
-                country = 'Unknown'
             else:
-                country = str(country)
+                # Photo upload mode
+                st.markdown("### 📸 Snap a Photo")
+                st.caption("Point your camera at the wine label - AI does the rest!")
 
-            if region is None or region == '' or str(region).lower() == 'nan' or (isinstance(region, float) and pd.isna(region)):
-                region = 'Unknown'
-            else:
-                region = str(region)
+                uploaded_file = st.file_uploader(
+                    "Tap to open camera or choose photo",
+                    type=["jpg", "jpeg", "png"],
+                    help="📱 On mobile: Opens camera automatically | 💻 On desktop: Upload from files",
+                    label_visibility="visible",
+                    accept_multiple_files=False
+                )
 
-            # Display ONLY if we have real data (no "Unknown" placeholders)
-            if country != 'Unknown' and region != 'Unknown':
-                st.markdown(f"### 📍 {region}, {country}")
-            elif country != 'Unknown':
-                st.markdown(f"### 📍 {country}")
+                if uploaded_file:
+                    # Show image preview
+                    st.image(uploaded_file, caption="Wine Bottle", width="stretch")
 
-            # Style header
-            wine_color = wine_data.get('wine_color', 'White')
-            region = wine_data.get('region', 'Unknown')
-            is_sparkling = wine_data.get('is_sparkling', False)
-            sweetness = wine_data.get('sweetness', 'Dry')
+                    # Auto-extract ALL data when photo is uploaded
+                    if 'wine_data' not in st.session_state or st.session_state.get('last_upload') != uploaded_file.name:
+                        with st.spinner("🧠 AI is analyzing your wine... extracting all details"):
+                            uploaded_file.seek(0)
+                            wine_data = extract_complete_wine_data(uploaded_file, history_df)
 
-            # Build style descriptor
-            style_type = "Sparkling" if is_sparkling else "Still"
-            style_full = f"{sweetness} {style_type}"
+                            if wine_data:
+                                st.session_state['wine_data'] = wine_data
+                                st.session_state['last_upload'] = uploaded_file.name
+                                # Store raw file bytes so we can save the photo later
+                                uploaded_file.seek(0)
+                                st.session_state['uploaded_photo_bytes'] = uploaded_file.read()
+                                st.session_state['uploaded_photo_name'] = uploaded_file.name
+                                st.success("✅ Wine analyzed! All fields extracted automatically")
+                                st.rerun()
 
-            # Color emojis (used in other sections, not for header)
-            color_emoji = {"White": "⚪", "Red": "🔴", "Rosé": "🌸", "Orange": "🟠"}
-            color_icon = color_emoji.get(wine_color, '⚪')
+            # Show extracted data if available
+            if 'wine_data' in st.session_state:
+                wine_data = st.session_state['wine_data']
 
-            # 🎯 PALATE MATCH VERDICT - Move to TOP (Deep UI Alignment requirement)
-            if history_df is not None and len(history_df) > 0:
-                # Reuse the cached predictor and point it at the latest history.
-                # history_df is already loaded by the caller (Supabase via load_history).
-                predictor = load_predictor(history_df=history_df)
+                # Display wine name prominently with geography
+                st.markdown(f"## 🍷 {wine_data['wine_name']}")
 
-                # Calculate likelihood - HARDENED with style-based inference
-                wine_features_dict = {
-                    'acidity': wine_data.get('acidity', 0),
-                    'minerality': wine_data.get('minerality', 0),
-                    'fruitiness': wine_data.get('fruitiness', 0),
-                    'tannin': wine_data.get('tannin', 0),
-                    'body': wine_data.get('body', 0)
-                }
+                # Location header with NaN-safe fallbacks
+                country = wine_data.get('country', None)
+                region = wine_data.get('region', None)
 
-                # 🚨 If features not extracted from image, use OpenAI to infer with explanation
-                feature_descriptions = {}
-                if all(v == 0 for v in wine_features_dict.values()):
-                    wine_name = wine_data.get('wine_name', '')
-                    region = wine_data.get('region', 'Unknown')
-
-                    # Ask OpenAI to rate AND explain each characteristic
-                    st.info("ℹ️ Wine characteristics inferred from wine name and region (not extracted from label)")
-
-                    # Cache key for consistent results
-                    cache_key = f"{wine_name}_{region}".lower().replace(" ", "_")
-
-                    # Check if we've already rated this wine
-                    if 'wine_ratings_cache' not in st.session_state:
-                        st.session_state['wine_ratings_cache'] = {}
-
-                    if cache_key in st.session_state['wine_ratings_cache']:
-                        # Use cached ratings for consistency
-                        cached = st.session_state['wine_ratings_cache'][cache_key]
-                        wine_features_dict = cached['features']
-                        feature_descriptions = cached['descriptions']
-                        wine_data.update({
-                            'acidity': wine_features_dict['acidity'],
-                            'fruitiness': wine_features_dict['fruitiness'],
-                            'body': wine_features_dict['body'],
-                            'minerality': wine_features_dict['minerality'],
-                            'tannin': wine_features_dict['tannin']
-                        })
-                        st.caption("✓ Using cached ratings for consistency")
-                    else:
-                        # First time - get ratings from LLM
-                        try:
-                            # Nuclear-Grade Feature Extraction Prompt for Decision Science
-                            inference_prompt = f"""Role: You are a Master Sommelier and Data Engineer specializing in quantitative viticulture.
-
-Task: Provide a precise, technical flavor profile for the wine: {wine_name} from {region}.
-
-Objective: Your output will be used to calculate a vector-space similarity model. Consistency in your scoring logic is mandatory.
-
-Scoring Guidelines (Scale 1.0 - 10.0):
-• Acidity: 1.0 (Flat/Flabby) to 10.0 (High Tartaric/Piercing)
-• Fruitiness: 1.0 (Earth-driven/Savory) to 10.0 (Primary Fruit Bomb/Jammy)
-• Body: 1.0 (Light/Watery) to 10.0 (Full/Viscous/Heavy)
-• Tannin: 1.0 (No structure/Silk) to 10.0 (Aggressive/Gripping/Astringent)
-• Minerality: 1.0 (Clean/Fruit-only) to 10.0 (Stony/Saline/Chalky)
-
-Requirements:
-1. Use your internal knowledge of this specific producer, vintage, and regional style.
-2. Avoid "safe" middle-ground scores (like 5.0) unless truly warranted.
-3. Provide the output ONLY as a JSON object for programmatic parsing.
-
-Desired JSON Structure:
-{{
-  "wine_metadata": {{
-    "name": "{wine_name}",
-    "region": "{region}",
-    "style": "Regional style description"
-  }},
-  "technical_profile": {{
-    "acidity": float,
-    "fruitiness": float,
-    "body": float,
-    "tannin": float,
-    "minerality": float
-  }},
-  "sommelier_verdict": "One sentence technical summary of the structure."
-}}"""
-
-                            response = client.chat.completions.create(
-                                model=OPENAI_MODEL,
-                                messages=[
-                                    {"role": "user", "content": inference_prompt}
-                                ],
-                                response_format={"type": "json_object"},
-                                temperature=OPENAI_TEMPERATURE,
-                                seed=OPENAI_SEED
-                            )
-
-                            import json
-                            from pydantic import ValidationError
-                            from decant.constants import LLMWineAnalysis
-
-                            # Parse JSON response
-                            result = json.loads(response.choices[0].message.content)
-
-                            # SECURITY FIX: Validate LLM response with Pydantic
-                            try:
-                                validated_response = LLMWineAnalysis.model_validate(result)
-
-                                # Extract technical profile scores from validated response
-                                profile = validated_response.technical_profile
-                                wine_features_dict = {
-                                    'acidity': float(profile.acidity),
-                                    'fruitiness': float(profile.fruitiness),
-                                    'body': float(profile.body),
-                                    'minerality': float(profile.minerality),
-                                    'tannin': float(profile.tannin)
-                                }
-
-                                # Use sommelier verdict as explanation for all features
-                                sommelier_verdict = validated_response.sommelier_verdict
-                                feature_descriptions = {
-                                    'acidity': f"{profile.acidity}/10 - {sommelier_verdict}",
-                                    'fruitiness': f"{profile.fruitiness}/10 - {sommelier_verdict}",
-                                    'body': f"{profile.body}/10 - {sommelier_verdict}",
-                                    'minerality': f"{profile.minerality}/10 - {sommelier_verdict}",
-                                    'tannin': f"{profile.tannin}/10 - {sommelier_verdict}"
-                                }
-
-                                # Update wine_data with inferred values so they display correctly
-                                wine_data['acidity'] = wine_features_dict['acidity']
-                                wine_data['fruitiness'] = wine_features_dict['fruitiness']
-                                wine_data['body'] = wine_features_dict['body']
-                                wine_data['minerality'] = wine_features_dict['minerality']
-                                wine_data['tannin'] = wine_features_dict['tannin']
-
-                                # Cache the results for future consistency
-                                st.session_state['wine_ratings_cache'][cache_key] = {
-                                    'features': wine_features_dict,
-                                    'descriptions': feature_descriptions
-                                }
-
-                            except ValidationError as ve:
-                                # Validation failed - LLM returned invalid data
-                                st.error(f"🚨 LLM returned invalid response structure: {ve}")
-                                st.info("💡 Please enter features manually below.")
-                                # Don't cache invalid results
-
-                        except json.JSONDecodeError as je:
-                            st.error(f"🚨 LLM returned invalid JSON: {je}")
-                            st.info("💡 Please enter features manually below.")
-                        except KeyError as ke:
-                            st.error(f"🚨 LLM response missing required field: {ke}")
-                            st.info("💡 Please enter features manually below.")
-                        except Exception as e:
-                            st.warning(f"⚠️ Could not infer wine characteristics: {str(e)}")
-                            st.info("💡 Please enter features manually below.")
-                            wine_features_dict = None
-
-                # 🎯 PALATE ENGINE - SINGLE SOURCE OF TRUTH
-                # Calculate palate score - display_match_score is THE ONLY variable for all UI
-                # CRITICAL: display_match_score is extracted ONCE and used in:
-                #   1. Hero Card (SOLE AUTHORITATIVE display)
-                #   2. Liked toggle default
-                palate_score = None
-                display_match_score = None  # SINGLE SOURCE OF TRUTH - backend variable for all UI
-
-                if wine_features_dict is not None:
-                    palate_score = predictor.calculate_palate_score(
-                        wine_features_dict,
-                        wine_color
-                    )
-                    # SINGLE SOURCE OF TRUTH: Extract once, use everywhere
-                    display_match_score = palate_score.likelihood_score
-                    # If this is 69.8%, hero card will display 69.8% as the sole authority
-
-                # 🎯 HERO CARD: Palate Recommendation Score (SOLE AUTHORITATIVE DISPLAY)
-                # CHECK: Display score only if it exists AND is calculated (not None, not just initialized)
-                if display_match_score is not None and palate_score is not None:
-                    # DISPLAY: Show the actual calculated score (even if 0, it's a real calculation)
-                    # MOBILE-OPTIMIZED: Larger text, clearer verdict for in-shop quick glance
-                    st.markdown(f"""
-<div class="glass-card glow" style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
-    <p style="color: #A0A0A8; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
-        Palate Recommendation Score
-    </p>
-    <div class="match-score-gradient" style="font-size: clamp(60px, 15vw, 80px); margin: 0; font-family: 'Geist', 'Inter', sans-serif; line-height: 1;">
-        {display_match_score:.1f}%
-    </div>
-    <p style="color: #E8E8EB; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
-</div>
-""", unsafe_allow_html=True)
-
-                    # Glassmorphic Bento Card - Calculation Breakdown
-                    st.markdown(f"""<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;"><p style="color: #A0A0A8; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin: 0 0 1rem 0;">🔍 How This Score is Calculated</p><div style="margin-bottom: 1rem;"><p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Flavor Alignment: <span style="color: #800020;">{palate_score.palate_match:.1f}%</span></p><p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">How similar this wine's flavor profile is to wines you've enjoyed</p></div><div style="margin-bottom: 1rem;"><p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Statistical Confidence: <span style="color: #800020;">{palate_score.confidence_factor*100:.0f}%</span></p><p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">Based on {palate_score.n_samples} wine(s) in your tasting history</p></div><div style="background: rgba(128, 0, 32, 0.1); border-radius: 8px; padding: 12px; margin: 1rem 0;"><p style="color: #A0A0A8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0;">Formula</p><p style="font-family: 'Monaco', 'Courier New', monospace; font-size: 16px; color: #E8E8EB; margin: 0; letter-spacing: 1px; font-weight: 600;">{palate_score.palate_match:.1f}% × {palate_score.confidence_factor*100:.0f}% = {display_match_score:.1f}%</p></div><p style="color: #A0A0A8; font-size: 11px; margin: 12px 0 0 0; line-height: 1.6;">💡 Your recommendation improves as you rate more wines. Add <strong style="color: #E8E8EB;">{max(0, 10 - palate_score.n_samples)} more wine(s)</strong> to reach 95%+ confidence.</p></div>""", unsafe_allow_html=True)
+                # Convert None, NaN, empty string, or 'nan' string to 'Unknown'
+                if country is None or country == '' or str(country).lower() == 'nan' or (isinstance(country, float) and pd.isna(country)):
+                    country = 'Unknown'
                 else:
-                    # LOADING STATE: Show "Calculating..." text instead of 0%
-                    st.markdown("""
-<div class="glass-card glow" style="text-align: center; padding: 40px 30px; margin: 24px 0;">
-    <p style="color: #A0A0A8; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Palate Recommendation Score</p>
-    <div class="match-score-gradient" style="font-size: 48px; margin: 16px 0; font-family: 'Geist', 'Inter', sans-serif;">
-        Calculating...
-    </div>
-    <p style="color: #A0A0A8; margin: 16px 0 0 0; font-size: 14px;">Analysing your palate profile</p>
-</div>
-""", unsafe_allow_html=True)
+                    country = str(country)
 
-                # Add visual separator
-                st.markdown("---")
-
-                # 📋 CLEAN PROFESSIONAL PRESENTATION - 2-Column Layout
-                st.markdown("### 📋 Wine Profile")
-
-                eval_col1, eval_col2 = st.columns(2)
-
-                # LEFT COLUMN: Style, Origin, Vintage
-                with eval_col1:
-                    st.markdown("**🍷 Style & Origin**")
-                    # Vertical bulleted list format - clean hierarchy
-                    st.markdown(f"- **Type:** {wine_color}")
-                    st.markdown(f"- **Style:** {style_full}")
-                    # Show Appellation with region hierarchy
-                    if region != 'Unknown' and country != 'Unknown':
-                        st.markdown(f"- **Appellation:** {region} ({country})")
-                    elif region != 'Unknown':
-                        st.markdown(f"- **Appellation:** {region}")
-                    elif country != 'Unknown':
-                        st.markdown(f"- **Origin:** {country}")
-                    if should_display_vintage(wine_data.get('vintage')):
-                        st.markdown(f"- **Vintage:** {int(wine_data.get('vintage'))}")
-                    if wine_data.get('producer'):
-                        st.markdown(f"- **Producer:** {wine_data.get('producer')}")
-
-                # RIGHT COLUMN: Tasting Notes & Verdict
-                with eval_col2:
-                    st.markdown("**📝 Tasting Notes & Verdict**")
-                    notes = wine_data.get('notes', 'No tasting notes available')
-
-                    # Display full notes with natural wrapping (no truncation)
-                    st.markdown(f"_{notes}_")
-
-                    # Why you'll like it - 1 sentence verdict
-                    st.markdown("")  # spacing
-                    if display_match_score is not None:
-                        # Use display_match_score (SINGLE SOURCE OF TRUTH)
-                        if display_match_score >= 75:
-                            why_like = f"**💙 Why you'll like it:** This matches your preferred {wine_color.lower()} style perfectly."
-                        elif display_match_score >= 60:
-                            why_like = f"**🧡 Why try it:** Good compatibility with your palate, worth exploring."
-                        else:
-                            why_like = f"**🟡 Different:** This is a departure from your usual {wine_color.lower()} wines."
-                        st.markdown(why_like)
-
-                st.markdown("---")
-            else:
-                st.info("🔍 Add wines to your collection to see palate match predictions")
-                st.markdown("---")
-
-            # 95% PRE-POPULATED "STORE MODE" UI
-            st.markdown("### 💾 Store Mode - Quick Log")
-            st.caption("AI extracted everything - only 3 inputs needed from you!")
-
-            # OPTIMIZED FORM: 3 inputs in one clean row [Score, Price, Like-Toggle]
-            col1, col2, col3 = st.columns([2, 1, 1])
-
-            with col1:
-                # Score (slider for quick input)
-                score_input = st.slider(
-                    "⭐ Your Score",
-                    min_value=1.0,
-                    max_value=10.0,
-                    value=float(wine_data.get('score', 7.5)),
-                    step=0.5,
-                    help="How would you rate this wine?"
-                )
-
-            with col2:
-                # Price - moved from Technical Details for better UX
-                price_input = st.number_input(
-                    "💶 Price (€)",
-                    min_value=0.0,
-                    value=float(wine_data.get('price', 0.0)),
-                    step=0.50,
-                    help="Retail price in EUR"
-                )
-
-            with col3:
-                # Liked (toggle with smart default based on UNIFIED score)
-                # Uses ONLY display_match_score (SINGLE SOURCE OF TRUTH)
-                if display_match_score is not None:
-                    liked_default = display_match_score >= 65
+                if region is None or region == '' or str(region).lower() == 'nan' or (isinstance(region, float) and pd.isna(region)):
+                    region = 'Unknown'
                 else:
-                    # Fallback for truly empty history: neutral default
-                    liked_default = (score_input >= 7.0)
+                    region = str(region)
 
-                liked_input = st.toggle(
-                    "❤️ Did You Like It?",
-                    value=liked_default,
-                    help="Would you buy this again?"
-                )
+                # Display ONLY if we have real data (no "Unknown" placeholders)
+                if country != 'Unknown' and region != 'Unknown':
+                    st.markdown(f"### 📍 {region}, {country}")
+                elif country != 'Unknown':
+                    st.markdown(f"### 📍 {country}")
 
-            # Advanced details in expander (AI-extracted technical data)
-            with st.expander("⚙️ Technical Details & Edit Data (Optional)"):
-                st.markdown("#### 🎯 Flavor Profile (0-10 Scale)")
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    st.metric("⚡ Acidity", f"{wine_data['acidity']}/10")
-                with col2:
-                    st.metric("💎 Minerality", f"{wine_data['minerality']}/10")
-                with col3:
-                    st.metric("🍇 Fruitiness", f"{wine_data['fruitiness']}/10")
-                with col4:
-                    st.metric("🌰 Tannin", f"{wine_data['tannin']}/10")
-                with col5:
-                    st.metric("💪 Body", f"{wine_data['body']}/10")
+                # Style header
+                wine_color = wine_data.get('wine_color', 'White')
+                region = wine_data.get('region', 'Unknown')
+                is_sparkling = wine_data.get('is_sparkling', False)
+                sweetness = wine_data.get('sweetness', 'Dry')
 
-                # Show explanations if features were inferred (not extracted from image)
-                if feature_descriptions:
-                    st.markdown("")
-                    st.markdown("**📝 Characteristic Explanations:**")
-                    st.markdown(f"• **Acidity ({wine_data['acidity']}/10)**: {feature_descriptions.get('acidity', 'N/A')}")
-                    st.markdown(f"• **Fruitiness ({wine_data['fruitiness']}/10)**: {feature_descriptions.get('fruitiness', 'N/A')}")
-                    st.markdown(f"• **Body ({wine_data['body']}/10)**: {feature_descriptions.get('body', 'N/A')}")
-                    st.markdown(f"• **Minerality ({wine_data['minerality']}/10)**: {feature_descriptions.get('minerality', 'N/A')}")
-                    st.markdown(f"• **Tannin ({wine_data['tannin']}/10)**: {feature_descriptions.get('tannin', 'N/A')}")
+                # Build style descriptor
+                style_type = "Sparkling" if is_sparkling else "Still"
+                style_full = f"{sweetness} {style_type}"
 
-                st.markdown("---")
+                # Color emojis (used in other sections, not for header)
+                color_emoji = {"White": "⚪", "Red": "🔴", "Rosé": "🌸", "Orange": "🟠"}
+                color_icon = color_emoji.get(wine_color, '⚪')
 
-                st.markdown("#### 📊 Full Technical Specifications")
-                tech_col1, tech_col2 = st.columns(2)
-                with tech_col1:
-                    st.markdown(f"**Wine Color:** {wine_data.get('wine_color', 'White')}")
-                    st.markdown(f"**Sparkling:** {'Yes' if wine_data.get('is_sparkling', False) else 'No'}")
-                    st.markdown(f"**Natural:** {'Yes' if wine_data.get('is_natural', False) else 'No'}")
-                with tech_col2:
-                    st.markdown(f"**Sweetness:** {wine_data.get('sweetness', 'Dry')}")
-                    st.markdown(f"**Producer:** {wine_data.get('producer', 'Unknown')}")
-                    if should_display_vintage(wine_data.get('vintage')):
-                        st.markdown(f"**Vintage:** {int(wine_data.get('vintage'))}")
-                    else:
-                        st.markdown(f"**Vintage:** NV")
+                # 🎯 PALATE MATCH VERDICT - Move to TOP (Deep UI Alignment requirement)
+                if history_df is not None and len(history_df) > 0:
+                    # Reuse the cached predictor and point it at the latest history.
+                    # history_df is already loaded by the caller (Supabase via load_history).
+                    predictor = load_predictor(history_df=history_df)
 
-            # Large, prominent Save button (login required)
-            if is_guest:
-                st.warning("🔒 Log in to save wines to your collection")
-
-            if st.button("💾 SAVE TO MY COLLECTION", type="primary", width="stretch", disabled=is_guest):
-                # Validate and update user inputs
-                try:
-                    # Type validation with high-dimensional attributes
-                    wine_data['score'] = float(score_input)
-                    wine_data['liked'] = bool(liked_input)  # Ensure boolean
-                    wine_data['price'] = float(price_input)  # Price is now always in Quick Log
-
-                    # Input validation - catch invalid data early
-                    validation_errors = []
-
-                    if not wine_data.get('wine_name') or wine_data['wine_name'].strip() == '':
-                        validation_errors.append("Wine name is required")
-
-                    if wine_data['score'] < 1 or wine_data['score'] > 10:
-                        validation_errors.append(f"Score must be 1-10 (got {wine_data['score']})")
-
-                    if wine_data['price'] < 0:
-                        validation_errors.append(f"Price cannot be negative (got {wine_data['price']})")
-
-                    # Validate flavor features (must be 1-10)
-                    for feature in ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']:
-                        value = wine_data.get(feature, 0)
-                        if value < 1 or value > 10:
-                            validation_errors.append(f"{feature.capitalize()} must be 1-10 (got {value})")
-
-                    if validation_errors:
-                        st.error(f"🚫 Cannot save wine - please fix these issues:\n" + "\n".join(f"• {err}" for err in validation_errors))
-                        st.stop()
-
-                    # Validate high-dimensional fields
-                    wine_data['is_sparkling'] = bool(wine_data.get('is_sparkling', False))
-                    wine_data['is_natural'] = bool(wine_data.get('is_natural', False))
-
-                    # Save to Supabase wines table (RLS-authenticated session)
-                    row_data = {
-                        'wine_name': wine_data['wine_name'],
-                        'producer': wine_data['producer'],
-                        'vintage': wine_data['vintage'],
-                        'notes': wine_data['notes'],
-                        'score': wine_data['score'],
-                        'liked': wine_data['liked'],
-                        'price': wine_data['price'],
-                        # WINE ORIGIN
-                        'country': wine_data.get('country', 'Unknown'),
-                        'region': wine_data.get('region', 'Unknown'),
-                        # HIGH-DIMENSIONAL ATTRIBUTES
-                        'wine_color': wine_data.get('wine_color', 'White'),
-                        'is_sparkling': wine_data['is_sparkling'],
-                        'is_natural': wine_data['is_natural'],
-                        'sweetness': wine_data.get('sweetness', 'Dry'),
-                        # Core 5 flavor features
-                        'acidity': wine_data['acidity'],
-                        'minerality': wine_data['minerality'],
-                        'fruitiness': wine_data['fruitiness'],
-                        'tannin': wine_data['tannin'],
-                        'body': wine_data['body']
+                    # Calculate likelihood - HARDENED with style-based inference
+                    wine_features_dict = {
+                        'acidity': wine_data.get('acidity', 0),
+                        'minerality': wine_data.get('minerality', 0),
+                        'fruitiness': wine_data.get('fruitiness', 0),
+                        'tannin': wine_data.get('tannin', 0),
+                        'body': wine_data.get('body', 0)
                     }
 
+                    # 🚨 If features not extracted from image, use OpenAI to infer with explanation
+                    feature_descriptions = {}
+                    if all(v == 0 for v in wine_features_dict.values()):
+                        wine_name = wine_data.get('wine_name', '')
+                        region = wine_data.get('region', 'Unknown')
+
+                        # Ask OpenAI to rate AND explain each characteristic
+                        st.info("ℹ️ Wine characteristics inferred from wine name and region (not extracted from label)")
+
+                        # Cache key for consistent results
+                        cache_key = f"{wine_name}_{region}".lower().replace(" ", "_")
+
+                        # Check if we've already rated this wine
+                        if 'wine_ratings_cache' not in st.session_state:
+                            st.session_state['wine_ratings_cache'] = {}
+
+                        if cache_key in st.session_state['wine_ratings_cache']:
+                            # Use cached ratings for consistency
+                            cached = st.session_state['wine_ratings_cache'][cache_key]
+                            wine_features_dict = cached['features']
+                            feature_descriptions = cached['descriptions']
+                            wine_data.update({
+                                'acidity': wine_features_dict['acidity'],
+                                'fruitiness': wine_features_dict['fruitiness'],
+                                'body': wine_features_dict['body'],
+                                'minerality': wine_features_dict['minerality'],
+                                'tannin': wine_features_dict['tannin']
+                            })
+                            st.caption("✓ Using cached ratings for consistency")
+                        else:
+                            # First time - get ratings from LLM
+                            try:
+                                # Nuclear-Grade Feature Extraction Prompt for Decision Science
+                                inference_prompt = f"""Role: You are a Master Sommelier and Data Engineer specializing in quantitative viticulture.
+
+    Task: Provide a precise, technical flavor profile for the wine: {wine_name} from {region}.
+
+    Objective: Your output will be used to calculate a vector-space similarity model. Consistency in your scoring logic is mandatory.
+
+    Scoring Guidelines (Scale 1.0 - 10.0):
+    • Acidity: 1.0 (Flat/Flabby) to 10.0 (High Tartaric/Piercing)
+    • Fruitiness: 1.0 (Earth-driven/Savory) to 10.0 (Primary Fruit Bomb/Jammy)
+    • Body: 1.0 (Light/Watery) to 10.0 (Full/Viscous/Heavy)
+    • Tannin: 1.0 (No structure/Silk) to 10.0 (Aggressive/Gripping/Astringent)
+    • Minerality: 1.0 (Clean/Fruit-only) to 10.0 (Stony/Saline/Chalky)
+
+    Requirements:
+    1. Use your internal knowledge of this specific producer, vintage, and regional style.
+    2. Avoid "safe" middle-ground scores (like 5.0) unless truly warranted.
+    3. Provide the output ONLY as a JSON object for programmatic parsing.
+
+    Desired JSON Structure:
+    {{
+      "wine_metadata": {{
+        "name": "{wine_name}",
+        "region": "{region}",
+        "style": "Regional style description"
+      }},
+      "technical_profile": {{
+        "acidity": float,
+        "fruitiness": float,
+        "body": float,
+        "tannin": float,
+        "minerality": float
+      }},
+      "sommelier_verdict": "One sentence technical summary of the structure."
+    }}"""
+
+                                response = client.chat.completions.create(
+                                    model=OPENAI_MODEL,
+                                    messages=[
+                                        {"role": "user", "content": inference_prompt}
+                                    ],
+                                    response_format={"type": "json_object"},
+                                    temperature=OPENAI_TEMPERATURE,
+                                    seed=OPENAI_SEED
+                                )
+
+                                import json
+                                from pydantic import ValidationError
+                                from decant.constants import LLMWineAnalysis
+
+                                # Parse JSON response
+                                result = json.loads(response.choices[0].message.content)
+
+                                # SECURITY FIX: Validate LLM response with Pydantic
+                                try:
+                                    validated_response = LLMWineAnalysis.model_validate(result)
+
+                                    # Extract technical profile scores from validated response
+                                    profile = validated_response.technical_profile
+                                    wine_features_dict = {
+                                        'acidity': float(profile.acidity),
+                                        'fruitiness': float(profile.fruitiness),
+                                        'body': float(profile.body),
+                                        'minerality': float(profile.minerality),
+                                        'tannin': float(profile.tannin)
+                                    }
+
+                                    # Use sommelier verdict as explanation for all features
+                                    sommelier_verdict = validated_response.sommelier_verdict
+                                    feature_descriptions = {
+                                        'acidity': f"{profile.acidity}/10 - {sommelier_verdict}",
+                                        'fruitiness': f"{profile.fruitiness}/10 - {sommelier_verdict}",
+                                        'body': f"{profile.body}/10 - {sommelier_verdict}",
+                                        'minerality': f"{profile.minerality}/10 - {sommelier_verdict}",
+                                        'tannin': f"{profile.tannin}/10 - {sommelier_verdict}"
+                                    }
+
+                                    # Update wine_data with inferred values so they display correctly
+                                    wine_data['acidity'] = wine_features_dict['acidity']
+                                    wine_data['fruitiness'] = wine_features_dict['fruitiness']
+                                    wine_data['body'] = wine_features_dict['body']
+                                    wine_data['minerality'] = wine_features_dict['minerality']
+                                    wine_data['tannin'] = wine_features_dict['tannin']
+
+                                    # Cache the results for future consistency
+                                    st.session_state['wine_ratings_cache'][cache_key] = {
+                                        'features': wine_features_dict,
+                                        'descriptions': feature_descriptions
+                                    }
+
+                                except ValidationError as ve:
+                                    # Validation failed - LLM returned invalid data
+                                    st.error(f"🚨 LLM returned invalid response structure: {ve}")
+                                    st.info("💡 Please enter features manually below.")
+                                    # Don't cache invalid results
+
+                            except json.JSONDecodeError as je:
+                                st.error(f"🚨 LLM returned invalid JSON: {je}")
+                                st.info("💡 Please enter features manually below.")
+                            except KeyError as ke:
+                                st.error(f"🚨 LLM response missing required field: {ke}")
+                                st.info("💡 Please enter features manually below.")
+                            except Exception as e:
+                                st.warning(f"⚠️ Could not infer wine characteristics: {str(e)}")
+                                st.info("💡 Please enter features manually below.")
+                                wine_features_dict = None
+
+                    # 🎯 PALATE ENGINE - SINGLE SOURCE OF TRUTH
+                    # Calculate palate score - display_match_score is THE ONLY variable for all UI
+                    # CRITICAL: display_match_score is extracted ONCE and used in:
+                    #   1. Hero Card (SOLE AUTHORITATIVE display)
+                    #   2. Liked toggle default
+                    palate_score = None
+                    display_match_score = None  # SINGLE SOURCE OF TRUTH - backend variable for all UI
+
+                    if wine_features_dict is not None:
+                        palate_score = predictor.calculate_palate_score(
+                            wine_features_dict,
+                            wine_color
+                        )
+                        # SINGLE SOURCE OF TRUTH: Extract once, use everywhere
+                        display_match_score = palate_score.likelihood_score
+                        # If this is 69.8%, hero card will display 69.8% as the sole authority
+
+                    # 🎯 HERO CARD: Palate Recommendation Score (SOLE AUTHORITATIVE DISPLAY)
+                    # CHECK: Display score only if it exists AND is calculated (not None, not just initialized)
+                    if display_match_score is not None and palate_score is not None:
+                        # DISPLAY: Show the actual calculated score (even if 0, it's a real calculation)
+                        # MOBILE-OPTIMIZED: Larger text, clearer verdict for in-shop quick glance
+                        st.markdown(f"""
+    <div class="glass-card glow" style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
+        <p style="color: #A0A0A8; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+            Palate Recommendation Score
+        </p>
+        <div class="match-score-gradient" style="font-size: clamp(60px, 15vw, 80px); margin: 0; font-family: 'Geist', 'Inter', sans-serif; line-height: 1;">
+            {display_match_score:.1f}%
+        </div>
+        <p style="color: #E8E8EB; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+                        # Glassmorphic Bento Card - Calculation Breakdown
+                        st.markdown(f"""<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;"><p style="color: #A0A0A8; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin: 0 0 1rem 0;">🔍 How This Score is Calculated</p><div style="margin-bottom: 1rem;"><p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Flavor Alignment: <span style="color: #800020;">{palate_score.palate_match:.1f}%</span></p><p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">How similar this wine's flavor profile is to wines you've enjoyed</p></div><div style="margin-bottom: 1rem;"><p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Statistical Confidence: <span style="color: #800020;">{palate_score.confidence_factor*100:.0f}%</span></p><p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">Based on {palate_score.n_samples} wine(s) in your tasting history</p></div><div style="background: rgba(128, 0, 32, 0.1); border-radius: 8px; padding: 12px; margin: 1rem 0;"><p style="color: #A0A0A8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0;">Formula</p><p style="font-family: 'Monaco', 'Courier New', monospace; font-size: 16px; color: #E8E8EB; margin: 0; letter-spacing: 1px; font-weight: 600;">{palate_score.palate_match:.1f}% × {palate_score.confidence_factor*100:.0f}% = {display_match_score:.1f}%</p></div><p style="color: #A0A0A8; font-size: 11px; margin: 12px 0 0 0; line-height: 1.6;">💡 Your recommendation improves as you rate more wines. Add <strong style="color: #E8E8EB;">{max(0, 10 - palate_score.n_samples)} more wine(s)</strong> to reach 95%+ confidence.</p></div>""", unsafe_allow_html=True)
+                    else:
+                        # LOADING STATE: Show "Calculating..." text instead of 0%
+                        st.markdown("""
+    <div class="glass-card glow" style="text-align: center; padding: 40px 30px; margin: 24px 0;">
+        <p style="color: #A0A0A8; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Palate Recommendation Score</p>
+        <div class="match-score-gradient" style="font-size: 48px; margin: 16px 0; font-family: 'Geist', 'Inter', sans-serif;">
+            Calculating...
+        </div>
+        <p style="color: #A0A0A8; margin: 16px 0 0 0; font-size: 14px;">Analysing your palate profile</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+                    # Add visual separator
+                    st.markdown("---")
+
+                    # 📋 CLEAN PROFESSIONAL PRESENTATION - 2-Column Layout
+                    st.markdown("### 📋 Wine Profile")
+
+                    eval_col1, eval_col2 = st.columns(2)
+
+                    # LEFT COLUMN: Style, Origin, Vintage
+                    with eval_col1:
+                        st.markdown("**🍷 Style & Origin**")
+                        # Vertical bulleted list format - clean hierarchy
+                        st.markdown(f"- **Type:** {wine_color}")
+                        st.markdown(f"- **Style:** {style_full}")
+                        # Show Appellation with region hierarchy
+                        if region != 'Unknown' and country != 'Unknown':
+                            st.markdown(f"- **Appellation:** {region} ({country})")
+                        elif region != 'Unknown':
+                            st.markdown(f"- **Appellation:** {region}")
+                        elif country != 'Unknown':
+                            st.markdown(f"- **Origin:** {country}")
+                        if should_display_vintage(wine_data.get('vintage')):
+                            st.markdown(f"- **Vintage:** {int(wine_data.get('vintage'))}")
+                        if wine_data.get('producer'):
+                            st.markdown(f"- **Producer:** {wine_data.get('producer')}")
+
+                    # RIGHT COLUMN: Tasting Notes & Verdict
+                    with eval_col2:
+                        st.markdown("**📝 Tasting Notes & Verdict**")
+                        notes = wine_data.get('notes', 'No tasting notes available')
+
+                        # Display full notes with natural wrapping (no truncation)
+                        st.markdown(f"_{notes}_")
+
+                        # Why you'll like it - 1 sentence verdict
+                        st.markdown("")  # spacing
+                        if display_match_score is not None:
+                            # Use display_match_score (SINGLE SOURCE OF TRUTH)
+                            if display_match_score >= 75:
+                                why_like = f"**💙 Why you'll like it:** This matches your preferred {wine_color.lower()} style perfectly."
+                            elif display_match_score >= 60:
+                                why_like = f"**🧡 Why try it:** Good compatibility with your palate, worth exploring."
+                            else:
+                                why_like = f"**🟡 Different:** This is a departure from your usual {wine_color.lower()} wines."
+                            st.markdown(why_like)
+
+                    st.markdown("---")
+                else:
+                    st.info("🔍 Add wines to your collection to see palate match predictions")
+                    st.markdown("---")
+
+                # 95% PRE-POPULATED "STORE MODE" UI
+                st.markdown("### 💾 Store Mode - Quick Log")
+                st.caption("AI extracted everything - only 3 inputs needed from you!")
+
+                # OPTIMIZED FORM: 3 inputs in one clean row [Score, Price, Like-Toggle]
+                col1, col2, col3 = st.columns([2, 1, 1])
+
+                with col1:
+                    # Score (slider for quick input)
+                    score_input = st.slider(
+                        "⭐ Your Score",
+                        min_value=1.0,
+                        max_value=10.0,
+                        value=float(wine_data.get('score', 7.5)),
+                        step=0.5,
+                        help="How would you rate this wine?"
+                    )
+
+                with col2:
+                    # Price - moved from Technical Details for better UX
+                    price_input = st.number_input(
+                        "💶 Price (€)",
+                        min_value=0.0,
+                        value=float(wine_data.get('price', 0.0)),
+                        step=0.50,
+                        help="Retail price in EUR"
+                    )
+
+                with col3:
+                    # Liked (toggle with smart default based on UNIFIED score)
+                    # Uses ONLY display_match_score (SINGLE SOURCE OF TRUTH)
+                    if display_match_score is not None:
+                        liked_default = display_match_score >= 65
+                    else:
+                        # Fallback for truly empty history: neutral default
+                        liked_default = (score_input >= 7.0)
+
+                    liked_input = st.toggle(
+                        "❤️ Did You Like It?",
+                        value=liked_default,
+                        help="Would you buy this again?"
+                    )
+
+                # Advanced details in expander (AI-extracted technical data)
+                with st.expander("⚙️ Technical Details & Edit Data (Optional)"):
+                    st.markdown("#### 🎯 Flavor Profile (0-10 Scale)")
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    with col1:
+                        st.metric("⚡ Acidity", f"{wine_data['acidity']}/10")
+                    with col2:
+                        st.metric("💎 Minerality", f"{wine_data['minerality']}/10")
+                    with col3:
+                        st.metric("🍇 Fruitiness", f"{wine_data['fruitiness']}/10")
+                    with col4:
+                        st.metric("🌰 Tannin", f"{wine_data['tannin']}/10")
+                    with col5:
+                        st.metric("💪 Body", f"{wine_data['body']}/10")
+
+                    # Show explanations if features were inferred (not extracted from image)
+                    if feature_descriptions:
+                        st.markdown("")
+                        st.markdown("**📝 Characteristic Explanations:**")
+                        st.markdown(f"• **Acidity ({wine_data['acidity']}/10)**: {feature_descriptions.get('acidity', 'N/A')}")
+                        st.markdown(f"• **Fruitiness ({wine_data['fruitiness']}/10)**: {feature_descriptions.get('fruitiness', 'N/A')}")
+                        st.markdown(f"• **Body ({wine_data['body']}/10)**: {feature_descriptions.get('body', 'N/A')}")
+                        st.markdown(f"• **Minerality ({wine_data['minerality']}/10)**: {feature_descriptions.get('minerality', 'N/A')}")
+                        st.markdown(f"• **Tannin ({wine_data['tannin']}/10)**: {feature_descriptions.get('tannin', 'N/A')}")
+
+                    st.markdown("---")
+
+                    st.markdown("#### 📊 Full Technical Specifications")
+                    tech_col1, tech_col2 = st.columns(2)
+                    with tech_col1:
+                        st.markdown(f"**Wine Color:** {wine_data.get('wine_color', 'White')}")
+                        st.markdown(f"**Sparkling:** {'Yes' if wine_data.get('is_sparkling', False) else 'No'}")
+                        st.markdown(f"**Natural:** {'Yes' if wine_data.get('is_natural', False) else 'No'}")
+                    with tech_col2:
+                        st.markdown(f"**Sweetness:** {wine_data.get('sweetness', 'Dry')}")
+                        st.markdown(f"**Producer:** {wine_data.get('producer', 'Unknown')}")
+                        if should_display_vintage(wine_data.get('vintage')):
+                            st.markdown(f"**Vintage:** {int(wine_data.get('vintage'))}")
+                        else:
+                            st.markdown(f"**Vintage:** NV")
+
+                # Large, prominent Save button (login required)
+                if is_guest:
+                    st.warning("🔒 Log in to save wines to your collection")
+
+                if st.button("💾 SAVE TO MY COLLECTION", type="primary", width="stretch", disabled=is_guest):
+                    # Validate and update user inputs
                     try:
-                        with st.spinner("💾 Saving wine to Supabase..."):
-                            repo_add_wine(get_user_supabase(), row_data)
-                        st.success("✅ Wine saved to Supabase!")
-                    except Exception as supabase_error:
-                        st.error(f"❌ Supabase error while saving wine: {supabase_error}")
-                        st.stop()
+                        # Type validation with high-dimensional attributes
+                        wine_data['score'] = float(score_input)
+                        wine_data['liked'] = bool(liked_input)  # Ensure boolean
+                        wine_data['price'] = float(price_input)  # Price is now always in Quick Log
 
-                    # Save uploaded photo if available
-                    photo_bytes = st.session_state.get('uploaded_photo_bytes')
-                    photo_name = st.session_state.get('uploaded_photo_name')
-                    if photo_bytes and wine_data.get('wine_name'):
-                        import io
-                        photo_file = io.BytesIO(photo_bytes)
-                        photo_file.name = photo_name or "photo.jpg"
-                        saved_path = save_wine_image(photo_file, wine_data['wine_name'])
-                        if saved_path:
-                            st.info("📸 Photo saved")
+                        # Input validation - catch invalid data early
+                        validation_errors = []
 
-                    # Clear cached data to force reload
-                    clear_wine_data_cache()
+                        if not wine_data.get('wine_name') or wine_data['wine_name'].strip() == '':
+                            validation_errors.append("Wine name is required")
 
-                    st.success(f"✅ Saved {wine_data['wine_name']} to your collection!")
-                    st.balloons()
+                        if wine_data['score'] < 1 or wine_data['score'] > 10:
+                            validation_errors.append(f"Score must be 1-10 (got {wine_data['score']})")
 
-                    # Clear session state to start fresh
-                    for key in ['wine_data', 'last_upload', 'uploaded_photo_bytes', 'uploaded_photo_name']:
-                        st.session_state.pop(key, None)
+                        if wine_data['price'] < 0:
+                            validation_errors.append(f"Price cannot be negative (got {wine_data['price']})")
 
-                    st.info("🍷 Ready for next wine! Add another above.")
+                        # Validate flavor features (must be 1-10)
+                        for feature in ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']:
+                            value = wine_data.get(feature, 0)
+                            if value < 1 or value > 10:
+                                validation_errors.append(f"{feature.capitalize()} must be 1-10 (got {value})")
 
-                except ValueError as e:
-                    st.error(f"Validation error: {str(e)}")
-                    st.info("Please check that price is a valid number and liked is true/false")
-                except Exception as e:
-                    st.error(f"Error saving: {str(e)}")
-                    st.info("Check Supabase configuration and RLS permissions")
+                        if validation_errors:
+                            st.error(f"🚫 Cannot save wine - please fix these issues:\n" + "\n".join(f"• {err}" for err in validation_errors))
+                            st.stop()
 
-            else:
-                # No data extracted yet
-                st.info("👆 Enter a wine name or upload a photo to get started")
+                        # Validate high-dimensional fields
+                        wine_data['is_sparkling'] = bool(wine_data.get('is_sparkling', False))
+                        wine_data['is_natural'] = bool(wine_data.get('is_natural', False))
+
+                        # Save to Supabase wines table (RLS-authenticated session)
+                        row_data = {
+                            'wine_name': wine_data['wine_name'],
+                            'producer': wine_data['producer'],
+                            'vintage': wine_data['vintage'],
+                            'notes': wine_data['notes'],
+                            'score': wine_data['score'],
+                            'liked': wine_data['liked'],
+                            'price': wine_data['price'],
+                            # WINE ORIGIN
+                            'country': wine_data.get('country', 'Unknown'),
+                            'region': wine_data.get('region', 'Unknown'),
+                            # HIGH-DIMENSIONAL ATTRIBUTES
+                            'wine_color': wine_data.get('wine_color', 'White'),
+                            'is_sparkling': wine_data['is_sparkling'],
+                            'is_natural': wine_data['is_natural'],
+                            'sweetness': wine_data.get('sweetness', 'Dry'),
+                            # Core 5 flavor features
+                            'acidity': wine_data['acidity'],
+                            'minerality': wine_data['minerality'],
+                            'fruitiness': wine_data['fruitiness'],
+                            'tannin': wine_data['tannin'],
+                            'body': wine_data['body']
+                        }
+
+                        try:
+                            with st.spinner("💾 Saving wine to Supabase..."):
+                                repo_add_wine(get_user_supabase(), row_data)
+                            st.success("✅ Wine saved to Supabase!")
+                        except Exception as supabase_error:
+                            st.error(f"❌ Supabase error while saving wine: {supabase_error}")
+                            st.stop()
+
+                        # Save uploaded photo if available
+                        photo_bytes = st.session_state.get('uploaded_photo_bytes')
+                        photo_name = st.session_state.get('uploaded_photo_name')
+                        if photo_bytes and wine_data.get('wine_name'):
+                            import io
+                            photo_file = io.BytesIO(photo_bytes)
+                            photo_file.name = photo_name or "photo.jpg"
+                            saved_path = save_wine_image(photo_file, wine_data['wine_name'])
+                            if saved_path:
+                                st.info("📸 Photo saved")
+
+                        # Clear cached data to force reload
+                        clear_wine_data_cache()
+
+                        st.success(f"✅ Saved {wine_data['wine_name']} to your collection!")
+                        st.balloons()
+
+                        # Clear session state to start fresh
+                        for key in ['wine_data', 'last_upload', 'uploaded_photo_bytes', 'uploaded_photo_name']:
+                            st.session_state.pop(key, None)
+
+                        st.info("🍷 Ready for next wine! Add another above.")
+
+                    except ValueError as e:
+                        st.error(f"Validation error: {str(e)}")
+                        st.info("Please check that price is a valid number and liked is true/false")
+                    except Exception as e:
+                        st.error(f"Error saving: {str(e)}")
+                        st.info("Check Supabase configuration and RLS permissions")
+
+                else:
+                    # No data extracted yet
+                    st.info("👆 Enter a wine name or upload a photo to get started")
 
     # 📊 TAB 2: Wine Cellar - Palate Maps
     with tab2:
@@ -2173,7 +2174,7 @@ Desired JSON Structure:
         col_data1, col_data2 = st.columns([1, 1])
         with col_data1:
             # Download from Supabase data already loaded
-            tab2_df = ensure_wine_df(load_wine_data(username))
+            tab2_df = ensure_wine_df(load_wine_data())
             if not tab2_df.empty:
                 csv_data = tab2_df.to_csv(index=False)
                 st.download_button(
@@ -2209,7 +2210,7 @@ Desired JSON Structure:
                             st.error(f"❌ Invalid CSV: Missing columns {missing_cols}")
                         else:
                             # Dedup against existing Supabase data
-                            existing_df = ensure_wine_df(load_wine_data(username))
+                            existing_df = ensure_wine_df(load_wine_data())
 
                             if not existing_df.empty:
                                 existing_keys = (
@@ -2246,7 +2247,7 @@ Desired JSON Structure:
         st.markdown("---")
 
         # Load data
-        history_df = ensure_wine_df(load_wine_data(username))
+        history_df = ensure_wine_df(load_wine_data())
 
         if not history_df.empty:
             # Get only liked wines
@@ -2323,7 +2324,7 @@ Desired JSON Structure:
         st.caption("Browse your complete wine collection with all details")
 
         # Load data
-        gallery_df = ensure_wine_df(load_wine_data(username))
+        gallery_df = ensure_wine_df(load_wine_data())
 
         if gallery_df is not None and len(gallery_df) > 0:
             # Add search and filter options
