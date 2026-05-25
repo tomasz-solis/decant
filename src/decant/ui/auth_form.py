@@ -15,7 +15,6 @@ import streamlit as st
 from decant.supabase_session import (
     current_user_email,
     is_authenticated,
-    request_password_reset,
     sign_in,
     sign_out,
 )
@@ -44,12 +43,12 @@ def _render_logged_in() -> None:
 
 
 def _render_login_form(contact_email: str) -> None:
-    """Email + password form with reset link and access mailto."""
+    """Email + password form, with a help-by-email fallback for stuck users."""
     st.markdown("### Sign in")
 
-    # Reset-password mode shows a different form. Toggled via session state.
-    if st.session_state.get("_auth_show_reset"):
-        _render_reset_form()
+    # Help-by-email mode shows a different form. Toggled via session state.
+    if st.session_state.get("_auth_show_help"):
+        _render_help_form(contact_email)
         return
 
     email = st.text_input("Email", key="auth_email", autocomplete="email")
@@ -57,7 +56,7 @@ def _render_login_form(contact_email: str) -> None:
         "Password", type="password", key="auth_password", autocomplete="current-password"
     )
 
-    col_signin, col_reset = st.columns([2, 1])
+    col_signin, col_help = st.columns([2, 1])
     with col_signin:
         if st.button("Sign in", type="primary", key="auth_signin_btn"):
             if not email or not password:
@@ -72,9 +71,9 @@ def _render_login_form(contact_email: str) -> None:
                     # anything more than the canonical message.
                     st.error(err or "Sign-in failed.")
 
-    with col_reset:
-        if st.button("Forgot?", key="auth_reset_btn"):
-            st.session_state["_auth_show_reset"] = True
+    with col_help:
+        if st.button("Need help?", key="auth_help_btn"):
+            st.session_state["_auth_show_help"] = True
             st.rerun()
 
     st.caption(
@@ -82,28 +81,71 @@ def _render_login_form(contact_email: str) -> None:
     )
 
 
-def _render_reset_form() -> None:
-    """Magic-link password reset request form."""
-    st.caption("We'll email you a link to reset your password.")
-    email = st.text_input("Email", key="auth_reset_email")
-    col_send, col_back = st.columns([2, 1])
+def _render_help_form(contact_email: str) -> None:
+    """Compose a sign-in help email pre-filled with the user's message.
 
+    The browser handles the click — there's no SMTP, no Supabase call,
+    no backend involvement. The user's mail client opens with the
+    address, subject, and body already populated; they hit Send in
+    their own client. Tomasz (or whoever `contact_email` is) gets the
+    email and resets the password manually via the Supabase dashboard
+    or admin API.
+
+    This replaces the previous magic-link reset flow, which was
+    half-built (the request side worked but the recovery handler that
+    would let the user pick a new password never existed).
+    """
+    st.caption(
+        "Stuck signing in? Send us a quick note and we'll get you sorted."
+    )
+
+    user_email = st.text_input(
+        "Your email (so we know who to reply to)",
+        key="auth_help_user_email",
+        autocomplete="email",
+    )
+    message = st.text_area(
+        "What's going on?",
+        key="auth_help_message",
+        placeholder="e.g. forgot my password, can't sign in...",
+        height=100,
+    )
+
+    # The mailto URL has to be built fresh on every rerun because the
+    # form values change. We URL-encode the components since arbitrary
+    # text can contain characters (& ? #) that break query parsing.
+    from urllib.parse import quote
+
+    body_lines = []
+    if user_email.strip():
+        body_lines.append(f"From: {user_email.strip()}")
+        body_lines.append("")
+    if message.strip():
+        body_lines.append(message.strip())
+    else:
+        body_lines.append("(no message)")
+
+    body = "\n".join(body_lines)
+    mailto_url = (
+        f"mailto:{contact_email}"
+        f"?subject={quote('Decant - sign-in help')}"
+        f"&body={quote(body)}"
+    )
+
+    col_send, col_back = st.columns([2, 1])
     with col_send:
-        if st.button("Send reset link", type="primary", key="auth_reset_send"):
-            if not email:
-                st.error("Email required.")
-            else:
-                ok, err = request_password_reset(email.strip())
-                if ok:
-                    st.success(
-                        "If that email is registered, a reset link is on its way."
-                    )
-                    st.session_state["_auth_show_reset"] = False
-                    st.rerun()
-                else:
-                    st.error(f"Couldn't send reset email: {err}")
+        # Streamlit's link_button renders an anchor tag, so the browser
+        # handles the click as a navigation — which for a mailto URL
+        # means "open the user's default mail client." st.button would
+        # not work here; it'd run Python code instead.
+        st.link_button("Open in mail client", mailto_url, type="primary")
 
     with col_back:
-        if st.button("Back", key="auth_reset_back"):
-            st.session_state["_auth_show_reset"] = False
+        if st.button("Back", key="auth_help_back"):
+            st.session_state["_auth_show_help"] = False
             st.rerun()
+
+    st.caption(
+        "Tip: your mail client will open with the email already written. "
+        "Just hit send."
+    )
