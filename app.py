@@ -30,7 +30,21 @@ from decant.supabase_session import (
     get_user_supabase,
     is_authenticated,
 )
-from decant.ui.auth_form import render_auth_block
+from decant.ui.auth_form import render_header_auth
+from decant.ui.components import (
+    calculate_similarity,
+    create_consolidated_palate_radar,
+    create_decision_boundary_plot,
+    create_master_radar,
+    create_mini_radar_chart,
+    create_radar_chart,
+)
+from decant.services.image_storage import (
+    get_wine_image_path,
+    get_wine_image_url,
+    save_wine_image,
+)
+from decant.services.vision_extract import extract_complete_wine_data
 from decant.wines_repo import list_wines as repo_list_wines, repo_add_wine
 
 # Load environment variables
@@ -77,9 +91,10 @@ def is_debug_enabled() -> bool:
 
 
 # Authentication: anonymous browsing is allowed by default. Sign-in is
-# rendered in the sidebar (see render_auth_block) and unlocks Tab 1 +
-# any RLS-protected operation. There is no Streamlit-side username
-# concept anymore — `is_authenticated()` checks the Supabase session.
+# rendered via the top-right popover (see render_header_auth) and
+# unlocks Tab 1 + any RLS-protected operation. There is no
+# Streamlit-side username concept anymore — `is_authenticated()`
+# checks the Supabase session.
 check_required_supabase_secrets()
 is_guest = not is_authenticated()
 DEBUG_MODE = is_debug_enabled()
@@ -711,660 +726,23 @@ def should_display_vintage(vintage_value):
         return False
 
 
-def get_wine_image_url(wine_name, producer):
-    """Fetch wine bottle image URL from online sources."""
-    try:
-        # Use Vivino search URL as a fallback
-        # Note: This returns a search page URL. For actual images, we'd need to scrape or use an API
-        search_query = f"{producer} {wine_name}".replace(" ", "+")
-        return f"https://www.vivino.com/search/wines?q={search_query}"
-    except Exception:
-        return None
-
-
-def get_wine_image_path(wine_name):
-    """Get the stored image path for a wine."""
-    import re
-    # Create safe filename from wine name
-    safe_name = re.sub(r'[^\w\s-]', '', wine_name.lower())
-    safe_name = re.sub(r'[-\s]+', '_', safe_name)
-    image_dir = Path("data/wine_images")
-
-    # Check for common image extensions
-    for ext in ['.jpg', '.jpeg', '.png', '.webp']:
-        image_path = image_dir / f"{safe_name}{ext}"
-        if image_path.exists():
-            return str(image_path)
-    return None
-
-
-def save_wine_image(uploaded_file, wine_name):
-    """Save uploaded wine image."""
-    import re
-    from PIL import Image
-    import io
-
-    try:
-        # Create safe filename
-        safe_name = re.sub(r'[^\w\s-]', '', wine_name.lower())
-        safe_name = re.sub(r'[-\s]+', '_', safe_name)
-
-        # Get file extension
-        file_ext = uploaded_file.name.split('.')[-1].lower()
-        if file_ext not in ['jpg', 'jpeg', 'png', 'webp']:
-            file_ext = 'jpg'
-
-        # Save path
-        image_dir = Path("data/wine_images")
-        image_dir.mkdir(parents=True, exist_ok=True)
-        image_path = image_dir / f"{safe_name}.{file_ext}"
-
-        # Open and resize image to reasonable size
-        image = Image.open(uploaded_file)
-
-        # Resize to max 800px width while maintaining aspect ratio
-        max_width = 800
-        if image.width > max_width:
-            ratio = max_width / image.width
-            new_height = int(image.height * ratio)
-            image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
-
-        # Convert RGBA to RGB if needed
-        if image.mode == 'RGBA':
-            background = Image.new('RGB', image.size, (255, 255, 255))
-            background.paste(image, mask=image.split()[3])
-            image = background
-
-        # Save optimized image
-        image.save(image_path, quality=85, optimize=True)
-        return str(image_path)
-    except Exception as e:
-        st.error(f"Error saving image: {e}")
-        return None
-
-
-def create_mini_radar_chart(liked_avg):
-    """Create a small radar chart for sidebar palate fingerprint."""
-    fig = go.Figure()
-
-    categories = ['Acidity', 'Minerality', 'Fruitiness', 'Tannin', 'Body']
-    values = liked_avg.tolist() + [liked_avg.iloc[0]]
-
-    fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories + [categories[0]],
-        fill='toself',
-        fillcolor='rgba(139, 0, 0, 0.4)',
-        line=dict(color='#8B0000', width=2),
-        marker=dict(size=4, color='#8B0000')
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 10],
-                showticklabels=False,
-                gridcolor='rgba(255, 255, 255, 0.08)',
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=9, color='#E8E8EB'),
-            )
-        ),
-        showlegend=False,
-        height=200,
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor='#0F0F12',
-        plot_bgcolor='#0F0F12'
-    )
-
-    return fig
-
-
-def create_decision_boundary_plot(df):
-    """Create a 2D scatter plot showing decision boundary (Acidity vs Minerality)."""
-    df = ensure_wine_df(df)
-    fig = go.Figure()
-
-    required_cols = ["liked", "acidity", "minerality", "price", "wine_name"]
-    missing_cols = [col for col in required_cols if col not in df.columns]
-    if df.empty or missing_cols:
-        return fig
-
-    # Liked wines
-    liked_df = df[df['liked'] == True]
-    fig.add_trace(go.Scatter(
-        x=liked_df['acidity'],
-        y=liked_df['minerality'],
-        mode='markers',
-        marker=dict(
-            size=liked_df['price'] * 1.5,  # Bubble size proportional to price
-            color='rgba(56, 139, 253, 0.6)',
-            line=dict(width=2, color='rgba(56, 139, 253, 1)'),
-            sizemode='diameter',
-            sizemin=4
-        ),
-        name='✓ Liked',
-        text=liked_df['wine_name'],
-        hovertemplate='<b>%{text}</b><br>Acidity: %{x}<br>Minerality: %{y}<br>Price: €%{marker.size:.0f}<extra></extra>'
-    ))
-
-    # Disliked wines
-    disliked_df = df[df['liked'] == False]
-    if len(disliked_df) > 0:
-        fig.add_trace(go.Scatter(
-            x=disliked_df['acidity'],
-            y=disliked_df['minerality'],
-            mode='markers',
-            marker=dict(
-                size=disliked_df['price'] * 1.5,
-                color='rgba(248, 113, 113, 0.6)',
-                line=dict(width=2, color='rgba(248, 113, 113, 1)'),
-                sizemode='diameter',
-                sizemin=4
-            ),
-            name='✗ Disliked',
-            text=disliked_df['wine_name'],
-            hovertemplate='<b>%{text}</b><br>Acidity: %{x}<br>Minerality: %{y}<br>Price: €%{marker.size:.0f}<extra></extra>'
-        ))
-
-    fig.update_layout(
-        title=dict(
-            text='<b>Decision Boundary: Acidity vs Minerality</b>',
-            font=dict(size=16),
-            x=0.5,
-            xanchor='center'
-        ),
-        xaxis=dict(
-            title='Acidity',
-            range=[0, 11],
-            showgrid=True,
-            gridcolor='rgba(128, 128, 128, 0.2)'
-        ),
-        yaxis=dict(
-            title='Minerality',
-            range=[0, 11],
-            showgrid=True,
-            gridcolor='rgba(128, 128, 128, 0.2)'
-        ),
-        height=400,
-        showlegend=True,
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=-0.2,
-            xanchor='center',
-            x=0.5
-        ),
-        paper_bgcolor='white',
-        plot_bgcolor='rgba(240, 240, 240, 0.3)'
-    )
-
-    return fig
-
-
-def calculate_similarity(wine_features, target_features):
-    """
-    Calculate similarity using unified Palate Formula.
-
-    Uses same derived features as predictor.py:
-    - Structure score (acidity + minerality)
-    - Acidity/Body ratio
-    - Palate score (structure + acidity/body*2)
-
-    Returns Euclidean distance weighted by palate formula.
-    """
-    import numpy as np
-
-    # Calculate derived features for wine in history
-    wine_structure = wine_features['acidity'] + wine_features['minerality']
-    wine_acidity_body_ratio = wine_features['acidity'] / (wine_features['body'] + 0.1)
-    wine_palate_score = wine_structure + (wine_acidity_body_ratio * 2)
-
-    # Calculate derived features for target wine
-    target_structure = target_features.acidity + target_features.minerality
-    target_acidity_body_ratio = target_features.acidity / (target_features.body + 0.1)
-    target_palate_score = target_structure + (target_acidity_body_ratio * 2)
-
-    # Create feature vectors including both raw and derived features
-    wine_vec = np.array([
-        wine_features['acidity'],
-        wine_features['minerality'],
-        wine_features['fruitiness'],
-        wine_features['tannin'],
-        wine_features['body'],
-        wine_structure / 2,  # Normalize structure score (0-20 -> 0-10)
-        wine_acidity_body_ratio,
-        wine_palate_score / 3  # Normalize palate score
-    ])
-
-    target_vec = np.array([
-        target_features.acidity,
-        target_features.minerality,
-        target_features.fruitiness,
-        target_features.tannin,
-        target_features.body,
-        target_structure / 2,
-        target_acidity_body_ratio,
-        target_palate_score / 3
-    ])
-
-    return np.linalg.norm(wine_vec - target_vec)
-
-
-def create_master_radar(features, global_avg, color_avg, wine_color="White"):
-    """
-    Radar chart with 3 series:
-
-    Series 1 (Dashed Grey): Global Average of all liked wines
-    Series 2 (Solid Color): Style Target - liked wines of current color
-    Series 3 (Bold Black/White Outline): Current wine being evaluated
-
-    Args:
-        features: Current wine features (WineFeatures object)
-        global_avg: pandas Series with global average (all liked wines)
-        color_avg: pandas Series with color-specific average (liked wines of same color)
-        wine_color: Wine color for styling ('White', 'Red', 'Rosé', 'Orange')
-    """
-    fig = go.Figure()
-
-    categories = ['Acidity', 'Minerality', 'Fruitiness', 'Tannin', 'Body']
-
-    # Color schemes for dark mode (40% transparency for better visibility)
-    style_colors = {
-        'White': {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)'},
-        'Red': {'primary': '#8B0000', 'fill': 'rgba(139, 0, 0, 0.4)'},
-        'Rosé': {'primary': '#FF8C69', 'fill': 'rgba(255, 140, 105, 0.4)'},
-        'Orange': {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)'}
-    }
-    colors = style_colors.get(wine_color, style_colors['White'])
-
-    # Safe extraction helper
-    def safe_get(obj, attr):
-        """Extract value, returning None for missing/zero/NaN."""
-        try:
-            val = getattr(obj, attr, None)
-            return val if (val is not None and val != 0 and not pd.isna(val)) else None
-        except:
-            return None
-
-    # SERIES 1: Global Average (Dashed Grey) - ALL liked wines
-    if global_avg is not None and len(global_avg) > 0:
-        try:
-            global_vals = global_avg.fillna(0).replace(0, 5).tolist()
-            global_vals = global_vals + [global_vals[0]]
-
-            fig.add_trace(go.Scatterpolar(
-                r=global_vals,
-                theta=categories + [categories[0]],
-                fill='none',
-                line=dict(color='grey', width=2, dash='dash'),
-                name='Your Global Average',
-                marker=dict(size=6, symbol='circle', color='grey')
-            ))
-        except:
-            pass
-
-    # SERIES 2: Style Target (Solid Color Fill) - Liked wines of SAME color
-    if color_avg is not None and len(color_avg) > 0:
-        try:
-            color_vals = color_avg.fillna(0).replace(0, 5).tolist()
-            color_vals = color_vals + [color_vals[0]]
-
-            fig.add_trace(go.Scatterpolar(
-                r=color_vals,
-                theta=categories + [categories[0]],
-                fill='toself',  # Solid fill with 30% transparency
-                fillcolor=colors['fill'],
-                line=dict(color=colors['primary'], width=3),
-                name=f'Your {wine_color} Target',
-                marker=dict(size=8, symbol='diamond', color=colors['primary'])
-            ))
-        except:
-            pass
-
-    # SERIES 3: Current Wine (Bold Black/White Outline)
-    current_vals = [
-        safe_get(features, 'acidity') or 5,
-        safe_get(features, 'minerality') or 5,
-        safe_get(features, 'fruitiness') or 5,
-        safe_get(features, 'tannin') or 5,
-        safe_get(features, 'body') or 5
-    ]
-    current_vals = current_vals + [current_vals[0]]
-
-    fig.add_trace(go.Scatterpolar(
-        r=current_vals,
-        theta=categories + [categories[0]],
-        fill='none',  # NO FILL - bold outline only
-        line=dict(
-            color='white',
-            width=6,  # Extra bold
-        ),
-        name='🎯 Current Wine',
-        marker=dict(size=12, symbol='star', color='white')
-    ))
-
-    # Styling
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 10],
-                showticklabels=True,
-                tickfont=dict(size=14, family='Arial Black', color='#E8E8EB'),
-                gridcolor='rgba(255, 255, 255, 0.08)',
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=16, family='Arial Black', color='#E8E8EB'),
-            ),
-            bgcolor='rgba(15, 15, 18, 0.3)'
-        ),
-        showlegend=True,
-        title=dict(
-            text=f'<b>Master Radar: {wine_color} Wine Analysis</b>',
-            font=dict(size=18, color=colors['primary']),
-            x=0.5,
-            xanchor='center'
-        ),
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=-0.15,
-            xanchor='center',
-            x=0.5,
-            font=dict(size=12, color='#E8E8EB')
-        ),
-        height=550,
-        paper_bgcolor='#0F0F12'
-    )
-
-    return fig
-
-
-def create_radar_chart(features, liked_avg, wine_color="White", disliked_avg=None):
-    """
-    Legacy radar function - calls Master Radar.
-    Kept for backward compatibility with Tab 2.
-    """
-    # For Tab 2 single-color view, just show the color target
-    return create_master_radar(features, None, liked_avg, wine_color)
-
-
-def create_consolidated_palate_radar(color_profiles: dict):
-    """
-    ONE MASTER RADAR for Tab 2: Overlays all wine color profiles.
-
-    High-contrast visualization showing liked wine averages for each color.
-
-    Args:
-        color_profiles: Dict with color names as keys, pandas Series as values
-                       e.g. {'White': Series([8,7,7,1,5]), 'Red': Series([6,5,7,7,8])}
-
-    Returns:
-        Plotly figure with all color profiles overlaid
-    """
-    fig = go.Figure()
-
-    categories = ['Acidity', 'Minerality', 'Fruitiness', 'Tannin', 'Body']
-
-    # High-contrast color schemes for dark mode (40% transparency for fills)
-    style_colors = {
-        'White': {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)', 'emoji': '⚪'},
-        'Red': {'primary': '#8B0000', 'fill': 'rgba(139, 0, 0, 0.4)', 'emoji': '🔴'},
-        'Rosé': {'primary': '#FF69B4', 'fill': 'rgba(255, 105, 180, 0.4)', 'emoji': '🌸'},
-        'Orange': {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)', 'emoji': '🟠'}
-    }
-
-    # Add trace for each color profile
-    for wine_color, profile in color_profiles.items():
-        if len(profile) > 0:
-            colors = style_colors.get(wine_color, style_colors['White'])
-
-            # Get values and close the polygon
-            vals = profile.fillna(0).replace(0, 5).tolist()
-            vals = vals + [vals[0]]
-
-            # Add colored fill trace with 30% transparency
-            fig.add_trace(go.Scatterpolar(
-                r=vals,
-                theta=categories + [categories[0]],
-                fill='toself',  # Solid fill with transparency
-                fillcolor=colors['fill'],
-                line=dict(color=colors['primary'], width=3),
-                name=f"{colors['emoji']} {wine_color} Profile",
-                marker=dict(size=8, symbol='diamond', color=colors['primary']),
-                hovertemplate=f"<b>{wine_color}</b><br>" +
-                             "%{theta}: %{r:.1f}/10<br>" +
-                             "<extra></extra>"
-            ))
-
-    # Styling - clean and high contrast for dark mode
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 10],
-                showticklabels=True,
-                tickfont=dict(size=14, family='Arial Black', color='#E8E8EB'),
-                gridcolor='rgba(255, 255, 255, 0.08)',
-                tickvals=[0, 2, 4, 6, 8, 10]
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=16, family='Arial Black', color='#E8E8EB'),
-                linewidth=2,
-                gridcolor='rgba(255, 255, 255, 0.08)'
-            ),
-            bgcolor='rgba(15, 15, 18, 0.3)'
-        ),
-        showlegend=True,
-        title=dict(
-            text='<b>🎯 Master Palate Radar: All Wine Profiles</b>',
-            font=dict(size=20, color='#E8E8EB', family='Arial Black'),
-            x=0.5,
-            xanchor='center'
-        ),
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=-0.2,
-            xanchor='center',
-            x=0.5,
-            font=dict(size=13, family='Arial', color='#E8E8EB'),
-            bgcolor='rgba(26, 26, 30, 0.9)',
-            bordercolor='rgba(255, 255, 255, 0.1)',
-            borderwidth=1
-        ),
-        height=600,
-        paper_bgcolor='#0F0F12',
-        margin=dict(t=80, b=100, l=80, r=80)
-    )
-
-    return fig
-
-
-def extract_complete_wine_data(image_file, history_df):
-    """
-    Extract wine data from photo using simplified schema.
-
-    Returns dict with core 12 columns for history.csv.
-    """
-    try:
-        # Convert image to base64
-        image_bytes = image_file.read()
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
-        image_type = "image/jpeg" if image_file.name.lower().endswith('.jpg') or image_file.name.lower().endswith('.jpeg') else "image/png"
-
-        # Build self-learning context from liked wines
-        context = ""
-        safe_history_df = ensure_wine_df(history_df)
-        if not safe_history_df.empty:
-            liked_wines = safe_history_df[safe_history_df['liked'] == True].tail(5)
-            if len(liked_wines) > 0:
-                context = "\n\nUSER'S TASTE PROFILE (Recent Liked Wines):\n"
-                for _, wine in liked_wines.iterrows():
-                    context += f"- {wine.get('wine_name', 'Unknown')}: Acidity {wine.get('acidity', 0)}/10, Minerality {wine.get('minerality', 0)}/10\n"
-
-        # Extraction prompt (JSON format)
-        prompt = f"""Analyze this wine bottle and extract complete wine information.
-
-{context}
-
-## INSTRUCTIONS:
-
-Use your encyclopedic wine knowledge to infer ALL flavor attributes based on:
-1. The specific PRODUCER and their documented house style
-2. The REGION'S terroir and typical characteristics
-3. The GRAPE VARIETY and its typical profile
-4. The VINTAGE (if known) and its conditions
-
-DO NOT use generic defaults like 5.0. Each wine is unique - use your training data about this specific producer, region, and style.
-
-General regional tendencies (but always adjust for the specific producer):
-- Atlantic regions (Galicia, Loire, Chablis): Tend toward higher acidity + minerality
-- Mediterranean regions (Rioja, Tuscany, Rhône): Tend toward more body, moderate acidity
-- High-altitude wines: Often have higher acidity, more elegance
-- Warm climate wines: Often have riper fruit, fuller body
-
-Remember: Producers within the same region can be VERY different. Use your knowledge of the specific producer.
-
-Return JSON with these exact fields:
-
-{{
-  "wine_name": "Full name with vintage",
-  "producer": "Winery name",
-  "vintage": 2021,
-  "notes": "Professional tasting notes based on this producer's style",
-  "score": 7.5,
-  "price": 15.0,
-  "country": "Spain",
-  "region": "Bierzo",
-  "wine_color": "Red",
-  "is_sparkling": false,
-  "is_natural": false,
-  "sweetness": "Dry",
-  "acidity": 7.5,
-  "minerality": 7.0,
-  "fruitiness": 8.0,
-  "tannin": 6.5,
-  "body": 6.5
-}}
-
-CONSTRAINTS:
-- Whites typically have tannin 1-3, reds 5-9
-- wine_color: MUST be "White", "Red", "Rosé", or "Orange"
-- sweetness: MUST be "Dry", "Medium-Dry", "Medium-Sweet", or "Sweet"
-- Use ACTUAL wine knowledge, not formula-based inference
-
-Return ONLY valid JSON."""
-
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[{
-                "role": "system",
-                "content": "You are a wine expert with encyclopedic knowledge. Return JSON only."
-            }, {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:{image_type};base64,{base64_image}"}}
-                ]
-            }],
-            response_format={"type": "json_object"},
-            max_completion_tokens=800,
-            temperature=OPENAI_TEMPERATURE
-        )
-
-        content = response.choices[0].message.content
-
-        # Parse JSON response
-        raw_data = json.loads(content)
-
-        # Ensure liked field exists (user will set)
-        raw_data['liked'] = None
-
-        # Map price_eur to price if needed
-        if 'price_eur' in raw_data and 'price' not in raw_data:
-            raw_data['price'] = raw_data['price_eur']
-
-        # Ensure all required fields exist with reasonable fallbacks
-        if 'price' not in raw_data:
-            raw_data['price'] = 0.0
-
-        # Validate extracted data before returning
-        from pydantic import ValidationError
-        from decant.constants import WineColor, Sweetness
-
-        # Validate critical fields
-        validation_errors = []
-
-        # Validate wine_name
-        if not raw_data['wine_name'] or len(raw_data['wine_name']) < 1:
-            validation_errors.append("wine_name is empty or too short")
-
-        # Validate producer
-        if not raw_data['producer'] or len(raw_data['producer']) < 1:
-            validation_errors.append("producer is empty or too short")
-
-        # Validate vintage
-        if raw_data['vintage'] < 1900 or raw_data['vintage'] > 2100:
-            st.warning(f"⚠️ Invalid vintage {raw_data['vintage']}, setting to 0")
-            raw_data['vintage'] = 0
-
-        # Validate features are in range
-        for feature in ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']:
-            value = raw_data[feature]
-            if value < 1.0 or value > 10.0:
-                st.warning(f"⚠️ {feature} value {value} out of range [1-10], clamping")
-                raw_data[feature] = max(1.0, min(10.0, value))
-
-        # Validate score
-        if raw_data['score'] < 1.0 or raw_data['score'] > 10.0:
-            st.warning(f"⚠️ Score {raw_data['score']} out of range [1-10], clamping")
-            raw_data['score'] = max(1.0, min(10.0, raw_data['score']))
-
-        # Validate wine_color
-        valid_colors = [c.value for c in WineColor]
-        if raw_data['wine_color'] not in valid_colors:
-            st.warning(f"⚠️ Invalid wine color '{raw_data['wine_color']}', defaulting to 'White'")
-            raw_data['wine_color'] = 'White'
-
-        # Validate sweetness
-        valid_sweetness = [s.value for s in Sweetness]
-        if raw_data['sweetness'] not in valid_sweetness:
-            st.warning(f"⚠️ Invalid sweetness '{raw_data['sweetness']}', defaulting to 'Dry'")
-            raw_data['sweetness'] = 'Dry'
-
-        # If critical validation errors, return None
-        if validation_errors:
-            st.error(f"🚨 Critical validation errors: {', '.join(validation_errors)}")
-            st.info("💡 Please verify the image and try again, or enter data manually.")
-            return None
-
-        return raw_data
-
-    except json.JSONDecodeError as je:
-        st.error(f"🚨 LLM returned invalid JSON: {je}")
-        st.info("💡 Please try again or enter data manually.")
-        return None
-    except ValidationError as ve:
-        st.error(f"🚨 Validation error: {ve}")
-        st.info("💡 Please try again or enter data manually.")
-        return None
-    except Exception as e:
-        st.error(f"❌ Error extracting wine data: {str(e)}")
-        st.info("💡 Please try again or enter data manually.")
-        return None
-
 
 def main():
-    # Premium Dark Header
-    st.markdown("""
-<div class="glass-card" style="text-align: center; padding: 32px 20px; margin-bottom: 32px; background: linear-gradient(135deg, rgba(139, 0, 0, 0.1) 0%, rgba(26, 26, 30, 0.05) 100%);">
-    <h1 class="main-title">🍷 Decant</h1>
-    <p class="subtitle">Taste, with confidence.</p>
-</div>
-""", unsafe_allow_html=True)
+    # Top header: title on the left, auth popover top-right.
+    # The columns sit close so the layout reads as one header band,
+    # not "title floating in space + button stranded on the right."
+    contact_email = st.secrets.get("CONTACT_EMAIL", "tomasz.solis@gmail.com")
+    header_left, header_right = st.columns([4, 1], vertical_alignment="center")
+    with header_left:
+        st.markdown(
+            "<h1 class='main-title' style='margin: 0 0 4px 0;'>🍷 Decant</h1>"
+            "<p class='subtitle' style='margin: 0;'>Taste, with confidence.</p>",
+            unsafe_allow_html=True,
+        )
+    with header_right:
+        render_header_auth(contact_email=str(contact_email))
+
+    st.markdown("---")
 
     # Guest mode banner
     if is_guest:
@@ -1383,195 +761,12 @@ def main():
     # users see a sign-in nudge inside the tab rather than a hidden tab.
     # This avoids the AttributeError that would come from `with None:` if we
     # tried to skip tab1 entirely, and keeps the layout consistent.
-    tab1, tab2, tab3 = st.tabs(["🍷 Add Wine", "📊 My Palate Maps", "🖼️ Wine Gallery"])
-
-    # Sidebar: auth block sits on top so the login affordance is the
-    # first thing a guest sees. Palate summary follows below.
-    with st.sidebar:
-        # Contact email pulled from secrets so it's not hardcoded.
-        # Defaults to a placeholder if missing — the app shouldn't break
-        # over a missing decorative field.
-        contact_email = st.secrets.get("CONTACT_EMAIL", "tomasz.solis@gmail.com")
-        render_auth_block(contact_email=str(contact_email))
-        st.markdown("---")
-
-        st.header("📊 Palate Summary")
-
-        # Load wine features data with caching
-        df = ensure_wine_df(load_wine_data())
-
-        # 🌍 REGIONAL FILTER DROPDOWN
-        if not df.empty and 'region' in df.columns:
-            # Get unique regions (exclude Unknown)
-            regions = df[
-                (df['region'] != 'Unknown') &
-                (df['region'].notna())
-            ]['region'].unique()
-
-            if len(regions) > 0:
-                regions_sorted = sorted(regions)
-                selected_region = st.selectbox(
-                    "🌍 Filter by Region",
-                    ["All Regions"] + list(regions_sorted),
-                    key='region_filter'
-                )
-
-                # Apply filter if not "All Regions"
-                if selected_region != "All Regions":
-                    df = df[df['region'] == selected_region]
-                    st.caption(f"Showing: {selected_region}")
-
-        st.markdown("---")
-
-        # Calculate summary stats (possibly filtered)
-        total_wines = len(df)
-        has_liked_col = 'liked' in df.columns
-        liked_wines = int(df['liked'].sum()) if has_liked_col else 0
-        disliked_wines = max(total_wines - liked_wines, 0)
-        liked_df = df[df['liked'] == True] if has_liked_col else df.iloc[0:0].copy()
-
-        # Display metrics
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("✅ Liked", liked_wines)
-        with col2:
-            st.metric("❌ Disliked", disliked_wines)
-
-        st.metric("📝 Total Wines", total_wines)
-
-        # Quick Stats only (Radar removed as requested)
-        st.markdown("---")
-        st.markdown("### 🧬 Palate Stats")
-
-        feature_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
-        missing_feature_cols = [col for col in feature_cols if col not in liked_df.columns]
-
-        if liked_df.empty:
-            st.caption("🔍 Add wines with flavor profiles to see your palate stats")
-        elif missing_feature_cols:
-            st.caption(f"Missing fields for palate stats: {', '.join(missing_feature_cols)}")
-        else:
-            liked_avg = liked_df[feature_cols].mean()
-
-            # Check if all values are 0 (no data yet)
-            if liked_avg.sum() == 0:
-                st.caption("🔍 Add wines with flavor profiles to see your palate stats")
-            else:
-                # Show average values only (no radar)
-                st.caption("Your ideal wine profile:")
-                feat_col1, feat_col2, feat_col3 = st.columns(3)
-                with feat_col1:
-                    st.metric("⚡ Acid", f"{liked_avg['acidity']:.1f}")
-                    st.metric("💎 Mineral", f"{liked_avg['minerality']:.1f}")
-                with feat_col2:
-                    st.metric("🍇 Fruit", f"{liked_avg['fruitiness']:.1f}")
-                    st.metric("🌰 Tannin", f"{liked_avg['tannin']:.1f}")
-                with feat_col3:
-                    st.metric("💪 Body", f"{liked_avg['body']:.1f}")
-
-        # 🌍 REGIONAL ANALYTICS
-        st.markdown("---")
-        st.markdown("### 🏆 Top Regions")
-
-        regional_required_cols = ['region', 'country', 'score', 'wine_name']
-        missing_regional_cols = [col for col in regional_required_cols if col not in liked_df.columns]
-
-        if liked_df.empty:
-            st.caption("Log wines with regions to see analytics")
-        elif missing_regional_cols:
-            st.caption(f"Missing fields for regional analytics: {', '.join(missing_regional_cols)}")
-        else:
-            # Filter out Unknown regions
-            regional_wines = liked_df[
-                (liked_df['region'] != 'Unknown') &
-                (liked_df['region'].notna())
-            ]
-
-            if len(regional_wines) > 0:
-                # Calculate average score by region
-                regional_stats = regional_wines.groupby('region').agg({
-                    'score': 'mean',
-                    'wine_name': 'count'
-                }).round(1)
-
-                regional_stats.columns = ['avg_score', 'count']
-                regional_stats = regional_stats.sort_values('avg_score', ascending=False)
-
-                # Show top 3 regions
-                for idx, (region, stats) in enumerate(regional_stats.head(3).iterrows()):
-                    if idx == 0:
-                        st.metric(
-                            f"🥇 {region}",
-                            f"{stats['avg_score']:.1f}/10",
-                            f"{int(stats['count'])} wines"
-                        )
-                    else:
-                        medal = "🥈" if idx == 1 else "🥉"
-                        st.metric(
-                            f"{medal} {region}",
-                            f"{stats['avg_score']:.1f}/10",
-                            f"{int(stats['count'])} wines"
-                        )
-            else:
-                st.caption("Log wines with regions to see analytics")
-
-        # Show top liked wines with PROMINENT GEOGRAPHY
-        st.markdown("---")
-        st.markdown("### 🌟 Top Liked Wines")
-
-        if liked_df.empty:
-            st.caption("Add liked wines to see your top wines")
-        elif 'score' not in liked_df.columns:
-            st.caption("Missing fields for top liked wines: score")
-        else:
-            liked_df_sorted = liked_df.sort_values('score', ascending=False)
-
-            for idx, row in liked_df_sorted.head(5).iterrows():
-                wine_name = row.get('producer', row.get('wine_name', 'Unknown'))
-
-                # Build geography string for display
-                country = row.get('country', 'Unknown')
-                region = row.get('region', 'Unknown')
-
-                # Only show location if we have real data
-                if region != 'Unknown' and country != 'Unknown':
-                    location = f"📍 {region}, {country}"
-                elif country != 'Unknown':
-                    location = f"📍 {country}"
-                else:
-                    location = None
-
-                with st.expander(f"{wine_name}"):
-                    # Show location prominently at top (if available)
-                    if location:
-                        st.markdown(f"**{location}**")
-                    st.write(f"**Score:** {row.get('score', 0):.1f}/10")
-                    # Only show vintage if it's valid
-                    if should_display_vintage(row.get('vintage')):
-                        st.write(f"**Vintage:** {int(row.get('vintage'))}")
-                    price_col = 'price' if 'price' in row else 'price_eur'
-                    st.write(f"**Price:** €{row.get(price_col, 0):.2f}")
-
-        if DEBUG_MODE:
-            st.markdown("---")
-            st.markdown("### 🔍 Debug Data")
-            st.caption(f"Shape: {df.shape}")
-            st.caption(f"Columns: {list(df.columns)}")
-            missing_liked_debug = st.session_state.get("_wine_df_missing_liked_debug")
-            if missing_liked_debug:
-                st.caption(
-                    "Loaded wines missing 'liked' column. "
-                    f"rows type: {missing_liked_debug.get('rows_type')}"
-                )
-                st.caption(f"Source columns: {missing_liked_debug.get('columns')}")
-            preview_rows = min(3, len(df))
-            if preview_rows > 0:
-                st.dataframe(df.head(preview_rows), width="stretch")
-            else:
-                st.caption("No rows to preview")
-
-        st.markdown("---")
-        st.info("Decant uses AI to predict wine compatibility based on your tasting history.")
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🍷 Add Wine",
+        "📊 My Palate Maps",
+        "🏆 Stats",
+        "🖼️ Wine Gallery",
+    ])
 
     # 🍷 TAB 1: Add Wine — content is gated by is_authenticated() below.
     # We always create 3 tabs so Streamlit's tab indexing stays stable;
@@ -1586,7 +781,7 @@ def main():
                 "Sign in to add wines and use the AI extraction feature. "
                 "Browsing the gallery and palate maps doesn't require an account."
             )
-            st.caption("Use the sign-in form in the sidebar.")
+            st.caption("Use the **Sign in** button at the top right.")
         else:
             st.markdown("### 🍷 Add Wine to Collection")
             st.caption("Enter wine name or upload a photo - AI extracts everything else")
@@ -1669,7 +864,7 @@ def main():
                     if 'wine_data' not in st.session_state or st.session_state.get('last_upload') != uploaded_file.name:
                         with st.spinner("🧠 AI is analyzing your wine... extracting all details"):
                             uploaded_file.seek(0)
-                            wine_data = extract_complete_wine_data(uploaded_file, history_df)
+                            wine_data = extract_complete_wine_data(uploaded_file, history_df, client)
 
                             if wine_data:
                                 st.session_state['wine_data'] = wine_data
@@ -2170,6 +1365,80 @@ def main():
         st.markdown("## 📊 My Palate Maps")
         st.caption("Your ideal flavor profiles by wine color")
 
+
+        # Load data
+        history_df = ensure_wine_df(load_wine_data())
+
+        if not history_df.empty:
+            # Get only liked wines
+            if 'liked' in history_df.columns:
+                liked_wines = history_df[history_df['liked'] == True]
+            else:
+                liked_wines = history_df.iloc[0:0].copy()
+
+            if liked_wines.empty:
+                st.warning("No liked wines yet. Add wines and mark them as liked to see your palate maps!")
+            else:
+                # Calculate color profiles for consolidation
+                colors = ['White', 'Red', 'Rosé', 'Orange']
+                feature_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
+                missing_feature_cols = [col for col in feature_cols if col not in liked_wines.columns]
+
+                color_profiles = {}
+                color_counts = {}
+
+                if 'wine_color' not in liked_wines.columns:
+                    st.caption("Missing fields for palate maps: wine_color")
+                elif missing_feature_cols:
+                    st.caption(f"Missing fields for palate maps: {', '.join(missing_feature_cols)}")
+                else:
+                    for wine_color in colors:
+                        color_wines = liked_wines[liked_wines['wine_color'] == wine_color]
+
+                        if len(color_wines) > 0:
+                            # Calculate ideal profile (average of liked wines)
+                            ideal_profile = color_wines[feature_cols].mean()
+                            color_profiles[wine_color] = ideal_profile
+                            color_counts[wine_color] = len(color_wines)
+
+                # Create ONE consolidated Master Radar with all color profiles overlaid
+                if len(color_profiles) > 0:
+                    st.markdown("### 🎯 Consolidated Master Radar")
+                    st.caption("All your wine color profiles overlaid in one high-contrast chart")
+
+                    # Display wine counts
+                    count_text = " | ".join([f"{color}: {count} wines" for color, count in color_counts.items()])
+                    st.caption(f"📊 {count_text}")
+
+                    # Create and display consolidated radar
+                    consolidated_radar = create_consolidated_palate_radar(color_profiles)
+                    st.plotly_chart(consolidated_radar, width="stretch", key='consolidated_master_radar')
+
+                    st.markdown("---")
+
+                    # Summary metrics by color (in expandable section)
+                    with st.expander("📊 View Detailed Metrics by Color"):
+                        for wine_color in colors:
+                            if wine_color in color_profiles:
+                                st.markdown(f"#### {wine_color} Wines")
+                                ideal_profile = color_profiles[wine_color]
+
+                                col1, col2, col3, col4, col5 = st.columns(5)
+                                with col1:
+                                    st.metric("⚡ Acidity", f"{ideal_profile['acidity']:.1f}/10")
+                                with col2:
+                                    st.metric("💎 Minerality", f"{ideal_profile['minerality']:.1f}/10")
+                                with col3:
+                                    st.metric("🍇 Fruitiness", f"{ideal_profile['fruitiness']:.1f}/10")
+                                with col4:
+                                    st.metric("🌰 Tannin", f"{ideal_profile['tannin']:.1f}/10")
+                                with col5:
+                                    st.metric("💪 Body", f"{ideal_profile['body']:.1f}/10")
+
+                                st.markdown("---")
+        else:
+            st.info("No wine data available. Add wines to see your palate maps!")
+
         # Data persistence controls (Download/Upload)
         col_data1, col_data2 = st.columns([1, 1])
         with col_data1:
@@ -2246,80 +1515,162 @@ def main():
 
         st.markdown("---")
 
-        # Load data
-        history_df = ensure_wine_df(load_wine_data())
-
-        if not history_df.empty:
-            # Get only liked wines
-            if 'liked' in history_df.columns:
-                liked_wines = history_df[history_df['liked'] == True]
-            else:
-                liked_wines = history_df.iloc[0:0].copy()
-
-            if liked_wines.empty:
-                st.warning("No liked wines yet. Add wines and mark them as liked to see your palate maps!")
-            else:
-                # Calculate color profiles for consolidation
-                colors = ['White', 'Red', 'Rosé', 'Orange']
-                feature_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
-                missing_feature_cols = [col for col in feature_cols if col not in liked_wines.columns]
-
-                color_profiles = {}
-                color_counts = {}
-
-                if 'wine_color' not in liked_wines.columns:
-                    st.caption("Missing fields for palate maps: wine_color")
-                elif missing_feature_cols:
-                    st.caption(f"Missing fields for palate maps: {', '.join(missing_feature_cols)}")
-                else:
-                    for wine_color in colors:
-                        color_wines = liked_wines[liked_wines['wine_color'] == wine_color]
-
-                        if len(color_wines) > 0:
-                            # Calculate ideal profile (average of liked wines)
-                            ideal_profile = color_wines[feature_cols].mean()
-                            color_profiles[wine_color] = ideal_profile
-                            color_counts[wine_color] = len(color_wines)
-
-                # Create ONE consolidated Master Radar with all color profiles overlaid
-                if len(color_profiles) > 0:
-                    st.markdown("### 🎯 Consolidated Master Radar")
-                    st.caption("All your wine color profiles overlaid in one high-contrast chart")
-
-                    # Display wine counts
-                    count_text = " | ".join([f"{color}: {count} wines" for color, count in color_counts.items()])
-                    st.caption(f"📊 {count_text}")
-
-                    # Create and display consolidated radar
-                    consolidated_radar = create_consolidated_palate_radar(color_profiles)
-                    st.plotly_chart(consolidated_radar, width="stretch", key='consolidated_master_radar')
-
-                    st.markdown("---")
-
-                    # Summary metrics by color (in expandable section)
-                    with st.expander("📊 View Detailed Metrics by Color"):
-                        for wine_color in colors:
-                            if wine_color in color_profiles:
-                                st.markdown(f"#### {wine_color} Wines")
-                                ideal_profile = color_profiles[wine_color]
-
-                                col1, col2, col3, col4, col5 = st.columns(5)
-                                with col1:
-                                    st.metric("⚡ Acidity", f"{ideal_profile['acidity']:.1f}/10")
-                                with col2:
-                                    st.metric("💎 Minerality", f"{ideal_profile['minerality']:.1f}/10")
-                                with col3:
-                                    st.metric("🍇 Fruitiness", f"{ideal_profile['fruitiness']:.1f}/10")
-                                with col4:
-                                    st.metric("🌰 Tannin", f"{ideal_profile['tannin']:.1f}/10")
-                                with col5:
-                                    st.metric("💪 Body", f"{ideal_profile['body']:.1f}/10")
-
-                                st.markdown("---")
-        else:
-            st.info("No wine data available. Add wines to see your palate maps!")
-
     with tab3:
+        st.markdown("## 🏆 Stats")
+        st.caption("Your collection at a glance")
+
+        # Load history fresh for this tab — cached at the load_wine_data level.
+        df = ensure_wine_df(load_wine_data())
+
+        # 🌍 REGIONAL FILTER DROPDOWN
+        if not df.empty and 'region' in df.columns:
+            # Get unique regions (exclude Unknown)
+            regions = df[
+                (df['region'] != 'Unknown') &
+                (df['region'].notna())
+            ]['region'].unique()
+
+            if len(regions) > 0:
+                regions_sorted = sorted(regions)
+                selected_region = st.selectbox(
+                    "🌍 Filter by Region",
+                    ["All Regions"] + list(regions_sorted),
+                    key='region_filter'
+                )
+
+                if selected_region != "All Regions":
+                    df = df[df['region'] == selected_region]
+                    st.caption(f"Showing: {selected_region}")
+
+        st.markdown("---")
+
+        # Headline metrics (Liked / Disliked / Total).
+        total_wines = len(df)
+        has_liked_col = 'liked' in df.columns
+        liked_wines = int(df['liked'].sum()) if has_liked_col else 0
+        disliked_wines = max(total_wines - liked_wines, 0)
+        liked_df = df[df['liked'] == True] if has_liked_col else df.iloc[0:0].copy()
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("✅ Liked", liked_wines)
+        with col2:
+            st.metric("❌ Disliked", disliked_wines)
+        with col3:
+            st.metric("📝 Total", total_wines)
+
+        # --- Palate Stats (your ideal flavour numbers) ---
+        st.markdown("---")
+        st.markdown("### 🧬 Palate Stats")
+
+        feature_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
+        missing_feature_cols = [c for c in feature_cols if c not in liked_df.columns]
+
+        if liked_df.empty:
+            st.caption("🔍 Add wines with flavor profiles to see your palate stats")
+        elif missing_feature_cols:
+            st.caption(f"Missing fields for palate stats: {', '.join(missing_feature_cols)}")
+        else:
+            liked_avg = liked_df[feature_cols].mean()
+            if liked_avg.sum() == 0:
+                st.caption("🔍 Add wines with flavor profiles to see your palate stats")
+            else:
+                st.caption("Your ideal wine profile:")
+                f1, f2, f3, f4, f5 = st.columns(5)
+                with f1:
+                    st.metric("⚡ Acid", f"{liked_avg['acidity']:.1f}")
+                with f2:
+                    st.metric("💎 Mineral", f"{liked_avg['minerality']:.1f}")
+                with f3:
+                    st.metric("🍇 Fruit", f"{liked_avg['fruitiness']:.1f}")
+                with f4:
+                    st.metric("🌰 Tannin", f"{liked_avg['tannin']:.1f}")
+                with f5:
+                    st.metric("💪 Body", f"{liked_avg['body']:.1f}")
+
+        # --- Top Regions (top 3 by average score) ---
+        st.markdown("---")
+        st.markdown("### 🌍 Top Regions")
+
+        regional_required_cols = ['region', 'country', 'score', 'wine_name']
+        missing_regional_cols = [c for c in regional_required_cols if c not in liked_df.columns]
+
+        if liked_df.empty:
+            st.caption("Log wines with regions to see analytics")
+        elif missing_regional_cols:
+            st.caption(f"Missing fields for regional analytics: {', '.join(missing_regional_cols)}")
+        else:
+            regional_wines = liked_df[
+                (liked_df['region'] != 'Unknown') &
+                (liked_df['region'].notna())
+            ]
+            if len(regional_wines) > 0:
+                regional_stats = regional_wines.groupby('region').agg({
+                    'score': 'mean',
+                    'wine_name': 'count'
+                }).round(1)
+                regional_stats.columns = ['avg_score', 'count']
+                regional_stats = regional_stats.sort_values('avg_score', ascending=False)
+                for idx, (region, stats) in enumerate(regional_stats.head(3).iterrows()):
+                    medal = {0: '🥇', 1: '🥈', 2: '🥉'}.get(idx, f"#{idx + 1}")
+                    rcol1, rcol2, rcol3 = st.columns([1, 5, 2])
+                    with rcol1:
+                        st.markdown(f"### {medal}")
+                    with rcol2:
+                        st.markdown(f"**{region}**")
+                        st.caption(f"{int(stats['count'])} wines")
+                    with rcol3:
+                        st.metric("Avg score", f"{stats['avg_score']:.1f}/10")
+            else:
+                st.caption("No regional data yet")
+
+        # --- Top Wines (top 3 by score) ---
+        st.markdown("---")
+        st.markdown("### 🍷 Top Wines")
+
+        top_wines_df = liked_df if not liked_df.empty else df
+        required_for_top = {'wine_name', 'score'}
+        if top_wines_df.empty:
+            st.caption("Add and rate wines to see your top picks.")
+        elif not required_for_top.issubset(top_wines_df.columns):
+            st.caption("Score column missing — can't rank wines yet.")
+        else:
+            top3 = top_wines_df.sort_values('score', ascending=False).head(3)
+            for rank, (_, wine) in enumerate(top3.iterrows(), start=1):
+                producer = wine.get('producer', '')
+                vintage = wine.get('vintage')
+                year = f" {int(vintage)}" if vintage and not pd.isna(vintage) and vintage > 0 else ""
+                medal = {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, f"#{rank}")
+                wcol1, wcol2, wcol3 = st.columns([1, 6, 2])
+                with wcol1:
+                    st.markdown(f"### {medal}")
+                with wcol2:
+                    st.markdown(f"**{wine['wine_name']}**{year}")
+                    if producer:
+                        st.caption(producer)
+                with wcol3:
+                    st.metric("Score", f"{wine['score']:.1f}/10")
+
+        # --- Debug (gated by DEBUG_MODE) ---
+        if DEBUG_MODE:
+            st.markdown("---")
+            st.markdown("### 🔍 Debug Data")
+            st.caption(f"Shape: {df.shape}")
+            st.caption(f"Columns: {list(df.columns)}")
+            missing_liked_debug = st.session_state.get("_wine_df_missing_liked_debug")
+            if missing_liked_debug:
+                st.caption(
+                    "Loaded wines missing 'liked' column. "
+                    f"rows type: {missing_liked_debug.get('rows_type')}"
+                )
+                st.caption(f"Source columns: {missing_liked_debug.get('columns')}")
+            preview_rows = min(3, len(df))
+            if preview_rows > 0:
+                st.dataframe(df.head(preview_rows), width="stretch")
+            else:
+                st.caption("No rows to preview")
+
+    with tab4:
         st.markdown("## 🖼️ Wine Gallery")
         st.caption("Browse your complete wine collection with all details")
 

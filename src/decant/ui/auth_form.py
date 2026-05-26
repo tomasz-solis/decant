@@ -1,8 +1,14 @@
 """Streamlit UI for the household sign-in flow.
 
-Renders a compact login form in the sidebar (or wherever the caller
-places it). On success, the rest of the app sees `is_authenticated()`
-return True and can call `get_supabase_client()` freely.
+Renders a top-right auth control as a popover:
+- when signed out: a "Sign in" button; click to open a popover with the
+  email/password form
+- when signed in: a "👤 <email>" button; click to open a popover with a
+  "Sign out" action
+
+The popover affordance keeps the auth out of the main reading flow and
+out of the sidebar, where it was discoverability-hostile (collapsed by
+default on mobile, hard to find the toggle).
 
 No signup UI. Accounts are pre-created in the Supabase dashboard for
 this app's "single household account" model.
@@ -20,40 +26,52 @@ from decant.supabase_session import (
 )
 
 
-def render_auth_block(contact_email: str = "tomasz@example.com") -> None:
-    """Render the auth UI (login form when logged out, sign-out when in).
+def render_header_auth(contact_email: str = "tomasz@example.com") -> None:
+    """Render the top-right auth popover.
+
+    Use this inside a right-aligned column at the top of the page. The
+    popover handles its own open/close state; clicking outside closes
+    it. The caller does not need to manage visibility.
 
     Args:
-        contact_email: Address shown in the "want access?" mailto link
-            beneath the login form. Pulled from secrets in the caller.
+        contact_email: address shown in the "need help?" form's mailto
+            link, pulled from secrets in the caller.
     """
     if is_authenticated():
-        _render_logged_in()
+        _render_logged_in_popover()
     else:
-        _render_login_form(contact_email)
+        _render_signin_popover(contact_email)
 
 
-def _render_logged_in() -> None:
-    """Compact 'signed in as X' block with sign-out button."""
+def _render_logged_in_popover() -> None:
+    """Popover showing the current user and a sign-out action."""
     email = current_user_email() or "household"
-    st.markdown(f"**Signed in as** `{email}`")
-    if st.button("Sign out", key="auth_signout"):
-        sign_out()
-        st.rerun()
+    # Truncate the visible email so the button stays compact.
+    label = f"👤 {email if len(email) < 20 else email[:17] + '...'}"
+    with st.popover(label, use_container_width=False):
+        st.markdown(f"**Signed in as**  \n`{email}`")
+        if st.button("Sign out", key="auth_signout", type="primary"):
+            sign_out()
+            st.rerun()
 
 
-def _render_login_form(contact_email: str) -> None:
-    """Email + password form, with a help-by-email fallback for stuck users."""
+def _render_signin_popover(contact_email: str) -> None:
+    """Popover containing the sign-in form, or the help form if toggled."""
+    with st.popover("Sign in", type="primary", use_container_width=False):
+        if st.session_state.get("_auth_show_help"):
+            _render_help_form(contact_email)
+        else:
+            _render_login_inputs(contact_email)
+
+
+def _render_login_inputs(contact_email: str) -> None:
+    """Email + password inputs with sign-in and 'need help' actions."""
     st.markdown("### Sign in")
-
-    # Help-by-email mode shows a different form. Toggled via session state.
-    if st.session_state.get("_auth_show_help"):
-        _render_help_form(contact_email)
-        return
 
     email = st.text_input("Email", key="auth_email", autocomplete="email")
     password = st.text_input(
-        "Password", type="password", key="auth_password", autocomplete="current-password"
+        "Password", type="password", key="auth_password",
+        autocomplete="current-password",
     )
 
     col_signin, col_help = st.columns([2, 1])
@@ -67,8 +85,6 @@ def _render_login_form(contact_email: str) -> None:
                     st.rerun()
                 else:
                     # `err` is already user-safe (see supabase_session.sign_in).
-                    # No "Details:" expansion — we don't want to surface
-                    # anything more than the canonical message.
                     st.error(err or "Sign-in failed.")
 
     with col_help:
