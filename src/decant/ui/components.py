@@ -8,12 +8,6 @@ This separation matters because Streamlit reruns the entire script on
 every interaction, and Plotly figure construction is the most expensive
 part of those reruns. Keeping these as pure functions makes them
 straightforward to cache (`@st.cache_data`) if needed in future.
-
-`ensure_wine_df` is used in a couple of places to normalise input
-DataFrames against the wine schema. It's imported here from the
-top-level `app.py` for now; Phase 3 Chunk 2 will move it into
-`decant.services.data_access` where the schema constants already
-partially live.
 """
 
 from __future__ import annotations
@@ -23,18 +17,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from decant.schema import WineFeatures
-
-
-# Imported lazily from app.py to keep this module's dependency graph
-# small until Chunk 2 moves ensure_wine_df into data_access.
-def _ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Forward to app.ensure_wine_df at call time, to avoid a circular import.
-
-    Will be replaced in Chunk 2 by a direct import from
-    decant.services.data_access.
-    """
-    from app import ensure_wine_df  # noqa: PLC0415 — intentionally lazy
-    return ensure_wine_df(df)
+from decant.services.data_access import normalize as _ensure_wine_df
 
 
 def create_mini_radar_chart(liked_avg):

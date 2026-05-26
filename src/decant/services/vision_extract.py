@@ -29,12 +29,7 @@ from pydantic import ValidationError
 
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE
 from decant.schema import WineExtraction
-
-
-def _ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Forward to app.ensure_wine_df at call time (Chunk 2 will inline it)."""
-    from app import ensure_wine_df  # noqa: PLC0415 — intentionally lazy
-    return ensure_wine_df(df)
+from decant.services.data_access import normalize as _ensure_wine_df
 
 
 def extract_complete_wine_data(image_file, history_df, client: OpenAI):

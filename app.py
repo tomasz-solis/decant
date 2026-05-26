@@ -45,6 +45,7 @@ from decant.services.image_storage import (
     save_wine_image,
 )
 from decant.services.vision_extract import extract_complete_wine_data
+from decant.services.data_access import normalize as ensure_wine_df
 from decant.wines_repo import list_wines as repo_list_wines, repo_add_wine
 
 # Load environment variables
@@ -564,106 +565,6 @@ def load_predictor(history_df: Optional[pd.DataFrame] = None):
         predictor.refresh_context(history_df)
     return predictor
 
-
-EXPECTED_WINE_COLUMNS = [
-    "wine_name",
-    "producer",
-    "vintage",
-    "notes",
-    "score",
-    "liked",
-    "price",
-    "country",
-    "region",
-    "wine_color",
-    "is_sparkling",
-    "is_natural",
-    "sweetness",
-    "acidity",
-    "minerality",
-    "fruitiness",
-    "tannin",
-    "body",
-]
-
-NUMERIC_WINE_COLUMNS = [
-    "acidity",
-    "minerality",
-    "fruitiness",
-    "tannin",
-    "body",
-    "score",
-    "price",
-    "vintage",
-]
-
-BOOL_WINE_COLUMNS = ["liked", "is_sparkling", "is_natural"]
-
-TEXT_WINE_COLUMNS = [
-    "wine_name",
-    "producer",
-    "notes",
-    "country",
-    "region",
-    "wine_color",
-    "sweetness",
-]
-
-DEFAULT_WINE_VALUES = {
-    "wine_name": "Unknown",
-    "producer": "Unknown",
-    "vintage": 0.0,
-    "notes": "",
-    "score": 0.0,
-    "liked": False,
-    "price": 0.0,
-    "country": "Unknown",
-    "region": "Unknown",
-    "wine_color": "Unknown",
-    "is_sparkling": False,
-    "is_natural": False,
-    "sweetness": "Unknown",
-    "acidity": 0.0,
-    "minerality": 0.0,
-    "fruitiness": 0.0,
-    "tannin": 0.0,
-    "body": 0.0,
-}
-
-
-def ensure_wine_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return a safe wine DataFrame with expected schema.
-
-    Handles None/empty/malformed frames and guarantees required columns exist.
-    """
-    if df is None or not isinstance(df, pd.DataFrame):
-        return pd.DataFrame(columns=EXPECTED_WINE_COLUMNS)
-
-    # Malformed construction (e.g., RangeIndex numeric columns from list rows)
-    if isinstance(df.columns, pd.RangeIndex) or all(
-        isinstance(col, (int, float)) for col in df.columns
-    ):
-        return pd.DataFrame(columns=EXPECTED_WINE_COLUMNS)
-
-    safe_df = df.copy()
-
-    for col in EXPECTED_WINE_COLUMNS:
-        if col not in safe_df.columns:
-            safe_df[col] = DEFAULT_WINE_VALUES[col]
-
-    for col in NUMERIC_WINE_COLUMNS:
-        safe_df[col] = pd.to_numeric(safe_df[col], errors="coerce").fillna(
-            DEFAULT_WINE_VALUES[col]
-        )
-
-    for col in BOOL_WINE_COLUMNS:
-        safe_df[col] = safe_df[col].fillna(False).astype(bool)
-
-    for col in TEXT_WINE_COLUMNS:
-        safe_df[col] = safe_df[col].fillna(DEFAULT_WINE_VALUES[col]).astype(str)
-
-    return safe_df
 
 
 def load_wine_data():
