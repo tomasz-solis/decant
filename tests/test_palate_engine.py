@@ -258,15 +258,70 @@ class TestCalculateMatch:
         assert score.palate_match > 95.0
         assert score.likelihood_score < 40.0  # Heavily penalized
 
-    def test_verdict_thresholds(self, sample_history):
-        """Verdict assignment under v2 thresholds (60/50/40 on likelihood)."""
+    def test_verdict_strong_match_at_high_alignment_and_confidence(self, sample_history):
+        """Strong Match requires both high alignment AND enough samples.
+
+        Display fix (2026-05): the verdict considers alignment and
+        confidence as separate dimensions. High alignment alone is
+        not enough — needs the sample size too.
+        """
+        engine = PalateEngine(sample_history)  # 3 liked wines, conf ~= 0.7
+
+        # Wine that's very close to the liked-wine average.
+        strong_wine = {
+            'acidity': 8.5, 'fruitiness': 7.5, 'body': 5.5,
+            'tannin': 1.5, 'minerality': 8.5,
+        }
+        score = engine.calculate_match(strong_wine)
+
+        if score.palate_match >= 70.0 and score.confidence_factor >= 0.6:
+            assert "💙 Strong Match" in score.verdict, (
+                f"Expected Strong Match with alignment={score.palate_match:.1f} "
+                f"and confidence={score.confidence_factor:.2f}, got: {score.verdict!r}"
+            )
+
+    def test_verdict_promising_at_high_alignment_low_confidence(self, sample_history):
+        """High alignment with few samples reads as Promising, not Strong.
+
+        Critical case: previously this returned a low number (e.g. 33%)
+        labelled 'Strong Match' because likelihood was alignment x
+        confidence and the verdict was on likelihood. New logic: high
+        alignment is reported honestly as Promising when sample size
+        is small.
+        """
+        # Single liked wine -> confidence ~= 0.33, well below 0.6.
+        df_one = sample_history[sample_history['wine_name'] == 'Albariño 1'].copy()
+        engine = PalateEngine(df_one)
+
+        # Identical to the liked wine — perfect alignment.
+        score = engine.calculate_match({
+            'acidity': 9, 'fruitiness': 7, 'body': 5,
+            'tannin': 1, 'minerality': 9,
+        })
+
+        # Should be high alignment but low confidence.
+        assert score.palate_match > 95.0
+        assert score.confidence_factor < 0.6
+        # And the verdict acknowledges that, not "Strong Match".
+        assert "Promising" in score.verdict, (
+            f"Expected Promising verdict, got: {score.verdict!r}"
+        )
+
+    def test_verdict_different_style_at_low_alignment(self, sample_history):
+        """Low alignment -> Different Style regardless of sample size."""
         engine = PalateEngine(sample_history)
 
-        strong_wine = {'acidity': 8.5, 'fruitiness': 7.5, 'body': 5.5, 'tannin': 1.5, 'minerality': 8.5}
-        score_strong = engine.calculate_match(strong_wine)
+        opposite_wine = {
+            'acidity': 3, 'fruitiness': 5, 'body': 9,
+            'tannin': 9, 'minerality': 3,
+        }
+        score = engine.calculate_match(opposite_wine)
 
-        if score_strong.likelihood_score >= 60:
-            assert "💙" in score_strong.verdict or "Strong" in score_strong.verdict
+        if score.palate_match < 55.0:
+            assert "Different Style" in score.verdict, (
+                f"Expected Different Style for low alignment "
+                f"({score.palate_match:.1f}), got: {score.verdict!r}"
+            )
 
 
 class TestCentredCosine:

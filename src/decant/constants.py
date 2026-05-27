@@ -22,10 +22,17 @@ class Sweetness(str, Enum):
 
 
 class Verdict(Enum):
-    """Match verdicts with thresholds and display strings.
+    """LEGACY: not currently the source of truth for verdict assignment.
 
-    Thresholds operate on `likelihood_score` (palate_match * confidence_factor).
-    Calibrated for centred cosine output; see docs/algorithm_v2.md.
+    The active verdict logic lives in
+    `decant.palate_engine.PalateEngine.calculate_match` and considers
+    `palate_match` and `confidence_factor` as separate dimensions
+    rather than multiplying them. This enum is kept around in case
+    a future caller wants a single-threshold mapping, but the labels
+    and thresholds here may drift from the active logic.
+
+    If you're trying to understand what verdict the user sees, read
+    palate_engine.calculate_match, not this enum.
     """
     STRONG_MATCH = ("💙 Strong Match", 60.0)
     WORTH_TRYING = ("🧡 Worth Trying", 50.0)

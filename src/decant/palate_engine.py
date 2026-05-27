@@ -256,33 +256,49 @@ class PalateEngine:
         confidence_factor = self.exponential_confidence_factor(n_samples)
         likelihood_score = palate_match * confidence_factor
 
-        # Thresholds calibrated for centred cosine output.
-        # palate_match >= 65 corresponds to centred-cosine >= 0.3
-        # (positive alignment with liked-deviation pattern).
-        # See docs/algorithm_v2.md for the derivation.
-        if likelihood_score >= 60:
+        # Verdict considers alignment and confidence as two separate
+        # facts, not as a multiplication. This matches what the UI
+        # shows the user and avoids the "65% Strong Match" confusion
+        # where a high-alignment wine reads as a weak match purely
+        # because the user hasn't rated enough wines yet.
+        #
+        # `palate_match` is the centred-cosine output mapped to
+        # [0, 100]. 50 corresponds to neutral (zero alignment with
+        # the liked-deviation pattern); 70 corresponds to centred
+        # cosine ~0.4 — solid positive alignment.
+        #
+        # `confidence_factor` is exponential, hitting ~0.6 at n=3
+        # liked wines (the "we have enough data to commit" threshold).
+        STRONG_ALIGNMENT = 70.0
+        EXPLORE_ALIGNMENT = 55.0
+        CONFIDENT_ENOUGH = 0.6
+
+        if palate_match >= STRONG_ALIGNMENT and confidence_factor >= CONFIDENT_ENOUGH:
             verdict = "💙 Strong Match"
             explanation = (
                 f"High flavor alignment ({palate_match:.0f}%) with "
                 f"strong confidence ({n_samples} wines)"
             )
-        elif likelihood_score >= 50:
-            verdict = "🧡 Worth Trying"
+        elif palate_match >= STRONG_ALIGNMENT:
+            # High alignment but not enough data — call it Promising
+            # rather than Strong, so the verdict copy doesn't oversell
+            # what's still an early signal.
+            verdict = "🌱 Promising — rate more to confirm"
             explanation = (
-                f"Good alignment ({palate_match:.0f}%), moderate "
-                f"confidence ({n_samples} wines)"
+                f"High flavor alignment ({palate_match:.0f}%), but "
+                f"only {n_samples} wine(s) rated so far"
             )
-        elif likelihood_score >= 40:
-            verdict = "🟡 Explore"
+        elif palate_match >= EXPLORE_ALIGNMENT:
+            verdict = "🟡 Worth Exploring"
             explanation = (
-                f"Moderate alignment ({palate_match:.0f}%), building "
-                f"confidence ({n_samples} wines)"
+                f"Moderate alignment ({palate_match:.0f}%) — could "
+                f"go either way"
             )
         else:
             verdict = "⚪ Different Style"
             explanation = (
-                f"Low alignment ({palate_match:.0f}%) - departure from "
-                f"your usual profile"
+                f"Low alignment ({palate_match:.0f}%) — departure "
+                f"from your usual profile"
             )
 
         return PalateScore(
