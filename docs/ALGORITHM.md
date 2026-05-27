@@ -1,4 +1,6 @@
-# Algorithm v2 — centred cosine
+# Algorithm — centred cosine + alignment-led verdict
+
+Two related changes to how the palate match score is computed and presented. Both shipped after the original "plain cosine" v1.
 
 ## What changed
 
@@ -33,18 +35,26 @@ The headline differences:
 
 If you look at a wine you previously rated 92% and it now scores 65%, that isn't a regression. The old 92% was inflated.
 
-## Threshold recalibration
+## Verdict logic — alignment and confidence as separate dimensions
 
-Verdict thresholds operate on `likelihood_score = palate_match × confidence_factor`. They were recalibrated for the new score distribution:
+The verdict shown to the user is **not** derived from a single threshold on `palate_match × confidence_factor`. That used to be the design and it was wrong, for the reason called out in [the display fix commit](#): high alignment with low confidence was rendering as "65% Strong Match," which read like a regression to anyone whose mental model was "Strong Match means a high number."
 
-| verdict          | v1 threshold | v2 threshold |
-|------------------|--------------|--------------|
-| 💙 Strong Match  | 75           | 60           |
-| 🧡 Worth Trying  | 60           | 50           |
-| 🟡 Explore       | 45           | 40           |
-| ⚪ Different     | < 45         | < 40         |
+Now the engine considers alignment and confidence as separate facts:
 
-These numbers are based on theoretical reasoning, not empirical calibration. With a real labelled dataset ("the app said Strong Match — was it actually a strong match?") they should be retuned. Until then, treat the thresholds as defensible-but-uncertified.
+| condition | verdict |
+|---|---|
+| `palate_match ≥ 70` AND `confidence_factor ≥ 0.6` | 💙 Strong Match |
+| `palate_match ≥ 70` AND `confidence_factor < 0.6` | 🌱 Promising — rate more to confirm |
+| `palate_match ≥ 55` | 🟡 Worth Exploring |
+| `palate_match < 55` | ⚪ Different Style |
+
+The UI shows `palate_match` as the headline number, with confidence presented qualitatively ("moderate, based on 3 wines") in a breakdown panel. The multiplication formula is no longer surfaced anywhere — it conflated two different things that the user benefits from reading independently.
+
+`palate_match ≥ 70` corresponds to centred cosine ≥ 0.4 — solidly positive alignment with the liked-deviation pattern. `confidence_factor ≥ 0.6` corresponds to roughly 3+ liked wines under the exponential confidence formula.
+
+`likelihood_score` (the product) is still computed and exposed on the `PalateScore` dataclass for backward compatibility, but nothing in the UI reads it. The `Verdict` enum in `constants.py` is marked legacy for the same reason — no live code consumes it.
+
+These thresholds are based on theoretical reasoning, not empirical calibration. With a real labelled dataset ("the app said Strong Match — was it actually a strong match?") they should be retuned. Until then, treat them as defensible-but-uncertified.
 
 ## Cold-start behaviour
 
@@ -60,9 +70,10 @@ The exponential confidence factor (`1 - e^(-0.4N)`) was not changed. It still da
 
 ## File-level summary
 
-- `palate_engine.py:_compute_ideal_profile`: now also stores `population_mean` and `n_total`
-- `palate_engine.py:_centred_cosine`: new method, used by `calculate_match`
-- `palate_engine.py:cosine_similarity`: unchanged; docstring warns about the positive-vector caveat
-- `palate_engine.py:calculate_match`: switched to `_centred_cosine`; verdict thresholds updated; inline `# BUG FIX` comment converted to docstring note
-- `constants.py:Verdict`: thresholds updated to match
-- `tests/test_palate_engine.py`: existing cosine tests retained (plain cosine still works as documented); new `TestCentredCosine` and `TestPopulationMean` classes pin v2 semantics
+- `palate_engine.py:_compute_ideal_profile`: stores `population_mean` and `n_total` alongside the per-colour ideal vectors
+- `palate_engine.py:_centred_cosine`: the v2 similarity function. Falls back to plain cosine when `n_total < 3`.
+- `palate_engine.py:cosine_similarity`: still around for the fallback path; docstring warns about the positive-vector caveat
+- `palate_engine.py:calculate_match`: uses `_centred_cosine`; verdict is built from `palate_match` and `confidence_factor` separately, not from `likelihood_score`
+- `ui/tab_add_wine.py`: headline display number is `palate_match`. Breakdown panel presents alignment and confidence as parallel facts.
+- `constants.py:Verdict`: marked legacy; not read anywhere
+- `tests/test_palate_engine.py`: `TestCentredCosine` and `TestPopulationMean` pin the v2 math; the new verdict tests pin "high alignment + low confidence → Promising, not Strong"

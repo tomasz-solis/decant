@@ -1,36 +1,34 @@
 # Get Supabase API Keys
 
-You need to add your Supabase API keys to enable photo storage.
+You need the Supabase project URL and anon key to run the app locally — the same values that go into `.streamlit/secrets.toml`.
 
-## Step 1: Get Your Keys
+## Step 1: Find the values in the Supabase dashboard
 
-1. Go to: https://supabase.com/dashboard/project/rageghyliafgxublfljb/settings/api
+1. Open your project at https://supabase.com/dashboard
+2. Click **Project Settings** → **API**
+3. Copy:
+   - **Project URL** — looks like `https://YOURPROJECT.supabase.co`
+   - **anon / public key** — a long JWT starting with `eyJ...`
 
-2. Copy these two values:
-   - **Project URL** (e.g., `https://rageghyliafgxublfljb.supabase.co`)
-   - **anon/public key** (starts with `eyJ...`)
+The `service_role` key on the same page is different — don't use it for the app. It bypasses Row-Level Security and should only be used in trusted admin scripts.
 
-## Step 2: Add to .streamlit/secrets.toml
-
-Add these lines to your `.streamlit/secrets.toml`:
+## Step 2: Add to `.streamlit/secrets.toml`
 
 ```toml
-# Supabase Storage (for wine images)
-SUPABASE_URL = "https://rageghyliafgxublfljb.supabase.co"
-SUPABASE_KEY = "paste-your-anon-key-here"
+SUPABASE_URL = "https://YOURPROJECT.supabase.co"
+SUPABASE_KEY = "eyJ..."
 ```
 
-## Step 3: Test the Connection
+The full set of secrets the app expects is in the [README](../README.md#setup).
+
+## Step 3: Verify
 
 ```bash
-python scripts/migrate_images_to_supabase.py
+uv run streamlit run app.py
 ```
 
-This will:
-- Create the 'wine-images' bucket in Supabase Storage
-- Upload all 15 existing wine photos
-- Give you public URLs for each photo
+The app should boot without "missing required secret" errors. If you see RLS failures (the gallery shows nothing for a signed-in user, for example), the keys are loading but the `CELLAR_ID` may not match an actual row — check `sql/` for the RLS policies and the wines table schema.
 
 ---
 
-**Don't commit these keys to git!** The `.streamlit/secrets.toml` file is already in `.gitignore`.
+**Don't commit secrets to git.** `.streamlit/secrets.toml` should be in `.gitignore` already; double-check before adding the file.

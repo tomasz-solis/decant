@@ -1,7 +1,5 @@
 # Security Guidelines for Decant
 
-> Security documentation created with Claude AI assistance
-
 ## ⚠️ API Key Management
 
 ### DO NOT:
@@ -83,7 +81,3 @@ Demonstrating security awareness is critical:
 - Implement proper secret management
 - Document security practices
 - Never compromise on security for convenience
-
----
-
-**Built with Claude AI** - This security documentation was created with assistance from [Claude Code](https://claude.ai/code)
