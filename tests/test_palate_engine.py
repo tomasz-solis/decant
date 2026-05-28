@@ -324,6 +324,72 @@ class TestCalculateMatch:
             )
 
 
+class TestScoreDeterminism:
+    """The score must be a pure function of (features, history).
+
+    Regression guard for the instability bug where the same wine
+    scored 84% / 92% / 95% across renders. The root cause was upstream
+    (non-deterministic LLM feature extraction), but the engine itself
+    must be provably deterministic so we can isolate future drift to
+    the input layer rather than the math.
+    """
+
+    @pytest.fixture
+    def history(self):
+        return pd.DataFrame([
+            {'wine_name': 'A', 'liked': True, 'wine_color': 'Red',
+             'acidity': 7, 'fruitiness': 6, 'body': 6, 'tannin': 5, 'minerality': 7},
+            {'wine_name': 'B', 'liked': True, 'wine_color': 'Red',
+             'acidity': 8, 'fruitiness': 6, 'body': 5, 'tannin': 4, 'minerality': 8},
+            {'wine_name': 'C', 'liked': True, 'wine_color': 'Red',
+             'acidity': 7, 'fruitiness': 7, 'body': 6, 'tannin': 5, 'minerality': 7},
+            {'wine_name': 'D', 'liked': False, 'wine_color': 'Red',
+             'acidity': 4, 'fruitiness': 5, 'body': 9, 'tannin': 9, 'minerality': 3},
+        ])
+
+    def test_same_inputs_give_identical_score(self, history):
+        from decant.palate_engine import PalateEngine
+
+        candidate = {
+            'acidity': 7.5, 'fruitiness': 6.2, 'body': 5.5,
+            'tannin': 4.5, 'minerality': 7.8,
+        }
+
+        # Build a fresh engine each time, as the app does per render.
+        scores = []
+        for _ in range(5):
+            engine = PalateEngine(history.copy())
+            score = engine.calculate_match(candidate, 'Red')
+            scores.append(score.palate_match)
+
+        # All five must be bit-identical. No averaging, no tolerance.
+        assert len(set(scores)) == 1, (
+            f"Score varied across identical calls: {scores}. The engine "
+            f"must be deterministic given fixed features and history."
+        )
+
+    def test_row_order_does_not_change_score(self, history):
+        from decant.palate_engine import PalateEngine
+
+        candidate = {
+            'acidity': 7.5, 'fruitiness': 6.2, 'body': 5.5,
+            'tannin': 4.5, 'minerality': 7.8,
+        }
+
+        engine_a = PalateEngine(history.copy())
+        score_a = engine_a.calculate_match(candidate, 'Red').palate_match
+
+        # Shuffle the rows — a DB query without ORDER BY can return
+        # rows in any order. The score must not depend on it.
+        shuffled = history.sample(frac=1.0, random_state=7).reset_index(drop=True)
+        engine_b = PalateEngine(shuffled)
+        score_b = engine_b.calculate_match(candidate, 'Red').palate_match
+
+        assert abs(score_a - score_b) < 1e-9, (
+            f"Score depends on row order: {score_a} vs {score_b}"
+        )
+
+
 class TestCentredCosine:
     """Behaviour of centred cosine, the v2 normalisation fix.
 
