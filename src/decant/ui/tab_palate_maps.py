@@ -158,7 +158,6 @@ def _render_download_button(history_df: pd.DataFrame) -> None:
         data=csv_data,
         file_name="decant_wine_history.csv",
         mime="text/csv",
-        help="Backup your wine collection",
     )
 
 

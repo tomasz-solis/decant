@@ -29,8 +29,8 @@ import io
 import pandas as pd
 import streamlit as st
 
-from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant.services.image_storage import save_wine_image
+from decant.services.text_infer import infer_features_from_text
 from decant.services.vision_extract import extract_complete_wine_data
 from decant.services.wine_match import find_prior_tasting
 from decant.supabase_session import get_user_supabase
@@ -82,7 +82,7 @@ def _render_prior_tasting_badge(prior) -> None:
             padding: 10px 16px;
             margin: 16px 0 0 0;
             font-size: 14px;
-            color: #E8E8EB;
+            color: #3D2817;
         ">
             {emoji} <strong>{leading}</strong> — {rating_text}
         </div>""",
@@ -182,6 +182,30 @@ def render(
                             'body': extraction.body
                         }
 
+                        # If the structured extraction didn't produce a
+                        # flavour profile (common for text entry — the
+                        # name-based extraction focuses on metadata), infer
+                        # it ONCE here, at extraction time. Doing it now
+                        # rather than at display time is the fix for the
+                        # unstable-score bug: the display path reran the
+                        # inference on every Streamlit rerun, and the LLM
+                        # isn't truly deterministic, so the score drifted
+                        # between renders. Inferred once and frozen, the
+                        # score is stable.
+                        flavor_features = [
+                            wine_data['acidity'], wine_data['minerality'],
+                            wine_data['fruitiness'], wine_data['tannin'],
+                            wine_data['body'],
+                        ]
+                        if all((v or 0) == 0 for v in flavor_features):
+                            inferred = infer_features_from_text(
+                                wine_name=wine_data.get('wine_name', ''),
+                                region=wine_data.get('region', 'Unknown') or 'Unknown',
+                                client=client,
+                            )
+                            if inferred is not None:
+                                wine_data.update(inferred)
+
                         st.session_state['wine_data'] = wine_data
                         st.success("✅ Wine data extracted!")
                         st.rerun()
@@ -267,7 +291,13 @@ def render(
                 # level) and point it at the latest history.
                 predictor.refresh_context(history_df)
 
-                # Calculate likelihood - HARDENED with style-based inference
+                # Read the (already-frozen) flavour features from the
+                # stored wine record. Inference happened ONCE at
+                # extraction time (see the text-entry path and
+                # services/text_infer). The display path must never call
+                # the LLM — that was the source of the unstable score,
+                # because reruns re-inferred and the LLM isn't truly
+                # deterministic.
                 wine_features_dict = {
                     'acidity': wine_data.get('acidity', 0),
                     'minerality': wine_data.get('minerality', 0),
@@ -276,151 +306,21 @@ def render(
                     'body': wine_data.get('body', 0)
                 }
 
-                # 🚨 If features not extracted from image, use OpenAI to infer with explanation
-                feature_descriptions = {}
-                if all(v == 0 for v in wine_features_dict.values()):
-                    wine_name = wine_data.get('wine_name', '')
-                    region = wine_data.get('region', 'Unknown')
-
-                    # Ask OpenAI to rate AND explain each characteristic
-                    st.info("ℹ️ Wine characteristics inferred from wine name and region (not extracted from label)")
-
-                    # Cache key for consistent results
-                    cache_key = f"{wine_name}_{region}".lower().replace(" ", "_")
-
-                    # Check if we've already rated this wine
-                    if 'wine_ratings_cache' not in st.session_state:
-                        st.session_state['wine_ratings_cache'] = {}
-
-                    if cache_key in st.session_state['wine_ratings_cache']:
-                        # Use cached ratings for consistency
-                        cached = st.session_state['wine_ratings_cache'][cache_key]
-                        wine_features_dict = cached['features']
-                        feature_descriptions = cached['descriptions']
-                        wine_data.update({
-                            'acidity': wine_features_dict['acidity'],
-                            'fruitiness': wine_features_dict['fruitiness'],
-                            'body': wine_features_dict['body'],
-                            'minerality': wine_features_dict['minerality'],
-                            'tannin': wine_features_dict['tannin']
-                        })
-                        st.caption("✓ Using cached ratings for consistency")
-                    else:
-                        # First time - get ratings from LLM
-                        try:
-                            # Nuclear-Grade Feature Extraction Prompt for Decision Science
-                            inference_prompt = f"""Role: You are a Master Sommelier and Data Engineer specializing in quantitative viticulture.
-
-Task: Provide a precise, technical flavor profile for the wine: {wine_name} from {region}.
-
-Objective: Your output will be used to calculate a vector-space similarity model. Consistency in your scoring logic is mandatory.
-
-Scoring Guidelines (Scale 1.0 - 10.0):
-• Acidity: 1.0 (Flat/Flabby) to 10.0 (High Tartaric/Piercing)
-• Fruitiness: 1.0 (Earth-driven/Savory) to 10.0 (Primary Fruit Bomb/Jammy)
-• Body: 1.0 (Light/Watery) to 10.0 (Full/Viscous/Heavy)
-• Tannin: 1.0 (No structure/Silk) to 10.0 (Aggressive/Gripping/Astringent)
-• Minerality: 1.0 (Clean/Fruit-only) to 10.0 (Stony/Saline/Chalky)
-
-Requirements:
-1. Use your internal knowledge of this specific producer, vintage, and regional style.
-2. Avoid "safe" middle-ground scores (like 5.0) unless truly warranted.
-3. Provide the output ONLY as a JSON object for programmatic parsing.
-
-Desired JSON Structure:
-{{
-  "wine_metadata": {{
-    "name": "{wine_name}",
-    "region": "{region}",
-    "style": "Regional style description"
-  }},
-  "technical_profile": {{
-    "acidity": float,
-    "fruitiness": float,
-    "body": float,
-    "tannin": float,
-    "minerality": float
-  }},
-  "sommelier_verdict": "One sentence technical summary of the structure."
-}}"""
-
-                            response = client.chat.completions.create(
-                                model=OPENAI_MODEL,
-                                messages=[
-                                    {"role": "user", "content": inference_prompt}
-                                ],
-                                response_format={"type": "json_object"},
-                                temperature=OPENAI_TEMPERATURE,
-                                seed=OPENAI_SEED
-                            )
-
-                            import json
-                            from pydantic import ValidationError
-                            from decant.constants import LLMWineAnalysis
-
-                            # Parse JSON response
-                            result = json.loads(response.choices[0].message.content)
-
-                            # SECURITY FIX: Validate LLM response with Pydantic
-                            try:
-                                validated_response = LLMWineAnalysis.model_validate(result)
-
-                                # Extract technical profile scores from validated response
-                                profile = validated_response.technical_profile
-                                wine_features_dict = {
-                                    'acidity': float(profile.acidity),
-                                    'fruitiness': float(profile.fruitiness),
-                                    'body': float(profile.body),
-                                    'minerality': float(profile.minerality),
-                                    'tannin': float(profile.tannin)
-                                }
-
-                                # Use sommelier verdict as explanation for all features
-                                sommelier_verdict = validated_response.sommelier_verdict
-                                feature_descriptions = {
-                                    'acidity': f"{profile.acidity}/10 - {sommelier_verdict}",
-                                    'fruitiness': f"{profile.fruitiness}/10 - {sommelier_verdict}",
-                                    'body': f"{profile.body}/10 - {sommelier_verdict}",
-                                    'minerality': f"{profile.minerality}/10 - {sommelier_verdict}",
-                                    'tannin': f"{profile.tannin}/10 - {sommelier_verdict}"
-                                }
-
-                                # Update wine_data with inferred values so they display correctly
-                                wine_data['acidity'] = wine_features_dict['acidity']
-                                wine_data['fruitiness'] = wine_features_dict['fruitiness']
-                                wine_data['body'] = wine_features_dict['body']
-                                wine_data['minerality'] = wine_features_dict['minerality']
-                                wine_data['tannin'] = wine_features_dict['tannin']
-
-                                # Cache the results for future consistency
-                                st.session_state['wine_ratings_cache'][cache_key] = {
-                                    'features': wine_features_dict,
-                                    'descriptions': feature_descriptions
-                                }
-
-                            except ValidationError as ve:
-                                # Validation failed - LLM returned invalid data
-                                st.error(f"🚨 LLM returned invalid response structure: {ve}")
-                                st.info("💡 Please enter features manually below.")
-                                # Don't cache invalid results
-
-                        except json.JSONDecodeError as je:
-                            st.error(f"🚨 LLM returned invalid JSON: {je}")
-                            st.info("💡 Please enter features manually below.")
-                        except KeyError as ke:
-                            st.error(f"🚨 LLM response missing required field: {ke}")
-                            st.info("💡 Please enter features manually below.")
-                        except Exception as e:
-                            st.warning(f"⚠️ Could not infer wine characteristics: {str(e)}")
-                            st.info("💡 Please enter features manually below.")
-                            wine_features_dict = None
+                # If features are still all zero, inference failed at
+                # extraction time (LLM unavailable, etc). Don't retry
+                # here — show a manual-entry prompt and skip scoring.
+                if all((v or 0) == 0 for v in wine_features_dict.values()):
+                    st.info(
+                        "ℹ️ No flavour profile available for this wine. "
+                        "Enter the characteristics manually below to see a "
+                        "palate match."
+                    )
+                    wine_features_dict = None
 
                 # 🎯 PALATE ENGINE - SINGLE SOURCE OF TRUTH
                 # display_match_score is what shows in the hero card. As of
                 # the 2026-05 display fix, this is the *flavor alignment*
                 # number (palate_match), not the multiplied likelihood.
-                # Confidence is shown separately in the breakdown panel so
-                # users can read both facts independently.
                 palate_score = None
                 display_match_score = None
 
@@ -455,13 +355,13 @@ Desired JSON Structure:
                     # MOBILE-OPTIMIZED: Larger text, clearer verdict for in-shop quick glance
                     st.markdown(f"""
 <div class="glass-card glow" style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
-    <p style="color: #A0A0A8; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+    <p style="color: #5C4D3F; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
         Palate Recommendation Score
     </p>
     <div class="match-score-gradient" style="font-size: clamp(60px, 15vw, 80px); margin: 0; font-family: 'Geist', 'Inter', sans-serif; line-height: 1;">
         {display_match_score:.1f}%
     </div>
-    <p style="color: #E8E8EB; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
+    <p style="color: #3D2817; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -472,43 +372,34 @@ Desired JSON Structure:
                     # can read both numbers but isn't asked to multiply
                     # them mentally.
                     n_samples = palate_score.n_samples
-                    confidence_pct = palate_score.confidence_factor * 100
-                    if confidence_pct >= 90:
-                        confidence_label = "high"
-                    elif confidence_pct >= 60:
-                        confidence_label = "moderate"
-                    else:
-                        confidence_label = "low — based on a small sample"
 
                     wines_to_95 = max(0, 10 - n_samples)
                     tip_html = (
-                        f"💡 Add <strong style=\"color: #E8E8EB;\">{wines_to_95} more wine(s)</strong> "
-                        f"to reach 95%+ confidence."
+                        f" Add <strong style=\"color: #3D2817;\">{wines_to_95} more</strong> "
+                        f"to reach a more reliable match."
                         if wines_to_95 > 0
-                        else "💡 Your collection is large enough for high-confidence recommendations."
+                        else ""
                     )
 
-                    st.markdown(f"""<div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
-<p style="color: #A0A0A8; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin: 0 0 1rem 0;">🔍 What This Score Means</p>
-<div style="margin-bottom: 1rem;">
-<p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Flavor Alignment: <span style="color: #800020;">{palate_score.palate_match:.1f}%</span></p>
-<p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">How similar this wine's flavor profile is to wines you've enjoyed. This is the headline number above.</p>
-</div>
-<div style="margin-bottom: 1rem;">
-<p style="color: #E8E8EB; font-weight: 700; font-size: 14px; margin: 0 0 4px 0;">Confidence: <span style="color: #800020;">{confidence_label}</span></p>
-<p style="color: #A0A0A8; font-size: 12px; margin: 0; line-height: 1.5;">Based on {n_samples} wine(s) you've rated as liked. More ratings = more confident recommendations.</p>
-</div>
-<p style="color: #A0A0A8; font-size: 11px; margin: 12px 0 0 0; line-height: 1.6;">{tip_html}</p>
+                    # Single-line readout. The earlier version had a
+                    # pointless "the headline number is how closely…"
+                    # explanation and a separate confidence line. Merged
+                    # to one line: the concrete basis (rated-wine count)
+                    # plus the nudge. No "confidence" wording — it was
+                    # referenced in the nudge while removed everywhere
+                    # else, which was inconsistent.
+                    st.markdown(f"""<div style="background: #FFFDF8; border: 1px solid #E8DFCF; border-radius: 12px; padding: 1rem 1.5rem; margin: 1.5rem 0;">
+<p style="color: #5C4D3F; font-size: 13px; margin: 0; line-height: 1.6;">Based on <strong style="color: #3D2817;">{n_samples} rated wine(s)</strong>.{tip_html}</p>
 </div>""", unsafe_allow_html=True)
                 else:
                     # LOADING STATE: Show "Calculating..." text instead of 0%
                     st.markdown("""
 <div class="glass-card glow" style="text-align: center; padding: 40px 30px; margin: 24px 0;">
-    <p style="color: #A0A0A8; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Palate Recommendation Score</p>
+    <p style="color: #5C4D3F; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Palate Recommendation Score</p>
     <div class="match-score-gradient" style="font-size: 48px; margin: 16px 0; font-family: 'Geist', 'Inter', sans-serif;">
         Calculating...
     </div>
-    <p style="color: #A0A0A8; margin: 16px 0 0 0; font-size: 14px;">Analysing your palate profile</p>
+    <p style="color: #5C4D3F; margin: 16px 0 0 0; font-size: 14px;">Analysing your palate profile</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -624,16 +515,6 @@ Desired JSON Structure:
                     st.metric("🌰 Tannin", f"{wine_data['tannin']}/10")
                 with col5:
                     st.metric("💪 Body", f"{wine_data['body']}/10")
-
-                # Show explanations if features were inferred (not extracted from image)
-                if feature_descriptions:
-                    st.markdown("")
-                    st.markdown("**📝 Characteristic Explanations:**")
-                    st.markdown(f"• **Acidity ({wine_data['acidity']}/10)**: {feature_descriptions.get('acidity', 'N/A')}")
-                    st.markdown(f"• **Fruitiness ({wine_data['fruitiness']}/10)**: {feature_descriptions.get('fruitiness', 'N/A')}")
-                    st.markdown(f"• **Body ({wine_data['body']}/10)**: {feature_descriptions.get('body', 'N/A')}")
-                    st.markdown(f"• **Minerality ({wine_data['minerality']}/10)**: {feature_descriptions.get('minerality', 'N/A')}")
-                    st.markdown(f"• **Tannin ({wine_data['tannin']}/10)**: {feature_descriptions.get('tannin', 'N/A')}")
 
                 st.markdown("---")
 
