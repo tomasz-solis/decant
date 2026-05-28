@@ -178,7 +178,10 @@ def main():
     header_left, header_right = st.columns([4, 1], vertical_alignment="center")
     with header_left:
         st.markdown(
-            "<h1 class='main-title' style='margin: 0 0 4px 0;'>🍷 Decant</h1>"
+            "<h1 class='main-title' style='margin: 0 0 4px 0;'>"
+            "<span style='font-size: 0.7em; vertical-align: 0.15em; margin-right: 0.2em;'>🍷</span>"
+            "Decant"
+            "</h1>"
             "<p class='subtitle' style='margin: 0;'>Taste, with confidence.</p>",
             unsafe_allow_html=True,
         )
