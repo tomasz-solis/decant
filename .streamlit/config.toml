@@ -4,8 +4,13 @@ enableXsrfProtection = true
 port = 8501
 
 [theme]
-primaryColor = "#8B0000"
-backgroundColor = "#0F0F12"
-secondaryBackgroundColor = "#1A1A1E"
-textColor = "#E8E8EB"
+# Mediterranean light theme. These drive Streamlit's own widget
+# rendering (dropdowns, file uploader, tooltips, inputs) — the
+# things CSS overrides can't reach because they render in portals.
+# The CSS in ui/styles.py layers polish on top of this base.
+base = "light"
+primaryColor = "#C2410C"              # terracotta — buttons, active states, focus
+backgroundColor = "#FAF6F0"           # cream — main page background
+secondaryBackgroundColor = "#FFFDF8"  # warm white — cards, dropdowns, inputs
+textColor = "#3D2817"                 # warm dark brown — body text
 font = "sans serif"

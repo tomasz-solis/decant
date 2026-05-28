@@ -18,10 +18,12 @@ call. That's the only way Streamlit accepts custom CSS. The
 `unsafe_allow_html=True` here is benign — the markup is a static
 string we control, not user-supplied content.
 
-A future Phase 4 will likely rework large parts of `_GLOBAL_STYLES`
-(visual identity change). The split into two functions keeps Phase
-4 surgical: change the theme constants in `_GLOBAL_STYLES`, leave
-the gallery layout alone.
+Phase 4 — Mediterranean light theme:
+- Cream background (#FAF6F0), warm white cards (#FFFDF8)
+- Terracotta primary (#C2410C), olive accent (#65733E),
+  deep wine red for verdicts (#7C2D12)
+- Playfair Display for headings; DM Sans for body
+- Restrained shadows, paper-like card surfaces
 """
 
 from __future__ import annotations
@@ -29,415 +31,609 @@ from __future__ import annotations
 import streamlit as st
 
 
-_GLOBAL_STYLES = """\
+_GLOBAL_STYLES = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap');
+    /* ---- Fonts ----------------------------------------------------- */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 
-    /* 2026 Bento Dark Mode Color System */
+    /* ---- Mediterranean light palette ------------------------------- */
     :root {
-        --bg-primary: #0F0F12;
-        --bg-secondary: #1A1A1E;
-        --card-bg: rgba(255, 255, 255, 0.05);
-        --wine-red: #800020;
-        --accent-red: #8B0000;
-        --accent-red-glow: rgba(128, 0, 32, 0.5);
-        --text-primary: #E8E8EB;
-        --text-secondary: #A0A0A8;
-        --border-subtle: rgba(255, 255, 255, 0.1);
-        --border-radius: 16px;
+        --bg-primary: #FAF6F0;         /* cream — baked paper, not stark white */
+        --bg-secondary: #F3EDE3;       /* slightly deeper for tab nav, sidebar */
+        --card-bg: #FFFDF8;            /* warm white for raised surfaces */
+        --card-border: #E8DFCF;        /* hairline between card and background */
+
+        --terracotta: #C2410C;         /* primary accent — restaurant signage */
+        --terracotta-soft: #FED7AA;    /* terracotta tint for hover/highlight */
+        --olive: #65733E;              /* secondary accent — herbal */
+        --olive-soft: #DCE3C4;         /* olive tint */
+        --wine: #7C2D12;               /* deep red for verdicts, liked badge */
+
+        --text-primary: #3D2817;       /* warm dark brown, not pure black */
+        --text-secondary: #5C4D3F;     /* darker brown for captions/subtitles — readable on cream */
+        --text-muted: #8B7E6D;         /* fainter, for tertiary info only (timestamps, hints) */
+
+        --shadow-card: 0 2px 8px rgba(120, 60, 30, 0.06);
+        --shadow-card-hover: 0 4px 14px rgba(120, 60, 30, 0.10);
+
+        --radius-card: 12px;
+        --radius-button: 8px;
+
+        --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+        --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
     }
 
-    /* Global Typography - Geist with Inter fallback */
-    * {
-        font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+    /* ---- Global base ---------------------------------------------- */
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
+        background: var(--bg-primary) !important;
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
     }
 
-    /* Global Background */
-    body, .main, [data-testid="stAppViewContainer"] {
-        background-color: #0F0F12 !important;
+    /* Subtle paper texture — a barely-visible noise pattern gives
+       the cream background actual depth instead of feeling flat.
+       Inline SVG noise so we don't depend on an external asset. */
+    [data-testid="stAppViewContainer"] {
+        background-image:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.24  0 0 0 0 0.16  0 0 0 0 0.09  0 0 0 0.025 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>") !important;
+        background-blend-mode: multiply;
+        background-size: 200px 200px;
     }
 
-    /* Hide Streamlit Chrome */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Main Container */
-    .main {
-        background-color: var(--bg-primary);
-        color: var(--text-primary);
+    /* Menu-masthead bar: a thin terracotta-to-olive band at the very
+       top of the page. Subtle visual reference to printed menus. */
+    .stApp::before {
+        content: "";
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(to right,
+            var(--terracotta) 0%,
+            var(--terracotta) 40%,
+            var(--olive) 60%,
+            var(--olive) 100%);
+        z-index: 1000;
+        pointer-events: none;
     }
 
-    /* 2026 Bento Glassmorphic Card */
-    .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 24px;
-        margin: 16px 0;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Streamlit injects a top header bar; on light theme we want it
+       to blend with the page rather than show as a darker strip. */
+    [data-testid="stHeader"] {
+        background: var(--bg-primary) !important;
     }
 
-    .glass-card:hover {
-        border-color: rgba(255, 255, 255, 0.18);
-        transform: translateY(-2px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    /* ---- Typography ----------------------------------------------- */
+    h1, h2, h3, h4, h5, h6,
+    .main-title,
+    [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3,
+    [data-testid="stMarkdownContainer"] h4 {
+        font-family: var(--font-display) !important;
+        color: var(--text-primary) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.01em;
     }
 
-    /* Hero Card with Wine Red Glow */
-    .glass-card.glow {
-        box-shadow: 0 8px 32px rgba(128, 0, 32, 0.5),
-                    0 0 80px rgba(128, 0, 32, 0.3),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    }
-
-    /* Radial Gradient Text Effect for Match Likelihood */
-    .match-score-gradient {
-        background: radial-gradient(circle at 30% 50%, #FF1744 0%, #800020 50%, #4A0012 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-weight: 900;
-        letter-spacing: -3px;
-        text-shadow: 0 0 40px rgba(255, 23, 68, 0.3);
-    }
-
-    /* Fallback for browsers without backdrop-filter */
-    @supports not (backdrop-filter: blur(10px)) {
-        .glass-card {
-            background: rgba(26, 26, 30, 0.95);
-        }
-    }
-
-    /* Header Styling */
     .main-title {
-        font-size: 2.5em;
-        font-weight: 700;
-        text-align: center;
-        color: var(--text-primary);
-        margin-bottom: 8px;
-        letter-spacing: -1px;
+        font-size: clamp(2.4rem, 5vw, 3.4rem) !important;
+        line-height: 1.05 !important;
+        margin: 0 !important;
+    }
+
+    /* Section titles (h2 in tab bodies) get a soft terracotta
+       underline that ties them to the active-tab indicator. */
+    [data-testid="stMarkdownContainer"] h2 {
+        position: relative;
+        padding-bottom: 0.4rem;
+        margin-bottom: 0.6rem !important;
+    }
+    [data-testid="stMarkdownContainer"] h2::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 48px;
+        height: 2px;
+        background: var(--terracotta);
+        border-radius: 1px;
+    }
+
+    /* The italicised kicker line that follows section titles
+       (the st.caption right under a heading). */
+    [data-testid="stMarkdownContainer"] h2 + p,
+    [data-testid="stCaptionContainer"] p {
+        font-family: var(--font-display) !important;
+        font-style: italic;
+        color: var(--text-secondary) !important;
+        font-size: 1.05rem !important;
+        font-weight: 400 !important;
     }
 
     .subtitle {
-        text-align: center;
-        color: var(--text-secondary);
-        font-size: 1em;
-        margin-bottom: 32px;
-        font-weight: 500;
+        font-family: var(--font-display) !important;
+        font-style: italic;
+        font-weight: 400 !important;
+        color: var(--text-secondary) !important;
+        font-size: clamp(0.95rem, 2vw, 1.1rem) !important;
+        margin: 4px 0 0 0 !important;
     }
 
-    /* 2026 Bento Button Styling */
-    .stButton > button {
-        width: 100%;
-        height: 60px;
-        font-size: 1.1em;
-        font-weight: 600;
-        border-radius: 12px;
-        margin: 10px 0;
-        background: linear-gradient(135deg, var(--wine-red) 0%, var(--accent-red) 100%);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 4px 16px rgba(128, 0, 32, 0.4),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Body text — DM Sans inherited; make sure Streamlit's own
+       paragraph styling doesn't pull in default fonts. */
+    p, span, div, label, .stMarkdown, [data-testid="stMarkdownContainer"] p {
+        font-family: var(--font-body) !important;
+        color: var(--text-primary);
     }
 
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #A60028 0%, #D00000 100%);
-        box-shadow: 0 6px 24px rgba(128, 0, 32, 0.6),
-                    0 0 40px rgba(128, 0, 32, 0.3),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.2);
+    .stCaption, [data-testid="stCaptionContainer"] p, small {
+        color: var(--text-secondary) !important;
+        font-size: 0.85rem !important;
     }
 
-    /* File Uploader */
-    .stFileUploader {
-        border: 2px dashed var(--accent-red);
-        border-radius: 12px;
-        padding: 30px;
-        text-align: center;
+    /* ---- Tabs ------------------------------------------------------ */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        gap: 4px;
+        border-bottom: 1px solid var(--card-border);
+        background: transparent;
+    }
+
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        font-family: var(--font-display) !important;
+        font-weight: 600 !important;
+        font-size: 1.05rem !important;
+        color: var(--text-secondary) !important;
+        padding: 12px 18px !important;
+        background: transparent !important;
+        border-radius: var(--radius-button) var(--radius-button) 0 0;
+        transition: color 0.15s ease;
+    }
+
+    [data-testid="stTabs"] [data-baseweb="tab"]:hover {
+        color: var(--terracotta) !important;
+    }
+
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+        color: var(--terracotta) !important;
+        border-bottom: 2px solid var(--terracotta) !important;
+    }
+
+    /* ---- Buttons --------------------------------------------------- */
+    .stButton > button,
+    [data-testid="stPopover"] button[data-testid="stPopoverButton"],
+    [data-testid="baseButton-primary"],
+    [data-testid="baseButton-secondary"] {
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+        border-radius: var(--radius-button) !important;
+        padding: 10px 20px !important;
+        transition: all 0.15s ease !important;
+        border: 1px solid var(--card-border) !important;
+    }
+
+    /* CRITICAL: Streamlit renders chevrons / icons inside buttons via
+       <span class="material-icons-..."> elements using the Material
+       Symbols font. Our font-family override on the button cascades
+       to those spans, breaking the icon font and showing raw text
+       like "expand_more". Reset font-family on any material-icons
+       span so Streamlit's icon font wins. */
+    [class*="material-icons"],
+    [class*="material-symbols"],
+    [data-testid="stIconMaterial"] {
+        font-family: 'Material Symbols Rounded',
+                     'Material Symbols Outlined',
+                     'Material Icons' !important;
+    }
+
+    /* Primary buttons — terracotta */
+    .stButton > button[kind="primary"],
+    [data-testid="baseButton-primary"],
+    [data-testid="stPopover"] button[kind="primary"],
+    [data-testid="stPopover"] [data-testid="baseButton-primary"] {
+        background: var(--terracotta) !important;
+        color: #FFFFFF !important;
+        border-color: var(--terracotta) !important;
+    }
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="baseButton-primary"]:hover,
+    [data-testid="stPopover"] button[kind="primary"]:hover {
+        background: #9A330A !important;  /* darker terracotta */
+        border-color: #9A330A !important;
+        box-shadow: var(--shadow-card-hover);
+    }
+
+    /* Secondary buttons — outlined cream */
+    .stButton > button[kind="secondary"],
+    [data-testid="baseButton-secondary"] {
+        background: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+    }
+    .stButton > button[kind="secondary"]:hover,
+    [data-testid="baseButton-secondary"]:hover {
+        background: var(--terracotta-soft) !important;
+        border-color: var(--terracotta) !important;
+        color: var(--terracotta) !important;
+    }
+
+    /* Download / link buttons — Streamlit's testid for the inner
+       button varies; cover the section and the link variant too. */
+    [data-testid="stDownloadButton"] > button,
+    [data-testid="stDownloadButton"] button,
+    [data-testid="stLinkButton"] > a,
+    [data-testid="stLinkButton"] a,
+    a[download],
+    button[data-testid*="Download"] {
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+        border-radius: var(--radius-button) !important;
+        background: var(--card-bg) !important;
+        background-color: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--card-border) !important;
+        padding: 10px 20px !important;
+        text-decoration: none !important;
+    }
+    [data-testid="stDownloadButton"] > button:hover,
+    [data-testid="stDownloadButton"] button:hover,
+    [data-testid="stLinkButton"] > a:hover,
+    a[download]:hover {
+        background: var(--terracotta-soft) !important;
+        background-color: var(--terracotta-soft) !important;
+        border-color: var(--terracotta) !important;
+        color: var(--terracotta) !important;
+    }
+
+    /* ---- Popover content panel ----------------------------------- */
+    /* BaseWeb renders popovers, menus, and tooltips in a portal layer
+       at the bottom of <body>, NOT inside the trigger element. Selectors
+       must be global, not scoped to the trigger. */
+
+    /* The portal layer wrapper itself. Force cream on every dropdown
+       menu, sign-in popover, and any other BaseWeb popover that
+       Streamlit renders. */
+    [data-baseweb="layer"] [data-baseweb="popover"],
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    [data-baseweb="popover"] [role="dialog"],
+    [data-baseweb="popover"] [data-baseweb="block"] {
+        background: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+    }
+    [data-baseweb="popover"] {
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-card) !important;
+        box-shadow: var(--shadow-card-hover) !important;
+    }
+
+    /* Force text-primary inside popovers, even on labels/captions
+       that would otherwise inherit secondary colour against the
+       old dark background. */
+    [data-baseweb="popover"] p,
+    [data-baseweb="popover"] label,
+    [data-baseweb="popover"] [data-testid="stWidgetLabel"],
+    [data-baseweb="popover"] h1,
+    [data-baseweb="popover"] h2,
+    [data-baseweb="popover"] h3,
+    [data-baseweb="popover"] h4 {
+        color: var(--text-primary) !important;
+    }
+
+    /* Dropdown menus (selectbox open state). The menu is portaled,
+       so we target it globally — every menu role across the app
+       inherits cream. */
+    [data-baseweb="menu"],
+    [data-baseweb="menu"] ul,
+    [data-baseweb="menu"] li,
+    ul[role="listbox"],
+    [role="listbox"] {
+        background: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-button) !important;
+        font-family: var(--font-body) !important;
+    }
+    [data-baseweb="menu"] [role="option"],
+    ul[role="listbox"] [role="option"],
+    [role="listbox"] li {
+        background: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
+        padding: 8px 12px !important;
+    }
+    [data-baseweb="menu"] [role="option"][aria-selected="true"],
+    [data-baseweb="menu"] [role="option"]:hover,
+    ul[role="listbox"] [role="option"]:hover,
+    [role="listbox"] li:hover {
+        background: var(--terracotta-soft) !important;
+        color: var(--terracotta) !important;
+    }
+
+    /* Tooltips — BaseWeb renders these in the portal layer too. */
+    [data-baseweb="tooltip"],
+    [role="tooltip"] {
+        background: var(--text-primary) !important;
+        color: var(--card-bg) !important;
+        border-radius: var(--radius-button) !important;
+        font-family: var(--font-body) !important;
+        font-size: 0.85rem !important;
+        padding: 6px 10px !important;
+        box-shadow: var(--shadow-card-hover) !important;
+    }
+
+    /* Signed-in user pill — the popover trigger renders with a dark
+       chip background by default. Override to a soft olive tint so
+       it reads as "you're signed in" without competing with the
+       primary Sign-in button. */
+    [data-testid="stPopover"] button:not([kind="primary"]) {
+        background: var(--olive-soft) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--olive) !important;
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stPopover"] button:not([kind="primary"]):hover {
+        background: var(--olive) !important;
+        color: #FFFFFF !important;
+    }
+
+    /* ---- File uploader ------------------------------------------- */
+    /* Streamlit's drag-and-drop zone renders as a dark box by default.
+       Override the dropzone background, border, and the inner text. */
+    [data-testid="stFileUploader"] > section,
+    [data-testid="stFileUploaderDropzone"],
+    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzone"] {
+        background: var(--card-bg) !important;
+        border: 2px dashed var(--card-border) !important;
+        border-radius: var(--radius-card) !important;
+        color: var(--text-primary) !important;
+    }
+    [data-testid="stFileUploader"] > section:hover,
+    [data-testid="stFileUploaderDropzone"]:hover {
+        background: var(--terracotta-soft) !important;
+        border-color: var(--terracotta) !important;
+    }
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploaderDropzoneInstructions"] {
+        color: var(--text-secondary) !important;
+    }
+    /* "Browse files" button inside the dropzone */
+    [data-testid="stFileUploader"] button {
+        background: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--card-border) !important;
+    }
+    [data-testid="stFileUploader"] button:hover {
+        background: var(--terracotta) !important;
+        color: #FFFFFF !important;
+        border-color: var(--terracotta) !important;
+    }
+
+    /* ---- Radio buttons (used for input mode picker) -------------- */
+    [data-testid="stRadio"] label,
+    [data-testid="stRadio"] [data-testid="stMarkdownContainer"],
+    [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
+        font-size: 1.05rem !important;
+    }
+    /* The unchecked circle */
+    [data-testid="stRadio"] [role="radio"] {
+        border-color: var(--card-border) !important;
+    }
+    /* The checked circle dot */
+    [data-testid="stRadio"] [role="radio"][aria-checked="true"] {
+        border-color: var(--terracotta) !important;
+        background: var(--terracotta) !important;
+    }
+
+    /* ---- Toggle switch (Liked toggle) ---------------------------- */
+    [data-testid="stToggle"] [role="switch"][aria-checked="true"] {
+        background: var(--terracotta) !important;
+    }
+
+    /* ---- Sliders ------------------------------------------------- */
+    [data-testid="stSlider"] [role="slider"] {
+        background: var(--terracotta) !important;
+        border-color: var(--terracotta) !important;
+    }
+    [data-testid="stSlider"] [data-baseweb="slider"] div[role="progressbar"] {
+        background: var(--terracotta) !important;
+    }
+
+    /* ---- Image previews (st.image) -------------------------------- */
+    /* st.image with width='stretch' fills its column at natural
+       resolution, which makes uploaded wine photos enormous on
+       wide screens. Cap to a reasonable preview width. */
+    [data-testid="stImage"] {
+        max-width: 320px !important;
+        margin: 0 auto;
+    }
+    [data-testid="stImage"] img {
+        max-width: 100% !important;
+        height: auto !important;
+        border-radius: var(--radius-card) !important;
+        border: 1px solid var(--card-border);
+    }
+
+    /* ---- Header auth right-alignment ----------------------------- */
+    /* The header is a 4-to-1 column split with the auth popover in
+       the right column. Streamlit places column content flush left
+       by default; this makes Sign-in float in the middle of its
+       column instead of hugging the page edge. Push content right. */
+    [data-testid="stHorizontalBlock"]:has([data-testid="stPopover"]) [data-testid="stColumn"]:last-child [data-testid="stPopover"] {
+        display: flex;
+        justify-content: flex-end;
+    }
+    /* Fallback for browsers without :has() — apply to any popover
+       inside a horizontal block's last column. */
+    [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child {
+        text-align: right;
+    }
+
+    /* ---- Code blocks (for any debug output) ---------------------- */
+    code, pre, [data-testid="stCodeBlock"] {
+        background: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+        border-radius: 6px;
+    }
+
+    /* ---- Form controls -------------------------------------------- */
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea,
+    [data-testid="stNumberInput"] input {
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-button) !important;
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
+    }
+
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stTextArea"] textarea:focus,
+    [data-testid="stNumberInput"] input:focus {
+        border-color: var(--terracotta) !important;
+        outline: none !important;
+    }
+
+    /* Placeholder text — the default is too pale on cream. Bump to
+       a readable mid-brown. */
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: var(--text-muted) !important;
+        opacity: 1 !important;  /* Firefox lowers placeholder opacity by default */
+    }
+
+    /* Selectbox — Streamlit nests multiple divs under data-testid;
+       override the BaseWeb control wrapper specifically. */
+    [data-testid="stSelectbox"] > div,
+    [data-testid="stSelectbox"] > div > div,
+    [data-baseweb="select"] > div,
+    [data-baseweb="select"] [role="combobox"] {
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-button) !important;
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
+    }
+
+    /* Hide the text caret AND any value-container separator in
+       selectboxes. Streamlit selectboxes are comboboxes; depending
+       on the Streamlit version the trailing vertical bar is either
+       the text input's caret or a BaseWeb separator element. Suppress
+       both so the picker doesn't show a stray "All Regions|".
+       The input stays functional — clicking still opens the menu. */
+    [data-testid="stSelectbox"] input,
+    [data-baseweb="select"] input {
+        caret-color: transparent !important;
+    }
+    /* BaseWeb sometimes renders a vertical separator between the
+       value and the dropdown arrow. Hide it. */
+    [data-baseweb="select"] [data-baseweb="select-dropdown-indicator"] + div,
+    [data-baseweb="select"] div[role="presentation"] {
+        display: none !important;
+    }
+    /* Belt-and-suspenders: kill any 1px-wide pseudo-bar in the
+       value container. */
+    [data-baseweb="select"] [class*="Separator"],
+    [data-baseweb="select"] hr {
+        display: none !important;
+    }
+
+    /* Labels above inputs */
+    [data-testid="stWidgetLabel"] {
+        font-family: var(--font-body) !important;
+        font-weight: 600 !important;
+        color: var(--text-primary) !important;
+    }
+
+    /* ---- Cards (glass-card class kept for backward compat) -------- */
+    .glass-card {
         background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-card);
+        padding: 24px;
+        box-shadow: var(--shadow-card);
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .glass-card:hover {
+        box-shadow: var(--shadow-card-hover);
+        transform: translateY(-1px);
     }
 
-    /* Dark Mode Overrides for Streamlit Components */
-    .stSelectbox, .stMultiSelect, .stTextInput, .stNumberInput {
-        color: var(--text-primary);
+    /* ---- Alerts / info / warning / error -------------------------- */
+    [data-testid="stAlert"] {
+        border-radius: var(--radius-card) !important;
+        border: 1px solid var(--card-border) !important;
+        font-family: var(--font-body) !important;
     }
 
-    .stSelectbox > div > div {
-        background-color: var(--bg-secondary);
-        color: var(--text-primary);
+    /* ---- Metric (st.metric) --------------------------------------- */
+    [data-testid="stMetric"] {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-card);
+        padding: 16px;
+        box-shadow: var(--shadow-card);
+        transition: transform 0.15s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-card-hover);
+    }
+    [data-testid="stMetricLabel"] {
+        font-family: var(--font-body) !important;
+        font-size: 0.8rem !important;
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    [data-testid="stMetricValue"] {
+        font-family: var(--font-display) !important;
+        font-weight: 700 !important;
+        color: var(--text-primary) !important;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum" 1;
     }
 
-    /* Plotly Chart Container */
-    .js-plotly-plot {
-        background-color: transparent !important;
-    }
-
-    /* Bento Grid Layout */
-    .bento-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-        margin: 24px 0;
-    }
-
-    /* Wine Gallery Card - Flex Container for Sticky Footer */
-    .wine-card {
-        padding: 20px !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-    }
-
-    .wine-card:hover {
-        transform: translateY(-4px) scale(1.02);
-        box-shadow: 0 16px 48px rgba(128, 0, 32, 0.4);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .wine-card h4 {
-        font-weight: 600;
-        line-height: 1.3;
-    }
-
-    .wine-card .badge {
-        display: inline-block;
-        transition: transform 0.2s;
-    }
-
-    .wine-card:hover .badge {
-        transform: scale(1.05);
-    }
-
-    /* Wine Card Image - Strict 350px Container */
-    .wine-card-img {
-        height: 350px;
-        width: 100%;
-        object-fit: contain;
-        background: #0a0a0a;
-        border-radius: 8px;
-    }
-
-    .wine-card-img-placeholder {
-        height: 350px;
-        width: 100%;
-        background: rgba(139, 0, 0, 0.1);
-        border: 2px solid rgba(139, 0, 0, 0.3);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 60px;
-    }
-
-    /* Wine Card Content Wrapper - Full Height Flex */
-    .wine-card-content {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        gap: 12px;
-    }
-
-    /* Sticky Footer - Pushes Bottom Elements to Same Level */
-    .wine-card-footer {
-        margin-top: auto;
-    }
-
-    /* Icon Row */
-    .icon-row {
-        display: flex;
-        gap: 8px;
-        margin: 8px 0;
-    }
-
-    /* Seal of Approval */
-    .seal-of-approval {
+    /* ---- Decorative horizontal divider --------------------------- */
+    /* A thin terracotta line with a tiny olive dot in the middle.
+       Restaurant menus often have decorated rules between courses;
+       this is the restrained version. */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(to right,
+            transparent 0%,
+            var(--card-border) 20%,
+            var(--card-border) 48%,
+            var(--olive) 50%,
+            var(--card-border) 52%,
+            var(--card-border) 80%,
+            transparent 100%) !important;
+        margin: 32px 0 !important;
         position: relative;
-        overflow: hidden;
+        overflow: visible !important;
     }
 
-    .seal-of-approval::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.2), transparent);
-        animation: shimmer 3s infinite;
-    }
-
-    @keyframes shimmer {
-        0%, 100% { left: -100%; }
-        50% { left: 100%; }
-    }
-
-    /* Responsive Breakpoints - Mobile */
+    /* ---- Mobile responsive ---------------------------------------- */
     @media (max-width: 768px) {
-        /* Compact header for more screen real estate */
         .main-title {
-            font-size: 1.5em;
-            letter-spacing: -0.5px;
-            margin-bottom: 4px;
+            font-size: 2.4rem !important;
         }
-
-        .subtitle {
-            font-size: 0.85em;
-            margin-bottom: 16px;
-        }
-
-        /* Tighter spacing on mobile */
-        .glass-card {
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 12px;
-        }
-
-        /* Larger buttons for touch targets */
-        .stButton > button {
-            height: 56px !important;
-            font-size: 1.1em !important;
-            font-weight: 700 !important;
-            border-radius: 12px;
-        }
-
-        /* Wine images - optimized for mobile viewing */
-        .wine-card-img, .wine-card-img-placeholder {
-            height: 240px;  /* Smaller on mobile to see more content */
-        }
-
-        /* Single column layout - essential for shop browsing */
-        .bento-grid {
-            grid-template-columns: 1fr !important;
-            gap: 12px;
-        }
-
-        /* Touch targets (44px minimum per Apple HIG) */
-        .stSelectbox, .stTextInput, .stNumberInput, .stSlider {
-            min-height: 48px !important;
-        }
-
-        /* File uploader - make it huge and obvious for quick photo capture */
-        .stFileUploader {
-            padding: 24px !important;
-            margin: 16px 0 !important;
-        }
-
-        .stFileUploader label {
-            font-size: 1.2em !important;
-            font-weight: 600 !important;
-        }
-
-        /* Sidebar collapsed by default on mobile */
-        [data-testid="stSidebar"] {
-            min-width: 0;
-        }
-
-        [data-testid="stSidebar"][aria-expanded="false"] {
-            margin-left: -21rem;
-        }
-
-        /* Main content full width on mobile */
-        .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            max-width: 100% !important;
-        }
-
-        /* Columns stack vertically on mobile */
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 100% !important;
-            min-width: 100% !important;
-        }
-
-        /* Force stacking for multi-column layouts (3+ columns) */
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-            gap: 8px !important;
-        }
-
-        /* Metrics more compact on mobile */
-        [data-testid="stMetric"] {
-            background: rgba(255, 255, 255, 0.03);
-            padding: 8px;
-            border-radius: 8px;
-        }
-
-        /* Tab navigation bigger for easier tapping */
-        .stTabs [data-baseweb="tab-list"] button {
-            min-height: 48px !important;
-            font-size: 1em !important;
-        }
-
-        /* Image preview on mobile - contain to screen */
-        img {
-            max-width: 100% !important;
-            height: auto !important;
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            font-size: 0.95rem !important;
+            padding: 10px 12px !important;
         }
     }
 
-    @media (min-width: 769px) and (max-width: 1200px) {
-        .bento-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .wine-card-img, .wine-card-img-placeholder {
-            height: 320px;  /* Medium height for tablets */
-        }
-    }
-
-    @media (min-width: 1201px) {
-        .bento-grid {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
-
-    /* Landscape Mobile Optimization - For horizontal phone in shop */
-    @media (max-width: 900px) and (orientation: landscape) {
-        .main-title {
-            font-size: 1.2em;
-            margin-bottom: 2px;
-        }
-        .subtitle {
-            font-size: 0.8em;
-            margin-bottom: 8px;
-        }
-        .glass-card {
-            padding: 8px;
-            margin: 6px 0;
-        }
-        .stButton > button {
-            height: 44px !important;
-            font-size: 0.95em !important;
-        }
-        /* Compact metrics in landscape */
-        [data-testid="stMetric"] {
-            padding: 6px;
-        }
-    }
-
-    /* Small phones (iPhone SE, etc) - Extra compact */
-    @media (max-width: 375px) {
-        .main-title {
-            font-size: 1.3em;
-        }
-        .glass-card {
-            padding: 10px;
-        }
-        .stButton > button {
-            height: 52px !important;
-            font-size: 1em !important;
-        }
+    /* ---- Streamlit default header overrides ---------------------- */
+    [data-testid="stToolbar"] {
+        background: transparent !important;
     }
 </style>
 """
@@ -455,13 +651,39 @@ _GALLERY_STYLES = """\
     margin-bottom: 0 !important;
 }
 
-/* Wine Gallery Grid */
+/* Wine Gallery Grid — back to 3-per-row with larger photos.
+   minmax(280px, 1fr) gives 3 columns at 1100px, 4 at ~1450px. */
 .wine-gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     grid-auto-rows: min-content;
-    gap: 2.5rem;
+    gap: 2rem;
     margin: 24px 0;
+}
+
+/* Wine card image — bottle photos benefit from the larger format.
+   max-height kept generous (400px) so portrait photos display well
+   without exploding to natural size. */
+.wine-card-img,
+.wine-card-img-placeholder {
+    display: block;
+    width: 100%;
+    max-height: 400px;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #F3EDE3;
+    border: 1px solid #E8DFCF;
+    margin: 0 0 12px 0;
+}
+
+.wine-card-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4.5rem;
+    color: #C2410C;
+    opacity: 0.5;
 }
 
 .wine-card-notes {
@@ -469,10 +691,11 @@ _GALLERY_STYLES = """\
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    color: #A0A0A8;
+    color: #78716C;
     font-size: 13px;
     line-height: 1.5;
     margin: 8px 0;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .icon-row {

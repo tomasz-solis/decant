@@ -20,6 +20,24 @@ from decant.schema import WineFeatures
 from decant.services.data_access import normalize as _ensure_wine_df
 
 
+# Plotly figure theming — single source of truth for chart colours.
+# Changing this dict re-themes every chart in the app. Values mirror the
+# CSS palette in `ui/styles.py` so charts feel like part of the page.
+# Keep these in sync if either side moves.
+_THEME = {
+    "bg": "#FAF6F0",            # cream — matches --bg-primary
+    "bg_card": "#FFFDF8",       # warm white — matches --card-bg
+    "grid": "rgba(120, 60, 30, 0.10)",   # faint warm brown — radial/angular axes
+    "text": "#3D2817",          # warm dark brown — matches --text-primary
+    "text_muted": "#78716C",    # secondary text colour
+    "accent": "#C2410C",        # terracotta — primary accent
+    "olive": "#65733E",         # secondary accent for second-line series
+    "wine": "#7C2D12",          # deep wine red for the main palate trace
+    "font_family": "DM Sans, system-ui, -apple-system, sans-serif",
+    "font_family_display": "Playfair Display, Georgia, serif",
+}
+
+
 def create_mini_radar_chart(liked_avg):
     """Create a small radar chart for sidebar palate fingerprint."""
     fig = go.Figure()
@@ -42,17 +60,17 @@ def create_mini_radar_chart(liked_avg):
                 visible=True,
                 range=[0, 10],
                 showticklabels=False,
-                gridcolor='rgba(255, 255, 255, 0.08)',
+                gridcolor=_THEME['grid'],
             ),
             angularaxis=dict(
-                tickfont=dict(size=9, color='#E8E8EB'),
+                tickfont=dict(size=9, color=_THEME['text']),
             )
         ),
         showlegend=False,
         height=200,
         margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor='#0F0F12',
-        plot_bgcolor='#0F0F12'
+        paper_bgcolor=_THEME['bg'],
+        plot_bgcolor=_THEME['bg']
     )
 
     return fig
@@ -289,13 +307,13 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
                 visible=True,
                 range=[0, 10],
                 showticklabels=True,
-                tickfont=dict(size=14, family='Arial Black', color='#E8E8EB'),
-                gridcolor='rgba(255, 255, 255, 0.08)',
+                tickfont=dict(size=14, family=_THEME['font_family_display'], color=_THEME['text']),
+                gridcolor=_THEME['grid'],
             ),
             angularaxis=dict(
-                tickfont=dict(size=16, family='Arial Black', color='#E8E8EB'),
+                tickfont=dict(size=16, family=_THEME['font_family_display'], color=_THEME['text']),
             ),
-            bgcolor='rgba(15, 15, 18, 0.3)'
+            bgcolor=_THEME['bg_card']
         ),
         showlegend=True,
         title=dict(
@@ -310,10 +328,10 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
             y=-0.15,
             xanchor='center',
             x=0.5,
-            font=dict(size=12, color='#E8E8EB')
+            font=dict(size=12, color=_THEME['text'])
         ),
         height=550,
-        paper_bgcolor='#0F0F12'
+        paper_bgcolor=_THEME['bg']
     )
 
     return fig
@@ -383,21 +401,21 @@ def create_consolidated_palate_radar(color_profiles: dict):
                 visible=True,
                 range=[0, 10],
                 showticklabels=True,
-                tickfont=dict(size=14, family='Arial Black', color='#E8E8EB'),
-                gridcolor='rgba(255, 255, 255, 0.08)',
+                tickfont=dict(size=14, family=_THEME['font_family_display'], color=_THEME['text']),
+                gridcolor=_THEME['grid'],
                 tickvals=[0, 2, 4, 6, 8, 10]
             ),
             angularaxis=dict(
-                tickfont=dict(size=16, family='Arial Black', color='#E8E8EB'),
+                tickfont=dict(size=16, family=_THEME['font_family_display'], color=_THEME['text']),
                 linewidth=2,
-                gridcolor='rgba(255, 255, 255, 0.08)'
+                gridcolor=_THEME['grid']
             ),
-            bgcolor='rgba(15, 15, 18, 0.3)'
+            bgcolor=_THEME['bg_card']
         ),
         showlegend=True,
         title=dict(
             text='<b>🎯 Master Palate Radar: All Wine Profiles</b>',
-            font=dict(size=20, color='#E8E8EB', family='Arial Black'),
+            font=dict(size=20, color=_THEME['text'], family=_THEME['font_family_display']),
             x=0.5,
             xanchor='center'
         ),
@@ -407,13 +425,13 @@ def create_consolidated_palate_radar(color_profiles: dict):
             y=-0.2,
             xanchor='center',
             x=0.5,
-            font=dict(size=13, family='Arial', color='#E8E8EB'),
-            bgcolor='rgba(26, 26, 30, 0.9)',
+            font=dict(size=13, family=_THEME['font_family'], color=_THEME['text']),
+            bgcolor=_THEME['bg_card'],
             bordercolor='rgba(255, 255, 255, 0.1)',
             borderwidth=1
         ),
         height=600,
-        paper_bgcolor='#0F0F12',
+        paper_bgcolor=_THEME['bg'],
         margin=dict(t=80, b=100, l=80, r=80)
     )
 

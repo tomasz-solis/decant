@@ -1,16 +1,61 @@
 """Tests for decant.ui.styles.
 
-These pin two things:
+These pin three things:
 1. The styles module exposes the two functions app.py needs.
 2. Inline `<style>` blocks no longer live in app.py — CSS is
    sourced from decant.ui.styles. A regression test catches the
    "someone hand-pasted CSS back into app.py" failure mode.
+3. The Streamlit config theme palette matches the CSS palette.
+   This catches the exact bug where .streamlit/config.toml was
+   still set to dark-mode colours while the CSS had moved to the
+   light Mediterranean theme — which made every portaled widget
+   (dropdowns, file uploader, tooltips) render dark.
 """
 
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).parent.parent
+
+
+class TestConfigThemeConsistency:
+    """The Streamlit config theme must match the CSS palette.
+
+    Streamlit's own widgets (dropdown menus, file uploader, tooltips)
+    render from config.toml, not from our CSS. If the two drift, the
+    portaled widgets paint with the wrong palette and CSS can't reach
+    them. These assertions pin the key colours to the same values the
+    CSS uses.
+    """
+
+    def _read_config(self) -> str:
+        config_path = REPO_ROOT / ".streamlit" / "config.toml"
+        assert config_path.exists(), "Missing .streamlit/config.toml"
+        return config_path.read_text()
+
+    def test_config_is_light_base(self):
+        config = self._read_config()
+        assert 'base = "light"' in config, (
+            "Config theme must be light base for the Mediterranean theme; "
+            "a dark base makes dropdowns and widgets render dark"
+        )
+
+    def test_config_background_is_cream(self):
+        config = self._read_config()
+        assert "#FAF6F0" in config, "Config backgroundColor must be cream #FAF6F0"
+
+    def test_config_primary_is_terracotta(self):
+        config = self._read_config()
+        assert "#C2410C" in config, "Config primaryColor must be terracotta #C2410C"
+
+    def test_config_has_no_dark_leftovers(self):
+        config = self._read_config()
+        # The old dark-theme values that caused the black-dropdown bug.
+        for stale in ["#0F0F12", "#1A1A1E", "#E8E8EB", "#8B0000"]:
+            assert stale not in config, (
+                f"Stale dark-theme colour {stale} still in config.toml — "
+                f"this is what made the dropdowns render black"
+            )
 
 
 class TestStylesModule:
@@ -28,8 +73,14 @@ class TestStylesModule:
         from decant.ui.styles import _GLOBAL_STYLES
         # Theme variables and key selectors that the rest of the app
         # references via class names in unsafe_allow_html markup.
+        # Phase 4: Mediterranean palette (terracotta + olive + cream)
+        # with Playfair Display headings + DM Sans body.
         for landmark in [
-            "--wine-red",
+            "--terracotta",
+            "--olive",
+            "--bg-primary: #FAF6F0",
+            "Playfair Display",
+            "DM Sans",
             ".glass-card",
             ".main-title",
             "@media (max-width: 768px)",
