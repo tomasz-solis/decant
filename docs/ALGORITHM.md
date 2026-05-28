@@ -77,3 +77,20 @@ The exponential confidence factor (`1 - e^(-0.4N)`) was not changed. It still da
 - `ui/tab_add_wine.py`: headline display number is `palate_match`. Breakdown panel presents alignment and confidence as parallel facts.
 - `constants.py:Verdict`: marked legacy; not read anywhere
 - `tests/test_palate_engine.py`: `TestCentredCosine` and `TestPopulationMean` pin the v2 math; the new verdict tests pin "high alignment + low confidence → Promising, not Strong"
+
+## Score stability under repeated extraction
+
+Two layers of the score path interact with non-determinism in different ways, and it's worth being honest about both.
+
+**The engine math is deterministic.** Given the same candidate feature vector and the same history, `calculate_match` returns the bit-identical score every time. This is pinned by `TestScoreDeterminism` (5 successive calls on the same inputs must produce one unique value; row order in the history must not affect the result).
+
+**The candidate feature vector is only as stable as the LLM that produced it.** For text-entered wines, the five flavour features (acidity, fruitiness, body, tannin, minerality) come from `predictor.extract_wine_data` — a single OpenAI call. The call uses `temperature=0` and `seed=OPENAI_SEED`, but OpenAI's own docs state seed is best-effort; the `system_fingerprint` can change between requests and the output can vary. Centred cosine measures the *angle* between (candidate − population_mean) and (ideal − population_mean), so when a wine sits near the population mean, a small feature wobble swings the angle non-linearly and the score moves a few percent.
+
+To bound this, `extract_wine_data` is cached by wine name (file-based SHA256 keyed on the prompt + model). The first extraction is frozen; subsequent calls with the same wine name return the cached features bit-identical. With the cache populated, the candidate vector cannot drift, and the score is stable for the lifetime of the cache entry.
+
+**Where the residual instability comes from.** When the cache is cold — first extraction of a wine, after the 24h TTL expires, or in any scenario that hits the LLM fresh — the score reflects whatever features that particular call returned. Two cold extractions of the same wine, hours apart, can land on slightly different feature vectors (e.g. acidity 7.2 vs 7.6) and so produce scores a few percent apart (observed spread: ~3–4 points on a Burgundy white near the user's population mean). This is upstream of the algorithm and not fixable on our side without either (a) replacing the LLM-inferred features with a deterministic source, or (b) accepting OpenAI's eventual deterministic-output guarantees if they ship them.
+
+**What the user actually experiences.** Within a single Streamlit session, after the first extraction, the score is rock-stable — every rerun reads cached features. Across full app reloads or after the cache expires, the score can drift by a few percent. The headline number is rounded to one decimal, the verdict bands are wide ("Strong Match" covers ~75–100), and a 3-point swing rarely crosses a band — so the qualitative judgement is stable even when the digit-level number isn't.
+
+**Why not just disable the LLM path.** The text-entry flow exists because users often enter wines they've seen on a list or at a restaurant without having a photo. Removing LLM inference here would force everyone to either upload a photo or enter five sliders manually, which defeats the point. The trade-off — accept a few percent of LLM-induced jitter in exchange for "type a name, get a score" — is the right one for a household tool. A production system with stricter stability requirements would need a deterministic feature source (a vetted producer/region lookup table, or a fine-tuned model exposed via batch inference).
+

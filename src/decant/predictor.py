@@ -12,7 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 from decant.schema import WineFeatures, WineExtraction
 from decant.palate_engine import PalateEngine, PalateScore
-from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE
+from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
 from decant.constants import AlgorithmConstants, ColumnNames
 from decant.palate_formula import add_palate_features_to_dataframe
 from decant.error_handling import handle_llm_error, LLMError
@@ -218,9 +218,24 @@ Provide JSON with: match_score (0-100), qualitative_analysis, key_alignment, key
         return prompt
 
     def extract_wine_data(self, wine_name: str) -> WineExtraction:
-        """Extract complete wine data from a wine name using LLM."""
+        """Extract complete wine data from a wine name using LLM.
+
+        Cached by wine name. The LLM is not truly deterministic even at
+        temperature 0 with a fixed seed, so re-extracting the same wine
+        would otherwise return slightly different flavour features each
+        time — which made the downstream palate score visibly unstable
+        (the same wine scored 84% then 95% across renders). Caching the
+        first extraction freezes the result for that name.
+        """
         # Sanitize input
         wine_name = sanitize_text_input(wine_name)
+
+        # Cache by name. Frozen on first extraction; re-checks reuse it.
+        cache_key = f"winedata_{wine_name}"
+        cached = _llm_cache.get(cache_key, OPENAI_MODEL)
+        if cached:
+            logger.info("Using cached wine-data extraction")
+            return WineExtraction(**cached)
 
         # Build context from liked wines
         context = ""
@@ -276,6 +291,9 @@ Return JSON only with these exact field names.
 
             response = self._call_openai_with_retry(messages)
             extraction = WineExtraction(**response)
+            # Freeze this extraction so re-checking the same name returns
+            # identical features (and thus an identical score).
+            _llm_cache.set(cache_key, OPENAI_MODEL, response)
             logger.info(f"Extracted wine data: {extraction.wine_name} ({extraction.producer})")
             return extraction
 
@@ -312,7 +330,8 @@ Return JSON only with these exact field names.
                 model=OPENAI_MODEL,
                 messages=messages,
                 response_format=response_format or {"type": "json_object"},
-                temperature=OPENAI_TEMPERATURE
+                temperature=OPENAI_TEMPERATURE,
+                seed=OPENAI_SEED,
             )
 
             if hasattr(completion, 'usage'):
