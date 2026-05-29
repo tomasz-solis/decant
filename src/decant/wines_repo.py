@@ -103,6 +103,92 @@ def repo_add_wine(sb: Client, row_data: dict[str, Any]) -> dict[str, Any]:
     return data[0] if data else {}
 
 
+def repo_update_wine(
+    sb: Client,
+    wine_id: int,
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    """Update an existing wine row's editable fields.
+
+    Args:
+        sb: Authenticated Supabase client.
+        wine_id: The wine row's primary key (`id` column, int4).
+        fields: Field name -> new value. Only metadata fields are
+            allowed; see `_EDITABLE_FIELDS`. Unknown or disallowed
+            fields are silently dropped to prevent accidentally
+            updating flavour features or identity columns via this
+            entry point.
+
+    Returns:
+        The updated row, or an empty dict if Supabase returned
+        nothing (e.g. the row doesn't exist or doesn't belong to
+        the caller's cellar).
+
+    Notes:
+        The query filters on both `id` AND `cellar_id` as a defense
+        in depth — even if RLS were misconfigured, a caller couldn't
+        update a wine outside their cellar via this function.
+
+        Flavour features (acidity/fruitiness/body/tannin/minerality)
+        are intentionally NOT editable here. Changing those affects
+        every downstream palate-match calculation because they shift
+        the population mean and ideal profile. If we ever expose
+        feature editing, it needs its own path with explicit user
+        confirmation about that blast radius.
+
+        wine_name IS editable. Renaming is needed because the
+        original extraction is sometimes wrong, and there's no other
+        way to fix it without delete-and-re-add. Side-effects: the
+        LLM cache keyed by name goes stale (harmless, expires
+        normally); prior-tasting matching uses tokenised wine_name,
+        so small corrections still match across the rename but a
+        wholesale rename would stop matching prior history; the
+        unique constraint on (user_id, wine_name, vintage) rejects
+        a rename that collides with an existing wine.
+    """
+    allowed = {k: v for k, v in fields.items() if k in _EDITABLE_FIELDS}
+    if not allowed:
+        return {}
+
+    cellar_id = _get_cellar_id()
+    response = (
+        sb.table("wines")
+        .update(allowed)
+        .eq("id", wine_id)
+        .eq("cellar_id", cellar_id)
+        .execute()
+    )
+    data = response.data or []
+    return data[0] if data else {}
+
+
+# Fields that `repo_update_wine` will accept. Everything else is
+# silently dropped — see the docstring for why flavour features and
+# id are excluded. wine_name IS editable here because the original
+# extraction is sometimes wrong (e.g. missing '1er' in a Premier Cru
+# name) and there's no other way to fix it. Renaming has a few
+# side-effects: the LLM cache keyed by name goes stale (harmless,
+# expires in 24h), prior-tasting matching still works as long as
+# token overlap survives the rename, and the unique constraint on
+# (user_id, wine_name, vintage) will reject a rename that collides
+# with an existing wine.
+_EDITABLE_FIELDS: frozenset[str] = frozenset({
+    "wine_name",
+    "vintage",
+    "producer",
+    "region",
+    "country",
+    "price",
+    "score",
+    "liked",
+    "notes",
+    "wine_color",
+    "is_sparkling",
+    "is_natural",
+    "sweetness",
+})
+
+
 def list_wines(sb: Client) -> pd.DataFrame:
     """Backward-compatible wrapper."""
     return repo_list_wines(sb)

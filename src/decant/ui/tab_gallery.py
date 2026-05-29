@@ -1,8 +1,11 @@
 """Wine Gallery tab body.
 
-Browse the household's full wine collection. Pure read-only view —
-no auth gate, no writes (except photo upload which is local). Used
-by all visitors including anonymous ones.
+Browse the household's full wine collection. Anonymous users get a
+pure read-only view. Authenticated users can also edit a wine's
+metadata in place (vintage, producer, price, score, etc) via an
+inline form on each card. Flavour features stay read-only — editing
+them affects every downstream palate score, which needs its own
+path with explicit user confirmation about the blast radius.
 
 The grid layout is rendered via `apply_gallery_styles()` (scoped CSS
 in `decant.ui.styles`), with cards built using Streamlit's native
@@ -25,8 +28,10 @@ from decant.services.image_storage import (
     get_wine_image_url,
     save_wine_image,
 )
+from decant.supabase_session import get_user_supabase, is_authenticated
 from decant.ui.helpers import should_display_vintage, show_empty_data_diagnostics
 from decant.ui.styles import apply_gallery_styles
+from decant.wines_repo import repo_update_wine
 
 
 # Hard-coded for now. Could move to ui-config later if other tabs
@@ -136,6 +141,7 @@ def _render_wine_card(wine: pd.Series, wine_idx: int) -> None:
     _render_card_metrics(wine)
     _render_card_icons(wine)
     _render_card_notes(wine)
+    _render_card_edit(wine, wine_idx)
     _render_card_upload(wine, wine_name, wine_idx)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -221,6 +227,223 @@ def _render_card_notes(wine: pd.Series) -> None:
     if notes:
         with st.expander("📝 Tasting Notes"):
             st.markdown(f"_{notes}_")
+
+
+# ---- editable field set ----------------------------------------------
+# Mirrors `wines_repo._EDITABLE_FIELDS`. Kept here as a separate
+# constant so a UI-side dropdown change doesn't have to round-trip
+# through the repo module — the actual security filter is enforced
+# server-side by repo_update_wine.
+_SWEETNESS_OPTIONS = ["Dry", "Off-Dry", "Semi-Sweet", "Sweet"]
+_WINE_COLOR_OPTIONS = ["Red", "White", "Rosé", "Orange", "Sparkling"]
+
+
+def _coerce_vintage(raw: str | int | float | None) -> int | None:
+    """Parse a vintage input. Empty / 'NV' / non-numeric -> None.
+
+    Vintage is stored as nullable in Supabase; the user UI accepts a
+    free-form string so people can type 'NV' for non-vintage and we
+    translate it to NULL.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return int(raw) if 1800 < raw < 2100 else None
+    s = str(raw).strip().upper()
+    if not s or s == "NV":
+        return None
+    try:
+        n = int(s)
+        return n if 1800 < n < 2100 else None
+    except ValueError:
+        return None
+
+
+def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
+    """Inline edit form for a wine's metadata.
+
+    Only authenticated users see this. Guest mode keeps the gallery
+    read-only as before. The form lives inside an expander so it
+    doesn't clutter the card's resting state.
+
+    Edits metadata fields only. Flavour features (acidity, body, etc)
+    are intentionally absent — changing them affects every downstream
+    palate score and needs an explicit blast-radius warning. See
+    `wines_repo.repo_update_wine`.
+    """
+    if not is_authenticated():
+        return
+
+    wine_id = wine.get("id")
+    if not wine_id:
+        # `id` is the int4 primary key from Supabase, normalized to
+        # int via data_access.normalize. 0 means "no id available"
+        # (shouldn't happen for rows loaded from Supabase, but guard
+        # anyway — we can't update a row without a primary key).
+        return
+
+    with st.expander("✏️ Edit details"):
+        # Use a form so the user can change multiple fields and submit
+        # them in one batch. Without `st.form`, each input change would
+        # trigger a rerun and the in-progress edits would be lost.
+        with st.form(f"edit_wine_{wine_idx}", clear_on_submit=False):
+            # Name goes at the top, full-width. It's the wine's
+            # identity, not just another attribute — corrections to
+            # missing/wrong words in the original extraction live here.
+            new_wine_name = st.text_input(
+                "Name",
+                value=str(wine.get("wine_name") or ""),
+                key=f"edit_name_{wine_idx}",
+            )
+
+            # Column A: text inputs only (uniform height -> clean
+            # vertical rhythm). Column B: pickers + numerics. The
+            # three flag checkboxes get their own row below to avoid
+            # the previous layout where stacked checkboxes vs a
+            # slider made the columns look wonky.
+            col_a, col_b = st.columns(2)
+            with col_a:
+                vintage_raw = wine.get("vintage")
+                vintage_default = (
+                    str(int(vintage_raw))
+                    if should_display_vintage(vintage_raw)
+                    else ""
+                )
+                new_vintage_str = st.text_input(
+                    "Vintage",
+                    value=vintage_default,
+                    placeholder="e.g. 2021 or NV",
+                    key=f"edit_vintage_{wine_idx}",
+                )
+                new_producer = st.text_input(
+                    "Producer",
+                    value=str(wine.get("producer") or ""),
+                    key=f"edit_producer_{wine_idx}",
+                )
+                new_region = st.text_input(
+                    "Region",
+                    value=str(wine.get("region") or ""),
+                    key=f"edit_region_{wine_idx}",
+                )
+                new_country = st.text_input(
+                    "Country",
+                    value=str(wine.get("country") or ""),
+                    key=f"edit_country_{wine_idx}",
+                )
+
+            with col_b:
+                current_color = wine.get("wine_color") or "Red"
+                color_index = (
+                    _WINE_COLOR_OPTIONS.index(current_color)
+                    if current_color in _WINE_COLOR_OPTIONS
+                    else 0
+                )
+                new_wine_color = st.selectbox(
+                    "Colour",
+                    _WINE_COLOR_OPTIONS,
+                    index=color_index,
+                    key=f"edit_color_{wine_idx}",
+                )
+                current_sweetness = wine.get("sweetness") or "Dry"
+                sweetness_index = (
+                    _SWEETNESS_OPTIONS.index(current_sweetness)
+                    if current_sweetness in _SWEETNESS_OPTIONS
+                    else 0
+                )
+                new_sweetness = st.selectbox(
+                    "Sweetness",
+                    _SWEETNESS_OPTIONS,
+                    index=sweetness_index,
+                    key=f"edit_sweetness_{wine_idx}",
+                )
+                new_score = st.slider(
+                    "Score",
+                    min_value=0.0,
+                    max_value=10.0,
+                    value=float(wine.get("score") or 0.0),
+                    step=0.1,
+                    key=f"edit_score_{wine_idx}",
+                )
+                new_price = st.number_input(
+                    "Price (€)",
+                    min_value=0.0,
+                    value=float(wine.get("price") or 0.0),
+                    step=1.0,
+                    key=f"edit_price_{wine_idx}",
+                )
+
+            # Flags row: three checkboxes side by side keeps the
+            # whole form compact and reads as "the on/off attributes
+            # of this wine" in a single horizontal beat.
+            flag_a, flag_b, flag_c = st.columns(3)
+            with flag_a:
+                new_liked = st.checkbox(
+                    "❤️ Liked",
+                    value=bool(wine.get("liked")),
+                    key=f"edit_liked_{wine_idx}",
+                )
+            with flag_b:
+                new_sparkling = st.checkbox(
+                    "✨ Sparkling",
+                    value=bool(wine.get("is_sparkling")),
+                    key=f"edit_sparkling_{wine_idx}",
+                )
+            with flag_c:
+                new_natural = st.checkbox(
+                    "🌱 Natural",
+                    value=bool(wine.get("is_natural")),
+                    key=f"edit_natural_{wine_idx}",
+                )
+
+            new_notes = st.text_area(
+                "Tasting notes",
+                value=str(wine.get("notes") or ""),
+                key=f"edit_notes_{wine_idx}",
+                height=80,
+            )
+
+            submitted = st.form_submit_button("💾 Save changes")
+
+            if submitted:
+                cleaned_name = new_wine_name.strip()
+                if not cleaned_name:
+                    st.error("❌ Name can't be empty.")
+                    return
+
+                fields = {
+                    "wine_name": cleaned_name,
+                    "vintage": _coerce_vintage(new_vintage_str),
+                    "producer": new_producer.strip() or None,
+                    "region": new_region.strip() or None,
+                    "country": new_country.strip() or None,
+                    "wine_color": new_wine_color,
+                    "score": float(new_score),
+                    "price": float(new_price),
+                    "liked": bool(new_liked),
+                    "is_sparkling": bool(new_sparkling),
+                    "is_natural": bool(new_natural),
+                    "sweetness": new_sweetness,
+                    "notes": new_notes.strip() or None,
+                }
+                try:
+                    result = repo_update_wine(
+                        get_user_supabase(),
+                        int(wine_id),
+                        fields,
+                    )
+                except Exception as exc:
+                    st.error(f"❌ Couldn't save changes: {exc}")
+                    return
+
+                if not result:
+                    st.error(
+                        "❌ Save returned no row — the wine may no longer "
+                        "exist or you may not have permission to edit it."
+                    )
+                    return
+
+                st.success("✅ Saved.")
+                st.rerun()
 
 
 def _render_card_upload(wine: pd.Series, wine_name: str, wine_idx: int) -> None:

@@ -92,6 +92,39 @@ class TestNormalize:
         assert list(result.columns) == EXPECTED_COLUMNS
         assert len(result) == 0
 
+    def test_id_column_preserved(self):
+        """Supabase int4 primary key must survive normalize.
+
+        Regression guard: the original schema had no id column, so
+        normalize stripped it via the EXPECTED_COLUMNS allowlist.
+        The Gallery edit feature needs the id to update a row, so
+        id was added to the allowlist. This test pins that.
+        """
+        df = pd.DataFrame([{"id": 42, "wine_name": "X"}])
+        result = normalize(df)
+        assert "id" in result.columns
+        assert result.iloc[0]["id"] == 42
+
+    def test_id_coerced_to_int_not_float(self):
+        """id is int4 in Postgres. pd.to_numeric defaults to float;
+        we cast back to int so .eq("id", 5) lands cleanly instead of
+        receiving 5.0.
+        """
+        df = pd.DataFrame([{"id": 42, "wine_name": "X"}])
+        result = normalize(df)
+        assert result.iloc[0]["id"] == 42
+        # Pandas may use int64; pin that it's an integer type, not float.
+        assert pd.api.types.is_integer_dtype(result["id"])
+
+    def test_id_defaults_to_zero_when_missing(self):
+        """If a frame somehow arrives without id (legacy callers,
+        test fixtures), default to 0 — consumers treat that as
+        'no id available' and skip the edit affordance.
+        """
+        df = pd.DataFrame([{"wine_name": "X"}])
+        result = normalize(df)
+        assert result.iloc[0]["id"] == 0
+
 
 class TestLoadHistory:
     """load_history wires the repo to normalize. Don't re-test repo logic here."""

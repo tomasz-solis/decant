@@ -28,6 +28,7 @@ Phase 4 — Mediterranean light theme:
 
 from __future__ import annotations
 
+from matplotlib import style
 import streamlit as st
 
 
@@ -550,20 +551,6 @@ _GLOBAL_STYLES = """
         color: var(--text-primary) !important;
     }
 
-    /* ---- Cards (glass-card class kept for backward compat) -------- */
-    .glass-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: var(--radius-card);
-        padding: 24px;
-        box-shadow: var(--shadow-card);
-        transition: box-shadow 0.2s ease, transform 0.2s ease;
-    }
-    .glass-card:hover {
-        box-shadow: var(--shadow-card-hover);
-        transform: translateY(-1px);
-    }
-
     /* ---- Alerts / info / warning / error -------------------------- */
     [data-testid="stAlert"] {
         border-radius: var(--radius-card) !important;
@@ -651,6 +638,7 @@ _GALLERY_STYLES = """\
     margin-bottom: 0 !important;
 }
 
+
 /* Wine Gallery Grid — back to 3-per-row with larger photos.
    minmax(280px, 1fr) gives 3 columns at 1100px, 4 at ~1450px. */
 .wine-gallery-grid {
@@ -712,6 +700,17 @@ _GALLERY_STYLES = """\
 </style>
 """
 
+_SELECTBOX_CARET_FIX = """
+<style>
+.stSelectbox div[data-baseweb="select"] input {
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    opacity: 0 !important;
+    caret-color: transparent !important;
+}
+</style>
+"""
 
 def apply_global_styles() -> None:
     """Inject the main app theme.
@@ -732,3 +731,5 @@ def apply_gallery_styles() -> None:
     `.wine-card-footer`).
     """
     st.markdown(_GALLERY_STYLES, unsafe_allow_html=True)
+
+    st.markdown(_SELECTBOX_CARET_FIX, unsafe_allow_html=True)

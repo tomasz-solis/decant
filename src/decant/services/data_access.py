@@ -19,6 +19,12 @@ from decant.wines_repo import repo_list_wines
 
 
 EXPECTED_COLUMNS = [
+    # Row identity from Supabase (int4 PRIMARY KEY). Preserved so
+    # callers that need to update a specific row (e.g. the Gallery
+    # edit form) can pass the primary key to repo_update_wine.
+    # Defaults to 0 when absent — consumers check for truthiness
+    # before using it (0 is treated as "no id available").
+    "id",
     "wine_name",
     "producer",
     "vintage",
@@ -40,6 +46,7 @@ EXPECTED_COLUMNS = [
 ]
 
 NUMERIC_COLUMNS = [
+    "id",
     "acidity",
     "minerality",
     "fruitiness",
@@ -63,6 +70,7 @@ TEXT_COLUMNS = [
 ]
 
 DEFAULTS = {
+    "id": 0,
     "wine_name": "Unknown",
     "producer": "Unknown",
     "vintage": 0.0,
@@ -114,6 +122,12 @@ def normalize(df: Optional[pd.DataFrame]) -> pd.DataFrame:
 
     for col in NUMERIC_COLUMNS:
         out[col] = pd.to_numeric(out[col], errors="coerce").fillna(DEFAULTS[col])
+
+    # `id` is int4 in Postgres, not float. After to_numeric it'd be
+    # 5.0; cast back to int so .eq("id", 5) lands cleanly. The other
+    # numerics stay as floats (acidity/score/price all benefit from
+    # decimals).
+    out["id"] = out["id"].astype(int)
 
     for col in BOOL_COLUMNS:
         out[col] = out[col].fillna(False).astype(bool)
