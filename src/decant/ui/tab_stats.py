@@ -22,12 +22,12 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
             DataFrame shape, columns, and a preview. Defaults to False
             so production renders stay clean.
     """
-    st.markdown("## 🏆 Stats")
+    st.markdown("## Stats")
     st.caption("Your collection at a glance")
 
     df = history_df
 
-    # 🌍 REGIONAL FILTER DROPDOWN
+    # Regional filter dropdown.
     if not df.empty and 'region' in df.columns:
         # Get unique regions (exclude Unknown)
         regions = df[
@@ -38,7 +38,7 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
         if len(regions) > 0:
             regions_sorted = sorted(regions)
             selected_region = st.selectbox(
-                "🌍 Filter by Region",
+                "Filter by Region",
                 ["All Regions"] + list(regions_sorted),
                 key='region_filter'
             )
@@ -58,44 +58,44 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("✅ Liked", liked_wines)
+        st.metric("Liked", liked_wines)
     with col2:
-        st.metric("❌ Disliked", disliked_wines)
+        st.metric("Disliked", disliked_wines)
     with col3:
-        st.metric("📝 Total", total_wines)
+        st.metric("Total", total_wines)
 
     # --- Palate Stats (your ideal flavour numbers) ---
     st.markdown("---")
-    st.markdown("### 🧬 Palate Stats")
+    st.markdown("### Palate Stats")
 
     feature_cols = ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']
     missing_feature_cols = [c for c in feature_cols if c not in liked_df.columns]
 
     if liked_df.empty:
-        st.caption("🔍 Add wines with flavor profiles to see your palate stats")
+        st.caption("Add wines with flavor profiles to see your palate stats")
     elif missing_feature_cols:
         st.caption(f"Missing fields for palate stats: {', '.join(missing_feature_cols)}")
     else:
         liked_avg = liked_df[feature_cols].mean()
         if liked_avg.sum() == 0:
-            st.caption("🔍 Add wines with flavor profiles to see your palate stats")
+            st.caption("Add wines with flavor profiles to see your palate stats")
         else:
             st.caption("Your ideal wine profile:")
             f1, f2, f3, f4, f5 = st.columns(5)
             with f1:
-                st.metric("⚡ Acid", f"{liked_avg['acidity']:.1f}")
+                st.metric("Acid", f"{liked_avg['acidity']:.1f}")
             with f2:
-                st.metric("💎 Mineral", f"{liked_avg['minerality']:.1f}")
+                st.metric("Mineral", f"{liked_avg['minerality']:.1f}")
             with f3:
-                st.metric("🍇 Fruit", f"{liked_avg['fruitiness']:.1f}")
+                st.metric("Fruit", f"{liked_avg['fruitiness']:.1f}")
             with f4:
-                st.metric("🌰 Tannin", f"{liked_avg['tannin']:.1f}")
+                st.metric("Tannin", f"{liked_avg['tannin']:.1f}")
             with f5:
-                st.metric("💪 Body", f"{liked_avg['body']:.1f}")
+                st.metric("Body", f"{liked_avg['body']:.1f}")
 
     # --- Top Regions (top 3 by average score) ---
     st.markdown("---")
-    st.markdown("### 🌍 Top Regions")
+    st.markdown("### Top Regions")
 
     regional_required_cols = ['region', 'country', 'score', 'wine_name']
     missing_regional_cols = [c for c in regional_required_cols if c not in liked_df.columns]
@@ -120,18 +120,26 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
                 medal = {0: '🥇', 1: '🥈', 2: '🥉'}.get(idx, f"#{idx + 1}")
                 rcol1, rcol2, rcol3 = st.columns([1, 5, 2])
                 with rcol1:
-                    st.markdown(f"### {medal}")
+                    # Medal: an inline icon, NOT a section heading. Rendering
+                    # via `### {medal}` makes it an h3 — same heading level as
+                    # the "Top Regions" section title above, which confuses
+                    # the visual hierarchy.
+                    st.markdown(
+                        f"<div style='font-size: 2rem; line-height: 1; "
+                        f"margin: 0.5rem 0;'>{medal}</div>",
+                        unsafe_allow_html=True,
+                    )
                 with rcol2:
                     st.markdown(f"**{region}**")
                     st.caption(f"{int(stats['count'])} wines")
                 with rcol3:
-                    st.metric("Avg score", f"{stats['avg_score']:.1f}/10")
+                    st.metric("Avg Score", f"{stats['avg_score']:.1f}/10")
         else:
             st.caption("No regional data yet")
 
     # --- Top Wines (top 3 by score) ---
     st.markdown("---")
-    st.markdown("### 🍷 Top Wines")
+    st.markdown("### Top Wines")
 
     top_wines_df = liked_df if not liked_df.empty else df
     required_for_top = {'wine_name', 'score'}
@@ -148,7 +156,12 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
             medal = {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, f"#{rank}")
             wcol1, wcol2, wcol3 = st.columns([1, 6, 2])
             with wcol1:
-                st.markdown(f"### {medal}")
+                # Medal as inline icon (see _render_regions for rationale).
+                st.markdown(
+                    f"<div style='font-size: 2rem; line-height: 1; "
+                    f"margin: 0.5rem 0;'>{medal}</div>",
+                    unsafe_allow_html=True,
+                )
             with wcol2:
                 st.markdown(f"**{wine['wine_name']}**{year}")
                 if producer:
@@ -159,7 +172,7 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
     # --- Debug (gated by debug_mode) ---
     if debug_mode:
         st.markdown("---")
-        st.markdown("### 🔍 Debug Data")
+        st.markdown("### Debug Data")
         st.caption(f"Shape: {df.shape}")
         st.caption(f"Columns: {list(df.columns)}")
         missing_liked_debug = st.session_state.get("_wine_df_missing_liked_debug")

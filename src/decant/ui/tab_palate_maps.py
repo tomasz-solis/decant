@@ -21,7 +21,6 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from decant.services.data_access import normalize as ensure_wine_df
 from decant.ui.components import create_consolidated_palate_radar
 
 
@@ -39,7 +38,7 @@ def render(history_df: pd.DataFrame, is_guest: bool) -> None:
         is_guest: True if the visitor is not signed in. Gates the
             restore-from-backup upload widget.
     """
-    st.markdown("## 📊 My Palate Maps")
+    st.markdown("## My Palate Maps")
     st.caption("Your ideal flavor profiles by wine color")
 
     _render_palate_maps(history_df)
@@ -117,15 +116,15 @@ def _render_per_color_metrics(color_profiles: dict[str, pd.Series]) -> None:
 
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("⚡ Acidity", f"{ideal['acidity']:.1f}/10")
+            st.metric("Acidity", f"{ideal['acidity']:.1f}/10")
         with col2:
-            st.metric("💎 Minerality", f"{ideal['minerality']:.1f}/10")
+            st.metric("Minerality", f"{ideal['minerality']:.1f}/10")
         with col3:
-            st.metric("🍇 Fruitiness", f"{ideal['fruitiness']:.1f}/10")
+            st.metric("Fruitiness", f"{ideal['fruitiness']:.1f}/10")
         with col4:
-            st.metric("🌰 Tannin", f"{ideal['tannin']:.1f}/10")
+            st.metric("Tannin", f"{ideal['tannin']:.1f}/10")
         with col5:
-            st.metric("💪 Body", f"{ideal['body']:.1f}/10")
+            st.metric("Body", f"{ideal['body']:.1f}/10")
 
         st.markdown("---")
 
@@ -139,7 +138,7 @@ def _render_data_persistence(history_df: pd.DataFrame, is_guest: bool) -> None:
 
     with col_upload:
         if is_guest:
-            st.info("🔒 Log in to restore from backup")
+            st.info("Log in to restore from backup")
         else:
             _render_restore_form(history_df)
 
@@ -154,7 +153,7 @@ def _render_download_button(history_df: pd.DataFrame) -> None:
 
     csv_data = history_df.to_csv(index=False)
     st.download_button(
-        label="📥 Download My Collection (CSV)",
+        label="Download My Collection (CSV)",
         data=csv_data,
         file_name="decant_wine_history.csv",
         mime="text/csv",
@@ -169,7 +168,7 @@ def _render_restore_form(history_df: pd.DataFrame) -> None:
     have added wines since the form was rendered.
     """
     uploaded_file = st.file_uploader(
-        "📤 Restore from Backup",
+        "Restore from Backup",
         type=["csv"],
         help="Upload a previously downloaded CSV to restore your collection",
         key="restore_history",
@@ -181,19 +180,19 @@ def _render_restore_form(history_df: pd.DataFrame) -> None:
     try:
         uploaded_df = pd.read_csv(uploaded_file)
     except Exception as e:
-        st.error(f"❌ Error reading CSV: {str(e)}")
+        st.error(f"Error reading CSV: {str(e)}")
         return
 
     required_cols = ["wine_name", "score", "liked"]
     missing_cols = [c for c in required_cols if c not in uploaded_df.columns]
     if missing_cols:
-        st.error(f"❌ Invalid CSV: Missing columns {missing_cols}")
+        st.error(f"Invalid CSV: Missing columns {missing_cols}")
         return
 
     new_wines = _dedup_against_existing(uploaded_df, history_df)
 
     if len(new_wines) == 0:
-        st.info("✅ No new wines to add. All uploaded wines already exist!")
+        st.info("No new wines to add. All uploaded wines already exist.")
         return
 
     _import_new_wines(new_wines)
@@ -247,9 +246,9 @@ def _import_new_wines(new_wines: pd.DataFrame) -> None:
             repo_add_wine(sb, row_data)
             imported += 1
         except Exception as row_err:
-            st.warning(f"⚠️ Skipped {row.get('wine_name', '?')}: {row_err}")
+            st.warning(f"Skipped {row.get('wine_name', '?')}: {row_err}")
 
-    st.success(f"✅ Imported {imported} new wines!")
+    st.success(f"Imported {imported} new wines.")
 
     # Invalidate the load_wine_data cache so the next read sees the
     # writes. Imported lazily for the same reason as above.

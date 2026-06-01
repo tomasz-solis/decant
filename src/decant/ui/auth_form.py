@@ -3,7 +3,7 @@
 Renders a top-right auth control as a popover:
 - when signed out: a "Sign in" button; click to open a popover with the
   email/password form
-- when signed in: a "👤 <email>" button; click to open a popover with a
+- when signed in: an email button; click to open a popover with a
   "Sign out" action
 
 The popover affordance keeps the auth out of the main reading flow and
@@ -47,7 +47,7 @@ def _render_logged_in_popover() -> None:
     """Popover showing the current user and a sign-out action."""
     email = current_user_email() or "household"
     # Truncate the visible email so the button stays compact.
-    label = f"👤 {email if len(email) < 20 else email[:17] + '...'}"
+    label = email if len(email) < 20 else email[:17] + "..."
     with st.popover(label, use_container_width=False):
         st.markdown(f"**Signed in as**  \n`{email}`")
         if st.button("Sign out", key="auth_signout", type="primary"):
@@ -66,7 +66,10 @@ def _render_signin_popover(contact_email: str) -> None:
 
 def _render_login_inputs(contact_email: str) -> None:
     """Email + password inputs with sign-in and 'need help' actions."""
-    st.markdown("### Sign in")
+    st.markdown(
+        "<div class='form-title'>Sign in</div>",
+        unsafe_allow_html=True,
+    )
 
     email = st.text_input("Email", key="auth_email", autocomplete="email")
     password = st.text_input(

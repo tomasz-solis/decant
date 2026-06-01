@@ -9,8 +9,8 @@ path with explicit user confirmation about the blast radius.
 
 The grid layout is rendered via `apply_gallery_styles()` (scoped CSS
 in `decant.ui.styles`), with cards built using Streamlit's native
-column primitives plus a thin `unsafe_allow_html` layer for the
-`.glass-card` wrapper.
+column primitives plus a small `unsafe_allow_html` layer for the
+card image and metadata markup.
 
 Call `render(history_df)` from inside `with tab4:` in `app.py`.
 """
@@ -50,7 +50,7 @@ def render(history_df: pd.DataFrame) -> None:
             the top of `main()` to avoid redundant Supabase round
             trips across tabs.
     """
-    st.markdown("## 🖼️ Wine Gallery")
+    st.markdown("## Wine Gallery")
     st.caption("Browse your complete wine collection with all details")
 
     if history_df is None or len(history_df) == 0:
@@ -79,7 +79,7 @@ def _apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         search_query = st.text_input(
-            "🔍 Search wines",
+            "Search wines",
             placeholder="Search by name, producer, region...",
         )
     with col2:
@@ -135,7 +135,7 @@ def _render_wine_card(wine: pd.Series, wine_idx: int) -> None:
     """Render a single wine card inside an already-active column."""
     wine_name = wine.get("wine_name", "Unknown")
 
-    st.markdown('<div class="glass-card wine-card">', unsafe_allow_html=True)
+    st.markdown('<div class="wine-card">', unsafe_allow_html=True)
     _render_card_image(wine_name)
     _render_card_meta(wine, wine_name)
     _render_card_metrics(wine)
@@ -159,15 +159,21 @@ def _render_card_image(wine_name: str) -> None:
         )
     else:
         st.markdown(
-            '<div class="wine-card-img-placeholder">🍷</div>',
+            '<div class="wine-card-img-placeholder">No photo</div>',
             unsafe_allow_html=True,
         )
 
 
 def _render_card_meta(wine: pd.Series, wine_name: str) -> None:
     """Name, producer + vintage, region/country."""
+    # Wine card name: rendered as a div (not h4) with explicit body
+    # font. It is not a section heading, and treating card titles as
+    # headings makes the visual hierarchy noisy.
     st.markdown(
-        f"<h4 style='margin: 12px 0 4px 0; font-size: 16px;'>{wine_name[:40]}</h4>",
+        f"<div style='margin: 12px 0 4px 0; font-size: 16px; "
+        f"font-family: var(--font-body); font-weight: 700; "
+        f"color: var(--text-primary); line-height: 1.3;'>"
+        f"{wine_name[:40]}</div>",
         unsafe_allow_html=True,
     )
 
@@ -177,15 +183,15 @@ def _render_card_meta(wine: pd.Series, wine_name: str) -> None:
     )
     producer = (wine.get("producer", "Unknown") or "Unknown")[:30]
     st.markdown(
-        f"<p style='font-size: 13px; color: #A0A0A8; margin: 0 0 4px 0;'>"
+        f"<p style='font-size: 13px; color: var(--text-secondary); margin: 0 0 4px 0;'>"
         f"{producer}{vintage_suffix}</p>",
         unsafe_allow_html=True,
     )
 
     location = wine.get("region") or wine.get("country") or "Unknown"
     st.markdown(
-        f"<p style='font-size: 12px; color: #A0A0A8; margin: 0 0 8px 0;'>"
-        f"📍 {str(location)[:35]}</p>",
+        f"<p style='font-size: 12px; color: var(--text-secondary); margin: 0 0 8px 0;'>"
+        f"{str(location)[:35]}</p>",
         unsafe_allow_html=True,
     )
 
@@ -207,11 +213,11 @@ def _render_card_icons(wine: pd.Series) -> None:
     """
     active_icons = []
     if wine.get("liked"):
-        active_icons.append('<span class="badge" style="font-size: 16px;">❤️</span>')
+        active_icons.append('<span class="status-badge">Liked</span>')
     if wine.get("is_sparkling"):
-        active_icons.append('<span class="badge" style="font-size: 16px;">✨</span>')
+        active_icons.append('<span class="status-badge">Sparkling</span>')
     if wine.get("is_natural"):
-        active_icons.append('<span class="badge" style="font-size: 16px;">🌱</span>')
+        active_icons.append('<span class="status-badge">Natural</span>')
 
     icons_content = " ".join(active_icons) if active_icons else "&nbsp;"
     st.markdown(
@@ -225,8 +231,8 @@ def _render_card_notes(wine: pd.Series) -> None:
     """Tasting notes inside a collapsible expander, if present."""
     notes = wine.get("notes", "")
     if notes:
-        with st.expander("📝 Tasting Notes"):
-            st.markdown(f"_{notes}_")
+        with st.expander("Tasting Notes"):
+            st.markdown(notes)
 
 
 # ---- editable field set ----------------------------------------------
@@ -282,7 +288,7 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
         # anyway — we can't update a row without a primary key).
         return
 
-    with st.expander("✏️ Edit details"):
+    with st.expander("Edit details"):
         # Use a form so the user can change multiple fields and submit
         # them in one batch. Without `st.form`, each input change would
         # trigger a rerun and the in-progress edits would be lost.
@@ -378,19 +384,19 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
             flag_a, flag_b, flag_c = st.columns(3)
             with flag_a:
                 new_liked = st.checkbox(
-                    "❤️ Liked",
+                    "Liked",
                     value=bool(wine.get("liked")),
                     key=f"edit_liked_{wine_idx}",
                 )
             with flag_b:
                 new_sparkling = st.checkbox(
-                    "✨ Sparkling",
+                    "Sparkling",
                     value=bool(wine.get("is_sparkling")),
                     key=f"edit_sparkling_{wine_idx}",
                 )
             with flag_c:
                 new_natural = st.checkbox(
-                    "🌱 Natural",
+                    "Natural",
                     value=bool(wine.get("is_natural")),
                     key=f"edit_natural_{wine_idx}",
                 )
@@ -402,12 +408,12 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
                 height=80,
             )
 
-            submitted = st.form_submit_button("💾 Save changes")
+            submitted = st.form_submit_button("Save changes")
 
             if submitted:
                 cleaned_name = new_wine_name.strip()
                 if not cleaned_name:
-                    st.error("❌ Name can't be empty.")
+                    st.error("Name can't be empty.")
                     return
 
                 fields = {
@@ -432,17 +438,17 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
                         fields,
                     )
                 except Exception as exc:
-                    st.error(f"❌ Couldn't save changes: {exc}")
+                    st.error(f"Couldn't save changes: {exc}")
                     return
 
                 if not result:
                     st.error(
-                        "❌ Save returned no row — the wine may no longer "
+                        "Save returned no row — the wine may no longer "
                         "exist or you may not have permission to edit it."
                     )
                     return
 
-                st.success("✅ Saved.")
+                st.success("Saved.")
                 st.rerun()
 
 
@@ -453,7 +459,7 @@ def _render_card_upload(wine: pd.Series, wine_name: str, wine_idx: int) -> None:
     link goes to an external search URL — useful when the user
     wants to look up something the household hasn't photographed yet.
     """
-    with st.expander("📸 Upload Photo"):
+    with st.expander("Upload Photo"):
         uploaded_image = st.file_uploader(
             "Choose bottle photo",
             type=["jpg", "jpeg", "png", "webp"],
@@ -462,11 +468,11 @@ def _render_card_upload(wine: pd.Series, wine_name: str, wine_idx: int) -> None:
         )
 
         if uploaded_image:
-            if st.button("💾 Save Photo", key=f"save_{wine_name}_{wine_idx}"):
+            if st.button("Save Photo", key=f"save_{wine_name}_{wine_idx}"):
                 saved_path = save_wine_image(uploaded_image, wine_name)
                 if saved_path:
-                    st.success("✓ Photo saved!")
+                    st.success("Photo saved.")
                     st.rerun()
 
         vivino_url = get_wine_image_url(wine_name, wine.get("producer", ""))
-        st.markdown(f"[🔍 Find on Vivino]({vivino_url})")
+        st.markdown(f"[Find on Vivino]({vivino_url})")

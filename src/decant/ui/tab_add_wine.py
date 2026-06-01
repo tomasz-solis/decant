@@ -43,17 +43,17 @@ def _render_prior_tasting_badge(prior) -> None:
     been tasted before.
 
     Two visual variants:
-    - Exact-vintage match: blue accent ("you've had this exact wine").
-    - Different-vintage match: amber accent ("you've had another vintage").
+    - Exact-vintage match: olive accent ("you've had this exact wine").
+    - Different-vintage match: terracotta accent ("you've had another vintage").
 
     Kept deliberately small — one line, no expansion. The goal is a
     quick recognition cue, not a full review surface.
     """
     score_part = f"{prior.score:.1f}/10" if prior.score is not None else "no score"
     if prior.liked is True:
-        liked_part = "❤️ liked"
+        liked_part = "liked"
     elif prior.liked is False:
-        liked_part = "👎 didn't like"
+        liked_part = "didn't like"
     else:
         liked_part = ""
 
@@ -61,16 +61,14 @@ def _render_prior_tasting_badge(prior) -> None:
     rating_text = " · ".join(pieces)
 
     if prior.match_kind == "exact":
-        # Same wine, same vintage — strong recognition.
-        bg = "rgba(96, 165, 250, 0.12)"
-        border = "rgba(96, 165, 250, 0.35)"
-        emoji = "🍷"
+        # Same wine, same vintage: strong recognition.
+        bg = "var(--olive-soft)"
+        border = "var(--olive)"
         leading = "You've had this"
     else:
-        # Same wine, different vintage — softer recognition.
-        bg = "rgba(251, 191, 36, 0.12)"
-        border = "rgba(251, 191, 36, 0.35)"
-        emoji = "🍇"
+        # Same wine, different vintage: softer recognition.
+        bg = "var(--terracotta-soft)"
+        border = "var(--terracotta)"
         vintage_str = str(prior.vintage) if prior.vintage else "another vintage"
         leading = f"You've had the {vintage_str} vintage of this wine"
 
@@ -82,9 +80,9 @@ def _render_prior_tasting_badge(prior) -> None:
             padding: 10px 16px;
             margin: 16px 0 0 0;
             font-size: 14px;
-            color: #3D2817;
+            color: var(--text-primary);
         ">
-            {emoji} <strong>{leading}</strong> — {rating_text}
+            <strong>{leading}</strong> — {rating_text}
         </div>""",
         unsafe_allow_html=True,
     )
@@ -120,14 +118,14 @@ def render(
     # This closes the OpenAI abuse vector — no Vision API or extraction
     # calls are reachable without a signed-in session.
     if not is_authenticated_now:
-        st.markdown("### 🍷 Add Wine to Collection")
+        st.markdown("## Add Wine to Collection")
         st.info(
             "Sign in to add wines and use the AI extraction feature. "
             "Browsing the gallery and palate maps doesn't require an account."
         )
         st.caption("Use the **Sign in** button at the top right.")
     else:
-        st.markdown("### 🍷 Add Wine to Collection")
+        st.markdown("## Add Wine to Collection")
         st.caption("Enter wine name or upload a photo - AI extracts everything else")
 
         # `history_df` is the parameter — no reload needed.
@@ -135,25 +133,25 @@ def render(
         # Input mode selection
         input_mode = st.radio(
             "Input Method",
-            ["📝 Enter Wine Name", "📸 Upload Photo"],
+            ["Enter Wine Name", "Upload Photo"],
             horizontal=True,
             label_visibility="collapsed"
         )
 
-        if input_mode == "📝 Enter Wine Name":
+        if input_mode == "Enter Wine Name":
             # Text input mode
-            st.markdown("### 🍷 Enter Wine Name")
+            st.markdown("### Enter Wine Name")
             st.caption("Type or use voice input (tap microphone on mobile keyboard)")
 
             wine_name_input = st.text_input(
                 "Wine Name",
                 placeholder="e.g., Fefiñanes Albariño 2022",
-                help="💬 Mobile tip: Use voice input for faster entry!",
+                help="Mobile tip: Use voice input for faster entry!",
                 label_visibility="collapsed"
             )
 
-            if wine_name_input and st.button("🔍 CHECK THIS WINE", type="primary", width="stretch"):
-                with st.spinner("🧠 AI is extracting wine details from name..."):
+            if wine_name_input and st.button("CHECK THIS WINE", type="primary", width="stretch"):
+                with st.spinner("AI is extracting wine details from name..."):
                     # predictor was loaded at app boot and passed in.
                     if predictor:
                         extraction = predictor.extract_wine_data(wine_name_input)
@@ -207,18 +205,18 @@ def render(
                                 wine_data.update(inferred)
 
                         st.session_state['wine_data'] = wine_data
-                        st.success("✅ Wine data extracted!")
+                        st.success("Wine data extracted.")
                         st.rerun()
 
         else:
             # Photo upload mode
-            st.markdown("### 📸 Snap a Photo")
+            st.markdown("### Snap a Photo")
             st.caption("Point your camera at the wine label - AI does the rest!")
 
             uploaded_file = st.file_uploader(
                 "Tap to open camera or choose photo",
                 type=["jpg", "jpeg", "png"],
-                help="📱 On mobile: Opens camera automatically | 💻 On desktop: Upload from files",
+                help="On mobile: opens camera automatically. On desktop: upload from files.",
                 label_visibility="visible",
                 accept_multiple_files=False
             )
@@ -229,7 +227,7 @@ def render(
 
                 # Auto-extract ALL data when photo is uploaded
                 if 'wine_data' not in st.session_state or st.session_state.get('last_upload') != uploaded_file.name:
-                    with st.spinner("🧠 AI is analyzing your wine... extracting all details"):
+                    with st.spinner("AI is analyzing your wine and extracting details..."):
                         uploaded_file.seek(0)
                         wine_data = extract_complete_wine_data(uploaded_file, history_df, client)
 
@@ -240,7 +238,7 @@ def render(
                             uploaded_file.seek(0)
                             st.session_state['uploaded_photo_bytes'] = uploaded_file.read()
                             st.session_state['uploaded_photo_name'] = uploaded_file.name
-                            st.success("✅ Wine analyzed! All fields extracted automatically")
+                            st.success("Wine analyzed. All fields extracted automatically.")
                             st.rerun()
 
         # Show extracted data if available
@@ -248,7 +246,7 @@ def render(
             wine_data = st.session_state['wine_data']
 
             # Display wine name prominently with geography
-            st.markdown(f"## 🍷 {wine_data['wine_name']}")
+            st.markdown(f"## {wine_data['wine_name']}")
 
             # Location header with NaN-safe fallbacks
             country = wine_data.get('country', None)
@@ -265,11 +263,24 @@ def render(
             else:
                 region = str(region)
 
-            # Display ONLY if we have real data (no "Unknown" placeholders)
+            # Location line: NOT a section heading. Semantically it is
+            # metadata under the wine title, so render it as a styled
+            # div with body font.
             if country != 'Unknown' and region != 'Unknown':
-                st.markdown(f"### 📍 {region}, {country}")
+                location_text = f"{region}, {country}"
             elif country != 'Unknown':
-                st.markdown(f"### 📍 {country}")
+                location_text = country
+            else:
+                location_text = None
+
+            if location_text:
+                st.markdown(
+                    f"<div style='font-family: var(--font-body); "
+                    f"font-size: 1.05rem; font-weight: 600; "
+                    f"color: var(--text-secondary); margin: 4px 0 16px 0;'>"
+                    f"{location_text}</div>",
+                    unsafe_allow_html=True,
+                )
 
             # Style header
             wine_color = wine_data.get('wine_color', 'White')
@@ -281,11 +292,7 @@ def render(
             style_type = "Sparkling" if is_sparkling else "Still"
             style_full = f"{sweetness} {style_type}"
 
-            # Color emojis (used in other sections, not for header)
-            color_emoji = {"White": "⚪", "Red": "🔴", "Rosé": "🌸", "Orange": "🟠"}
-            color_icon = color_emoji.get(wine_color, '⚪')
-
-            # 🎯 PALATE MATCH VERDICT - Move to TOP (Deep UI Alignment requirement)
+            # Palate match verdict: keep it above the details.
             if history_df is not None and len(history_df) > 0:
                 # Reuse the predictor passed by the caller (cached at app
                 # level) and point it at the latest history.
@@ -311,13 +318,12 @@ def render(
                 # here — show a manual-entry prompt and skip scoring.
                 if all((v or 0) == 0 for v in wine_features_dict.values()):
                     st.info(
-                        "ℹ️ No flavour profile available for this wine. "
-                        "Enter the characteristics manually below to see a "
-                        "palate match."
+                        "No flavour profile available for this wine. Enter "
+                        "the characteristics manually below to see a palate match."
                     )
                     wine_features_dict = None
 
-                # 🎯 PALATE ENGINE - SINGLE SOURCE OF TRUTH
+                # Palate engine: single source of truth.
                 # display_match_score is what shows in the hero card. As of
                 # the 2026-05 display fix, this is the *flavor alignment*
                 # number (palate_match), not the multiplied likelihood.
@@ -335,7 +341,7 @@ def render(
                     # is the alignment.
                     display_match_score = palate_score.palate_match
 
-                # 🍷 PRIOR TASTING BADGE — appears above the hero card
+                # Prior tasting badge appears above the hero card
                 # if the user has had this wine (or a different vintage
                 # of it) before. Token-based matching with producer as
                 # the gate; see decant.services.wine_match.
@@ -348,20 +354,20 @@ def render(
                 if prior is not None:
                     _render_prior_tasting_badge(prior)
 
-                # 🎯 HERO CARD: Palate Recommendation Score (SOLE AUTHORITATIVE DISPLAY)
+                # Hero card: palate recommendation score.
                 # CHECK: Display score only if it exists AND is calculated (not None, not just initialized)
                 if display_match_score is not None and palate_score is not None:
                     # DISPLAY: Show the actual calculated score (even if 0, it's a real calculation)
                     # MOBILE-OPTIMIZED: Larger text, clearer verdict for in-shop quick glance
                     st.markdown(f"""
-<div class="glass-card glow" style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
-    <p style="color: #5C4D3F; margin: 0 0 12px 0; font-size: clamp(10px, 2.5vw, 12px); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">
+<div style="text-align: center; padding: 32px 24px; margin: 20px 0; position: relative;">
+    <p style="color: var(--text-secondary); margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0; font-weight: 600; font-family: var(--font-body);">
         Palate Recommendation Score
     </p>
-    <div class="match-score-gradient" style="font-size: clamp(60px, 15vw, 80px); margin: 0; font-family: 'Geist', 'Inter', sans-serif; line-height: 1;">
+    <div style="font-size: 4.75rem; margin: 0; font-family: var(--font-display); font-weight: 700; line-height: 1; color: var(--text-primary);">
         {display_match_score:.1f}%
     </div>
-    <p style="color: #3D2817; margin: 12px 0 0 0; font-size: clamp(14px, 4vw, 18px); font-weight: 600;">{palate_score.verdict}</p>
+    <p style="color: var(--text-primary); margin: 12px 0 0 0; font-size: 1.125rem; font-weight: 600; font-family: var(--font-body);">{palate_score.verdict}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -375,7 +381,7 @@ def render(
 
                     wines_to_95 = max(0, 10 - n_samples)
                     tip_html = (
-                        f" Add <strong style=\"color: #3D2817;\">{wines_to_95} more</strong> "
+                        f' Add <strong style="color: var(--text-primary);">{wines_to_95} more</strong> '
                         f"to reach a more reliable match."
                         if wines_to_95 > 0
                         else ""
@@ -388,32 +394,32 @@ def render(
                     # plus the nudge. No "confidence" wording — it was
                     # referenced in the nudge while removed everywhere
                     # else, which was inconsistent.
-                    st.markdown(f"""<div style="background: #FFFDF8; border: 1px solid #E8DFCF; border-radius: 12px; padding: 1rem 1.5rem; margin: 1.5rem 0;">
-<p style="color: #5C4D3F; font-size: 13px; margin: 0; line-height: 1.6;">Based on <strong style="color: #3D2817;">{n_samples} rated wine(s)</strong>.{tip_html}</p>
+                    st.markdown(f"""<div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); padding: 1rem 1.5rem; margin: 1.5rem 0;">
+<p style="color: var(--text-secondary); font-size: 13px; margin: 0; line-height: 1.6;">Based on <strong style="color: var(--text-primary);">{n_samples} rated wine(s)</strong>.{tip_html}</p>
 </div>""", unsafe_allow_html=True)
                 else:
                     # LOADING STATE: Show "Calculating..." text instead of 0%
                     st.markdown("""
-<div class="glass-card glow" style="text-align: center; padding: 40px 30px; margin: 24px 0;">
-    <p style="color: #5C4D3F; margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Palate Recommendation Score</p>
-    <div class="match-score-gradient" style="font-size: 48px; margin: 16px 0; font-family: 'Geist', 'Inter', sans-serif;">
+<div style="text-align: center; padding: 40px 30px; margin: 24px 0;">
+    <p style="color: var(--text-secondary); margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0; font-weight: 600; font-family: var(--font-body);">Palate Recommendation Score</p>
+    <div style="font-size: 3rem; margin: 16px 0; font-family: var(--font-display); font-weight: 700; color: var(--text-primary);">
         Calculating...
     </div>
-    <p style="color: #5C4D3F; margin: 16px 0 0 0; font-size: 14px;">Analysing your palate profile</p>
+    <p style="color: var(--text-secondary); margin: 16px 0 0 0; font-size: 14px; font-family: var(--font-body);">Analysing your palate profile</p>
 </div>
 """, unsafe_allow_html=True)
 
                 # Add visual separator
                 st.markdown("---")
 
-                # 📋 CLEAN PROFESSIONAL PRESENTATION - 2-Column Layout
-                st.markdown("### 📋 Wine Profile")
+                # Clean professional presentation: two-column layout.
+                st.markdown("### Wine Profile")
 
                 eval_col1, eval_col2 = st.columns(2)
 
                 # LEFT COLUMN: Style, Origin, Vintage
                 with eval_col1:
-                    st.markdown("**🍷 Style & Origin**")
+                    st.markdown("**Style & Origin**")
                     # Vertical bulleted list format - clean hierarchy
                     st.markdown(f"- **Type:** {wine_color}")
                     st.markdown(f"- **Style:** {style_full}")
@@ -431,11 +437,14 @@ def render(
 
                 # RIGHT COLUMN: Tasting Notes & Verdict
                 with eval_col2:
-                    st.markdown("**📝 Tasting Notes & Verdict**")
+                    st.markdown("**Tasting Notes & Verdict**")
                     notes = wine_data.get('notes', 'No tasting notes available')
 
-                    # Display full notes with natural wrapping (no truncation)
-                    st.markdown(f"_{notes}_")
+                    # Display full notes with natural wrapping (no truncation).
+                    # No markdown emphasis wrapper. The CSS baseline keeps
+                    # all text upright, but plain markdown also makes the
+                    # intent explicit at the call site.
+                    st.markdown(notes)
 
                     # Why you'll like it — copy adapts to the alignment
                     # score (the new headline). Thresholds mirror the
@@ -443,20 +452,29 @@ def render(
                     st.markdown("")  # spacing
                     if display_match_score is not None:
                         if display_match_score >= 70:
-                            why_like = f"**💙 Why you'll like it:** This matches your preferred {wine_color.lower()} style closely."
+                            why_like = (
+                                f"**Why you'll like it:** This matches your "
+                                f"preferred {wine_color.lower()} style closely."
+                            )
                         elif display_match_score >= 55:
-                            why_like = f"**🧡 Why try it:** Reasonable compatibility with your palate, worth exploring."
+                            why_like = (
+                                "**Why try it:** Reasonable compatibility "
+                                "with your palate, worth exploring."
+                            )
                         else:
-                            why_like = f"**🟡 Different:** This is a departure from your usual {wine_color.lower()} wines."
+                            why_like = (
+                                f"**Different:** This is a departure from your "
+                                f"usual {wine_color.lower()} wines."
+                            )
                         st.markdown(why_like)
 
                 st.markdown("---")
             else:
-                st.info("🔍 Add wines to your collection to see palate match predictions")
+                st.info("Add wines to your collection to see palate match predictions")
                 st.markdown("---")
 
             # 95% PRE-POPULATED "STORE MODE" UI
-            st.markdown("### 💾 Store Mode - Quick Log")
+            st.markdown("### Store Mode - Quick Log")
             st.caption("AI extracted everything - only 3 inputs needed from you!")
 
             # OPTIMIZED FORM: 3 inputs in one clean row [Score, Price, Like-Toggle]
@@ -465,7 +483,7 @@ def render(
             with col1:
                 # Score (slider for quick input)
                 score_input = st.slider(
-                    "⭐ Your Score",
+                    "Your Score",
                     min_value=1.0,
                     max_value=10.0,
                     value=float(wine_data.get('score', 7.5)),
@@ -476,7 +494,7 @@ def render(
             with col2:
                 # Price - moved from Technical Details for better UX
                 price_input = st.number_input(
-                    "💶 Price (€)",
+                    "Price (€)",
                     min_value=0.0,
                     value=float(wine_data.get('price', 0.0)),
                     step=0.50,
@@ -496,29 +514,29 @@ def render(
                     liked_default = (score_input >= 7.0)
 
                 liked_input = st.toggle(
-                    "❤️ Did You Like It?",
+                    "Did You Like It?",
                     value=liked_default,
                     help="Would you buy this again?"
                 )
 
             # Advanced details in expander (AI-extracted technical data)
-            with st.expander("⚙️ Technical Details & Edit Data (Optional)"):
-                st.markdown("#### 🎯 Flavor Profile (0-10 Scale)")
+            with st.expander("Technical Details & Edit Data (Optional)"):
+                st.markdown("#### Flavor Profile (0-10 Scale)")
                 col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
-                    st.metric("⚡ Acidity", f"{wine_data['acidity']}/10")
+                    st.metric("Acidity", f"{wine_data['acidity']}/10")
                 with col2:
-                    st.metric("💎 Minerality", f"{wine_data['minerality']}/10")
+                    st.metric("Minerality", f"{wine_data['minerality']}/10")
                 with col3:
-                    st.metric("🍇 Fruitiness", f"{wine_data['fruitiness']}/10")
+                    st.metric("Fruitiness", f"{wine_data['fruitiness']}/10")
                 with col4:
-                    st.metric("🌰 Tannin", f"{wine_data['tannin']}/10")
+                    st.metric("Tannin", f"{wine_data['tannin']}/10")
                 with col5:
-                    st.metric("💪 Body", f"{wine_data['body']}/10")
+                    st.metric("Body", f"{wine_data['body']}/10")
 
                 st.markdown("---")
 
-                st.markdown("#### 📊 Full Technical Specifications")
+                st.markdown("#### Full Technical Specifications")
                 tech_col1, tech_col2 = st.columns(2)
                 with tech_col1:
                     st.markdown(f"**Wine Color:** {wine_data.get('wine_color', 'White')}")
@@ -530,13 +548,13 @@ def render(
                     if should_display_vintage(wine_data.get('vintage')):
                         st.markdown(f"**Vintage:** {int(wine_data.get('vintage'))}")
                     else:
-                        st.markdown(f"**Vintage:** NV")
+                        st.markdown("**Vintage:** NV")
 
             # Large, prominent Save button (login required)
             if is_guest:
-                st.warning("🔒 Log in to save wines to your collection")
+                st.warning("Log in to save wines to your collection")
 
-            if st.button("💾 SAVE TO MY COLLECTION", type="primary", width="stretch", disabled=is_guest):
+            if st.button("SAVE TO MY COLLECTION", type="primary", width="stretch", disabled=is_guest):
                 # Validate and update user inputs
                 try:
                     # Type validation with high-dimensional attributes
@@ -563,7 +581,10 @@ def render(
                             validation_errors.append(f"{feature.capitalize()} must be 1-10 (got {value})")
 
                     if validation_errors:
-                        st.error(f"🚫 Cannot save wine - please fix these issues:\n" + "\n".join(f"• {err}" for err in validation_errors))
+                        st.error(
+                            "Cannot save wine - please fix these issues:\n"
+                            + "\n".join(f"• {err}" for err in validation_errors)
+                        )
                         st.stop()
 
                     # Validate high-dimensional fields
@@ -596,11 +617,11 @@ def render(
                     }
 
                     try:
-                        with st.spinner("💾 Saving wine to Supabase..."):
+                        with st.spinner("Saving wine to Supabase..."):
                             repo_add_wine(get_user_supabase(), row_data)
-                        st.success("✅ Wine saved to Supabase!")
+                        st.success("Wine saved to Supabase.")
                     except Exception as supabase_error:
-                        st.error(f"❌ Supabase error while saving wine: {supabase_error}")
+                        st.error(f"Supabase error while saving wine: {supabase_error}")
                         st.stop()
 
                     # Save uploaded photo if available
@@ -611,7 +632,7 @@ def render(
                         photo_file.name = photo_name or "photo.jpg"
                         saved_path = save_wine_image(photo_file, wine_data['wine_name'])
                         if saved_path:
-                            st.info("📸 Photo saved")
+                            st.info("Photo saved.")
 
                     # Invalidate the load_wine_data cache so the next
                     # read sees the write. Imported lazily to avoid a
@@ -619,14 +640,14 @@ def render(
                     from app import clear_wine_data_cache
                     clear_wine_data_cache()
 
-                    st.success(f"✅ Saved {wine_data['wine_name']} to your collection!")
+                    st.success(f"Saved {wine_data['wine_name']} to your collection.")
                     st.balloons()
 
                     # Clear session state to start fresh
                     for key in ['wine_data', 'last_upload', 'uploaded_photo_bytes', 'uploaded_photo_name']:
                         st.session_state.pop(key, None)
 
-                    st.info("🍷 Ready for next wine! Add another above.")
+                    st.info("Ready for next wine. Add another above.")
 
                 except ValueError as e:
                     st.error(f"Validation error: {str(e)}")
@@ -637,5 +658,4 @@ def render(
 
             else:
                 # No data extracted yet
-                st.info("👆 Enter a wine name or upload a photo to get started")
-
+                st.info("Enter a wine name or upload a photo to get started")

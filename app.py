@@ -5,14 +5,11 @@ A Streamlit app for wine analytics and personalized recommendations using In-Con
 
 import sys
 import os
-import base64
-import json
 from pathlib import Path
 from typing import Optional
 
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -20,11 +17,8 @@ from openai import OpenAI
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from decant import VinoPredictor
-from pydantic import ValidationError
 from decant.supabase_session import (
-    current_user_email,
     get_anon_supabase,
-    get_supabase_client,
     get_user_supabase,
     is_authenticated,
 )
@@ -32,7 +26,7 @@ from decant.ui.auth_form import render_header_auth
 from decant.ui.styles import apply_global_styles
 from decant.services.data_access import normalize as ensure_wine_df
 from decant.ui import tab_add_wine, tab_gallery, tab_palate_maps, tab_stats
-from decant.wines_repo import list_wines as repo_list_wines, repo_add_wine
+from decant.wines_repo import list_wines as repo_list_wines
 
 # Load environment variables
 load_dotenv()
@@ -59,7 +53,7 @@ def check_required_supabase_secrets() -> None:
             missing.append(key)
 
     if missing:
-        st.error("❌ Missing required secret(s): " + ", ".join(missing))
+        st.error("Missing required secret(s): " + ", ".join(missing))
         st.stop()
 
     st.session_state["_supabase_startup_checked"] = True
@@ -96,7 +90,7 @@ try:
 except (FileNotFoundError, KeyError):
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        st.error("⚠️ OPENAI_API_KEY not found. Please set it in Streamlit Cloud secrets or .env file")
+        st.error("OPENAI_API_KEY not found. Please set it in Streamlit Cloud secrets or .env file")
         st.stop()
 
 client = OpenAI(api_key=api_key)
@@ -126,7 +120,7 @@ def get_predictor():
         return VinoPredictor(history_df=pd.DataFrame())
     except Exception as e:
         st.error(f"Error loading predictor: {e}")
-        st.info("💡 Make sure OPENAI_API_KEY is set in your .env file")
+        st.info("Make sure OPENAI_API_KEY is set in your .env file")
         return None
 
 
@@ -159,7 +153,7 @@ def load_wine_data():
         return ensure_wine_df(df)
     except Exception as e:
         st.session_state.pop("_wine_df_empty_debug", None)
-        st.error(f"❌ Supabase error while loading wines: {e}")
+        st.error(f"Supabase error while loading wines: {e}")
         return ensure_wine_df(None)
 
 
@@ -179,7 +173,6 @@ def main():
     with header_left:
         st.markdown(
             "<h1 class='main-title' style='margin: 0 0 4px 0;'>"
-            "<span style='font-size: 0.7em; vertical-align: 0.15em; margin-right: 0.2em;'>🍷</span>"
             "Decant"
             "</h1>"
             "<p class='subtitle' style='margin: 0;'>Taste, with confidence.</p>",
@@ -192,14 +185,14 @@ def main():
 
     # Guest mode banner
     if is_guest:
-        st.info("👀 **Guest mode** — You can browse the collection. Log in to add wines.")
+        st.info("**Guest mode** — You can browse the collection. Log in to add wines.")
 
     # Streamlit Cloud deployment warning (persistent at top)
     if IS_STREAMLIT_CLOUD:
         st.info(
-            "ℹ️ **Running on Streamlit Cloud**: Your tasting history is stored in a CSV file. "
+            "**Running on Streamlit Cloud**: Your tasting history is stored in a CSV file. "
             "On the free tier, data will reset when the app restarts. "
-            "Use the 📥 Download button in Analytics to backup your collection regularly."
+            "Use the Download button in Analytics to backup your collection regularly."
         )
 
     # Four tabs always created so Streamlit tab indexing stays stable.
@@ -208,10 +201,10 @@ def main():
     # This avoids the AttributeError that would come from `with None:` if we
     # tried to skip tab1 entirely, and keeps the layout consistent.
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🍷 Add Wine",
-        "📊 My Palate Maps",
-        "🏆 Stats",
-        "🖼️ Wine Gallery",
+        "Add Wine",
+        "My Palate Maps",
+        "Stats",
+        "Wine Gallery",
     ])
 
     # All four tabs are now thin dispatch calls — bodies live in
