@@ -2,20 +2,19 @@
 
 import os
 import json
-from typing import List, Tuple, Optional
+from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError, RateLimitError, APIError
+from openai import OpenAI, RateLimitError, APIError
 from pydantic import BaseModel, Field
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from decant.schema import WineFeatures, WineExtraction
 from decant.palate_engine import PalateEngine, PalateScore
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE, OPENAI_SEED
-from decant.constants import AlgorithmConstants, ColumnNames
 from decant.palate_formula import add_palate_features_to_dataframe
-from decant.error_handling import handle_llm_error, LLMError
+from decant.error_handling import LLMError
 from decant.rate_limiter import get_global_limiter, RateLimitError as RLError
 from decant.utils import (
     sanitize_text_input,
@@ -357,7 +356,7 @@ Return JSON only with these exact field names.
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}")
-            raise ValueError(f"Invalid JSON response from API")
+            raise ValueError("Invalid JSON response from API")
         except Exception as e:
             handle_api_error(e, "OpenAI API call")
             raise
@@ -436,7 +435,7 @@ Return as JSON with fields: acidity, minerality, fruitiness, tannin, body, reaso
                 likelihood_score=50.0,
                 n_samples=0,
                 confidence_factor=0.0,
-                verdict="⚠️ Invalid Features",
+                verdict="Invalid Features",
                 explanation="Feature validation failed"
             )
 
@@ -456,6 +455,6 @@ Return as JSON with fields: acidity, minerality, fruitiness, tannin, body, reaso
                 likelihood_score=50.0,
                 n_samples=0,
                 confidence_factor=0.0,
-                verdict="⚠️ Calculation Error",
+                verdict="Calculation Error",
                 explanation=f"Error: {str(e)}"
             )

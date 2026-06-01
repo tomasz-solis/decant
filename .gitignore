@@ -63,6 +63,7 @@ models/*.pth
 # OS
 .DS_Store
 Thumbs.db
+CLAUDE.md
 
 # Environment variables
 .env

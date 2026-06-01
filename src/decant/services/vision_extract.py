@@ -20,15 +20,11 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Optional
 
-import pandas as pd
 import streamlit as st
 from openai import OpenAI
-from pydantic import ValidationError
 
 from decant.config import OPENAI_MODEL, OPENAI_TEMPERATURE
-from decant.schema import WineExtraction
 from decant.services.data_access import normalize as _ensure_wine_df
 
 
@@ -170,7 +166,7 @@ Return ONLY valid JSON."""
         if vintage is None:
             raw_data['vintage'] = 0
         elif vintage < 1900 or vintage > 2100:
-            st.warning(f"⚠️ Invalid vintage {vintage}, setting to 0")
+            st.warning(f"Invalid vintage {vintage}, setting to 0")
             raw_data['vintage'] = 0
 
         # Validate features are in range. None values are coerced to mid-scale
@@ -178,10 +174,10 @@ Return ONLY valid JSON."""
         for feature in ['acidity', 'minerality', 'fruitiness', 'tannin', 'body']:
             value = raw_data.get(feature)
             if value is None:
-                st.warning(f"⚠️ {feature} not extracted, defaulting to 5.0")
+                st.warning(f"{feature} not extracted, defaulting to 5.0")
                 raw_data[feature] = 5.0
             elif value < 1.0 or value > 10.0:
-                st.warning(f"⚠️ {feature} value {value} out of range [1-10], clamping")
+                st.warning(f"{feature} value {value} out of range [1-10], clamping")
                 raw_data[feature] = max(1.0, min(10.0, value))
 
         # Validate score. None defaults to 5.0 (mid-scale, no opinion).
@@ -189,39 +185,38 @@ Return ONLY valid JSON."""
         if score is None:
             raw_data['score'] = 5.0
         elif score < 1.0 or score > 10.0:
-            st.warning(f"⚠️ Score {score} out of range [1-10], clamping")
+            st.warning(f"Score {score} out of range [1-10], clamping")
             raw_data['score'] = max(1.0, min(10.0, score))
 
         # Validate wine_color
         valid_colors = [c.value for c in WineColor]
         if raw_data.get('wine_color') not in valid_colors:
-            st.warning(f"⚠️ Invalid wine color '{raw_data.get('wine_color')}', defaulting to 'White'")
+            st.warning(f"Invalid wine color '{raw_data.get('wine_color')}', defaulting to 'White'")
             raw_data['wine_color'] = 'White'
 
         # Validate sweetness
         valid_sweetness = [s.value for s in Sweetness]
         if raw_data.get('sweetness') not in valid_sweetness:
-            st.warning(f"⚠️ Invalid sweetness '{raw_data.get('sweetness')}', defaulting to 'Dry'")
+            st.warning(f"Invalid sweetness '{raw_data.get('sweetness')}', defaulting to 'Dry'")
             raw_data['sweetness'] = 'Dry'
 
         # If critical validation errors, return None
         if validation_errors:
-            st.error(f"🚨 Critical validation errors: {', '.join(validation_errors)}")
-            st.info("💡 Please verify the image and try again, or enter data manually.")
+            st.error(f"Critical validation errors: {', '.join(validation_errors)}")
+            st.info("Please verify the image and try again, or enter data manually.")
             return None
 
         return raw_data
 
     except json.JSONDecodeError as je:
-        st.error(f"🚨 LLM returned invalid JSON: {je}")
-        st.info("💡 Please try again or enter data manually.")
+        st.error(f"LLM returned invalid JSON: {je}")
+        st.info("Please try again or enter data manually.")
         return None
     except ValidationError as ve:
-        st.error(f"🚨 Validation error: {ve}")
-        st.info("💡 Please try again or enter data manually.")
+        st.error(f"Validation error: {ve}")
+        st.info("Please try again or enter data manually.")
         return None
     except Exception as e:
-        st.error(f"❌ Error extracting wine data: {str(e)}")
-        st.info("💡 Please try again or enter data manually.")
+        st.error(f"Error extracting wine data: {str(e)}")
+        st.info("Please try again or enter data manually.")
         return None
-
