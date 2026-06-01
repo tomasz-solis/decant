@@ -22,20 +22,31 @@ Phase 4 — Mediterranean light theme:
 - Cream background (#FAF6F0), warm white cards (#FFFDF8)
 - Terracotta primary (#C2410C), olive accent (#65733E),
   deep wine red for verdicts (#7C2D12)
-- Playfair Display for headings; DM Sans for body
+- Playfair Display for h1-h4 headings and metric values; DM Sans
+  for body text, widgets, cards, labels, and controls
 - Restrained shadows, paper-like card surfaces
 """
 
 from __future__ import annotations
 
-from matplotlib import style
 import streamlit as st
+
+
+_FONT_LINKS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+    '<link href="https://fonts.googleapis.com/css2?'
+    'family=DM+Sans:wght@400;600;700&'
+    'family=Playfair+Display:wght@700&display=swap" '
+    'rel="stylesheet">'
+)
 
 
 _GLOBAL_STYLES = """
 <style>
-    /* ---- Fonts ----------------------------------------------------- */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+    /* ---- FONT LOAD ------------------------------------------------- */
+    /* Loaded separately via st.markdown(_FONT_LINKS) before this
+       stylesheet. Keep external font loading out of this style block. */
 
     /* ---- Mediterranean light palette ------------------------------- */
     :root {
@@ -45,14 +56,17 @@ _GLOBAL_STYLES = """
         --card-border: #E8DFCF;        /* hairline between card and background */
 
         --terracotta: #C2410C;         /* primary accent — restaurant signage */
+        --terracotta-dark: #9A330A;    /* hover state for terracotta controls */
         --terracotta-soft: #FED7AA;    /* terracotta tint for hover/highlight */
         --olive: #65733E;              /* secondary accent — herbal */
         --olive-soft: #DCE3C4;         /* olive tint */
         --wine: #7C2D12;               /* deep red for verdicts, liked badge */
+        --wine-fill: rgba(124, 45, 18, 0.4);
 
         --text-primary: #3D2817;       /* warm dark brown, not pure black */
         --text-secondary: #5C4D3F;     /* darker brown for captions/subtitles — readable on cream */
         --text-muted: #8B7E6D;         /* fainter, for tertiary info only (timestamps, hints) */
+        --text-on-accent: #FFFFFF;     /* text on terracotta/olive/wine surfaces */
 
         --shadow-card: 0 2px 8px rgba(120, 60, 30, 0.06);
         --shadow-card-hover: 0 4px 14px rgba(120, 60, 30, 0.10);
@@ -69,6 +83,8 @@ _GLOBAL_STYLES = """
         background: var(--bg-primary) !important;
         color: var(--text-primary) !important;
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 400;
     }
 
     /* Subtle paper texture — a barely-visible noise pattern gives
@@ -106,21 +122,42 @@ _GLOBAL_STYLES = """
         background: var(--bg-primary) !important;
     }
 
-    /* ---- Typography ----------------------------------------------- */
-    h1, h2, h3, h4, h5, h6,
-    .main-title,
-    [data-testid="stMarkdownContainer"] h1,
-    [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3,
-    [data-testid="stMarkdownContainer"] h4 {
+    /* ---- DISPLAY HEADINGS (Playfair) ------------------------------ */
+    /* Targets the heading element AND its descendants (Streamlit
+       renders heading text inside a <span> child). The body +
+       stMarkdownContainer chains lift specificity above generated
+       .st-emotion-cache-XXXXX classes.
+
+       Per the Decant type scale, h1-h4 are display headings.
+       Non-heading metadata must not use Markdown heading syntax. */
+    body h1, body h2, body h3, body h4,
+    body h1 *, body h2 *, body h3 *, body h4 *,
+    body .main-title,
+    body .main-title *,
+    body [data-testid="stMarkdownContainer"] h1,
+    body [data-testid="stMarkdownContainer"] h2,
+    body [data-testid="stMarkdownContainer"] h3,
+    body [data-testid="stMarkdownContainer"] h4,
+    body [data-testid="stMarkdownContainer"] h1 *,
+    body [data-testid="stMarkdownContainer"] h2 * {
         font-family: var(--font-display) !important;
-        color: var(--text-primary) !important;
+        font-style: normal !important;
         font-weight: 700 !important;
-        letter-spacing: -0.01em;
+        color: var(--text-primary) !important;
+        letter-spacing: 0;
+    }
+
+    body [data-testid="stMarkdownContainer"] h3 *,
+    body [data-testid="stMarkdownContainer"] h4 * {
+        font-family: var(--font-display) !important;
+        font-style: normal !important;
+        font-weight: 700 !important;
+        color: var(--text-primary) !important;
+        letter-spacing: 0;
     }
 
     .main-title {
-        font-size: clamp(2.4rem, 5vw, 3.4rem) !important;
+        font-size: 3.4rem !important;
         line-height: 1.05 !important;
         margin: 0 !important;
     }
@@ -143,36 +180,225 @@ _GLOBAL_STYLES = """
         border-radius: 1px;
     }
 
-    /* The italicised kicker line that follows section titles
-       (the st.caption right under a heading). */
-    [data-testid="stMarkdownContainer"] h2 + p,
-    [data-testid="stCaptionContainer"] p {
-        font-family: var(--font-display) !important;
-        font-style: italic;
-        color: var(--text-secondary) !important;
-        font-size: 1.05rem !important;
-        font-weight: 400 !important;
+    body [data-testid="stMarkdownContainer"] h3 {
+        font-size: 1.5rem !important;
+        line-height: 1.25 !important;
     }
 
-    .subtitle {
-        font-family: var(--font-display) !important;
-        font-style: italic;
-        font-weight: 400 !important;
-        color: var(--text-secondary) !important;
-        font-size: clamp(0.95rem, 2vw, 1.1rem) !important;
-        margin: 4px 0 0 0 !important;
+    body [data-testid="stMarkdownContainer"] h4 {
+        font-size: 1.25rem !important;
+        line-height: 1.3 !important;
     }
 
-    /* Body text — DM Sans inherited; make sure Streamlit's own
-       paragraph styling doesn't pull in default fonts. */
-    p, span, div, label, .stMarkdown, [data-testid="stMarkdownContainer"] p {
+    /* ---- LOWER-LEVEL TITLES (DM Sans) ----------------------------- */
+    body h5, body h6,
+    body h5 *, body h6 *,
+    body [data-testid="stMarkdownContainer"] h5,
+    body [data-testid="stMarkdownContainer"] h6,
+    body [data-testid="stMarkdownContainer"] h5 *,
+    body [data-testid="stMarkdownContainer"] h6 * {
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 700 !important;
+        color: var(--text-primary) !important;
+        letter-spacing: 0;
+    }
+
+    body [data-testid="stMarkdownContainer"] a[href^="#"] {
+        display: none !important;
+    }
+
+    /* Compact headings inside popovers/forms are control labels, not
+       page sections, so they stay in the body family. */
+    body .form-title,
+    body .form-title * {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+        line-height: 1.3 !important;
+        color: var(--text-primary) !important;
+        margin: 0 0 0.75rem 0 !important;
+    }
+
+    /* ---- STREAMLIT WIDGET TYPOGRAPHY (DM Sans) ------------------- */
+    /* Keep this narrow. Streamlit renders chevrons and controls as
+       Material icon spans whose text content is names like
+       "expand_more". Styling every descendant with `*`, or styling
+       all `span`/`div` globally, breaks the icon font and exposes
+       those names as overlapping text. */
+    body [data-testid="stTabs"],
+    body [data-testid="stWidgetLabel"],
+    body [data-testid="stTextInput"],
+    body [data-testid="stTextArea"],
+    body [data-testid="stNumberInput"],
+    body [data-testid="stSelectbox"],
+    body [data-testid="stRadio"],
+    body [data-testid="stCheckbox"],
+    body [data-testid="stToggle"],
+    body [data-testid="stSlider"],
+    body [data-testid="stFileUploader"],
+    body [data-testid="stDownloadButton"],
+    body [data-testid="stButton"],
+    body [data-testid="stPopover"],
+    body [data-testid="stAlert"],
+    body [data-testid="stMetric"],
+    body [data-baseweb="tab"],
+    body [data-baseweb="select"],
+    body [data-baseweb="menu"],
+    body [data-baseweb="popover"],
+    body [data-baseweb="tooltip"],
+    body [data-baseweb="input"],
+    body [data-baseweb="textarea"],
+    body [data-baseweb="radio"],
+    body [data-baseweb="checkbox"],
+    body [role="tab"],
+    body [role="combobox"],
+    body [role="listbox"],
+    body [role="option"],
+    body [role="tooltip"] {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
+    }
+
+    /* Streamlit widgets often put the visible text one or two nodes
+       below the wrapper above. Reach those text leaves explicitly,
+       while excluding Material icon spans so chevrons stay icons. */
+    body :where(
+        [data-testid="stTabs"],
+        [data-testid="stWidgetLabel"],
+        [data-testid="stTextInput"],
+        [data-testid="stTextArea"],
+        [data-testid="stNumberInput"],
+        [data-testid="stSelectbox"],
+        [data-testid="stRadio"],
+        [data-testid="stCheckbox"],
+        [data-testid="stToggle"],
+        [data-testid="stSlider"],
+        [data-testid="stFileUploader"],
+        [data-testid="stDownloadButton"],
+        [data-testid="stButton"],
+        [data-testid="stPopover"],
+        [data-testid="stAlert"],
+        [data-testid="stExpander"],
+        [data-baseweb="tab"],
+        [data-baseweb="select"],
+        [data-baseweb="menu"],
+        [data-baseweb="popover"],
+        [data-baseweb="tooltip"],
+        [data-baseweb="input"],
+        [data-baseweb="textarea"],
+        [data-baseweb="radio"],
+        [data-baseweb="checkbox"]
+    ) :where(
+        p,
+        label,
+        li,
+        small,
+        strong,
+        em,
+        input,
+        textarea,
+        select,
+        button,
+        a
+    ) {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
+    }
+
+    body :where(
+        [data-testid="stSelectbox"],
+        [data-testid="stRadio"],
+        [data-testid="stCheckbox"],
+        [data-testid="stToggle"],
+        [data-testid="stFileUploader"],
+        [data-baseweb="select"],
+        [data-baseweb="menu"],
+        [data-baseweb="popover"],
+        [data-baseweb="tooltip"]
+    ) :where(
+        span:not([aria-hidden="true"]):not([class*="material"]):not([class*="Material"]),
+        div:not([aria-hidden="true"]):not([role="presentation"]):not([class*="material"]):not([class*="Material"])
+    ) {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
+    }
+
+    /* ---- METRIC VALUE (Playfair big numbers) ---------------------- */
+    body [data-testid="stMetricValue"],
+    body [data-testid="stMetricValue"] > div,
+    body [data-testid="stMetricValue"] * {
+        font-family: var(--font-display) !important;
+        font-style: normal !important;
+        font-weight: 700 !important;
+        color: var(--text-primary) !important;
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum" 1;
+    }
+
+    /* ---- METRIC LABEL (DM Sans uppercase) ------------------------- */
+    body [data-testid="stMetricLabel"],
+    body [data-testid="stMetricLabel"] * {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 600 !important;
+        color: var(--text-secondary) !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0;
+    }
+
+    /* ---- BODY BASELINE (DM Sans, upright, everything else) -------- */
+    /* The body+descendant chain beats Streamlit's emotion-cache classes.
+       font-style: normal on em/strong is the kill-switch for any
+       accidental emphasized markdown (_text_) or emphasis tags. */
+    body p, body label, body li, body td,
+    body em, body strong, body small,
+    body input, body textarea, body select,
+    body .stMarkdown,
+    body [data-testid="stMarkdownContainer"],
+    body [data-testid="stMarkdownContainer"] p,
+    body [data-testid="stMarkdownContainer"] li,
+    body [data-testid="stMarkdownContainer"] strong,
+    body [data-testid="stMarkdownContainer"] em {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
         color: var(--text-primary);
     }
 
-    .stCaption, [data-testid="stCaptionContainer"] p, small {
-        color: var(--text-secondary) !important;
+    body strong,
+    body [data-testid="stMarkdownContainer"] strong {
+        font-weight: 700 !important;
+    }
+
+    /* ---- CAPTION (DM Sans, muted, smaller) ------------------------ */
+    body .stCaption,
+    body [data-testid="stCaptionContainer"],
+    body [data-testid="stCaptionContainer"] p,
+    body [data-testid="stCaptionContainer"] small,
+    body [data-testid="stCaptionContainer"] span:not([aria-hidden="true"]):not([class*="material"]):not([class*="Material"]),
+    body small {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 400 !important;
         font-size: 0.85rem !important;
+        color: var(--text-secondary) !important;
+    }
+
+    /* ---- SUBTITLE (masthead "Taste, with confidence.") ----------- */
+    body .subtitle,
+    body .subtitle * {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 400 !important;
+        font-size: 1rem !important;
+        color: var(--text-secondary) !important;
+        margin: 4px 0 0 0 !important;
     }
 
     /* ---- Tabs ------------------------------------------------------ */
@@ -182,8 +408,10 @@ _GLOBAL_STYLES = """
         background: transparent;
     }
 
-    [data-testid="stTabs"] [data-baseweb="tab"] {
-        font-family: var(--font-display) !important;
+    [data-testid="stTabs"] [data-baseweb="tab"],
+    [data-testid="stTabs"] [role="tab"] {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
         font-weight: 600 !important;
         font-size: 1.05rem !important;
         color: var(--text-secondary) !important;
@@ -191,31 +419,67 @@ _GLOBAL_STYLES = """
         background: transparent !important;
         border-radius: var(--radius-button) var(--radius-button) 0 0;
         transition: color 0.15s ease;
+        letter-spacing: 0;
     }
 
-    [data-testid="stTabs"] [data-baseweb="tab"]:hover {
+    [data-testid="stTabs"] [data-baseweb="tab"] p,
+    [data-testid="stTabs"] [role="tab"] p {
+        margin: 0 !important;
+        color: inherit !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        line-height: 1.3 !important;
+    }
+
+    [data-testid="stTabs"] [data-baseweb="tab"]:hover,
+    [data-testid="stTabs"] [role="tab"]:hover {
         color: var(--terracotta) !important;
     }
 
-    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"],
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
         color: var(--terracotta) !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"],
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
         border-bottom: 2px solid var(--terracotta) !important;
     }
 
     /* ---- Buttons --------------------------------------------------- */
     .stButton > button,
-    [data-testid="stPopover"] button[data-testid="stPopoverButton"],
+    [data-testid="stPopover"] button,
     [data-testid="baseButton-primary"],
     [data-testid="baseButton-secondary"] {
         font-family: var(--font-body) !important;
+        font-style: normal !important;
         font-weight: 600 !important;
+        font-size: 1rem !important;
+        letter-spacing: 0 !important;
+    }
+
+    .stButton > button,
+    [data-testid="stPopover"] button,
+    [data-testid="baseButton-primary"],
+    [data-testid="baseButton-secondary"] {
         border-radius: var(--radius-button) !important;
         padding: 10px 20px !important;
         transition: all 0.15s ease !important;
         border: 1px solid var(--card-border) !important;
     }
 
-    /* CRITICAL: Streamlit renders chevrons / icons inside buttons via
+    .stButton > button p,
+    [data-testid="stPopover"] button p,
+    [data-testid="baseButton-primary"] p,
+    [data-testid="baseButton-secondary"] p {
+        margin: 0 !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        color: inherit !important;
+    }
+
+    /* Streamlit renders chevrons / icons inside buttons via
        <span class="material-icons-..."> elements using the Material
        Symbols font. Our font-family override on the button cascades
        to those spans, breaking the icon font and showing raw text
@@ -223,10 +487,20 @@ _GLOBAL_STYLES = """
        span so Streamlit's icon font wins. */
     [class*="material-icons"],
     [class*="material-symbols"],
-    [data-testid="stIconMaterial"] {
+    [data-testid="stIconMaterial"],
+    button span[aria-hidden="true"],
+    [role="button"] span[aria-hidden="true"],
+    [data-testid="stExpander"] summary span[aria-hidden="true"],
+    [data-testid="stPopover"] button span[aria-hidden="true"],
+    [data-baseweb="select"] span[aria-hidden="true"] {
         font-family: 'Material Symbols Rounded',
                      'Material Symbols Outlined',
                      'Material Icons' !important;
+        font-style: normal !important;
+        font-weight: normal !important;
+        letter-spacing: normal !important;
+        line-height: 1 !important;
+        text-transform: none !important;
     }
 
     /* Primary buttons — terracotta */
@@ -235,14 +509,14 @@ _GLOBAL_STYLES = """
     [data-testid="stPopover"] button[kind="primary"],
     [data-testid="stPopover"] [data-testid="baseButton-primary"] {
         background: var(--terracotta) !important;
-        color: #FFFFFF !important;
+        color: var(--text-on-accent) !important;
         border-color: var(--terracotta) !important;
     }
     .stButton > button[kind="primary"]:hover,
     [data-testid="baseButton-primary"]:hover,
     [data-testid="stPopover"] button[kind="primary"]:hover {
-        background: #9A330A !important;  /* darker terracotta */
-        border-color: #9A330A !important;
+        background: var(--terracotta-dark) !important;
+        border-color: var(--terracotta-dark) !important;
         box-shadow: var(--shadow-card-hover);
     }
 
@@ -268,7 +542,9 @@ _GLOBAL_STYLES = """
     a[download],
     button[data-testid*="Download"] {
         font-family: var(--font-body) !important;
+        font-style: normal !important;
         font-weight: 600 !important;
+        font-size: 1rem !important;
         border-radius: var(--radius-button) !important;
         background: var(--card-bg) !important;
         background-color: var(--card-bg) !important;
@@ -372,12 +648,11 @@ _GLOBAL_STYLES = """
         background: var(--olive-soft) !important;
         color: var(--text-primary) !important;
         border: 1px solid var(--olive) !important;
-        font-family: var(--font-body) !important;
         font-weight: 600 !important;
     }
     [data-testid="stPopover"] button:not([kind="primary"]):hover {
         background: var(--olive) !important;
-        color: #FFFFFF !important;
+        color: var(--text-on-accent) !important;
     }
 
     /* ---- File uploader ------------------------------------------- */
@@ -397,19 +672,23 @@ _GLOBAL_STYLES = """
         border-color: var(--terracotta) !important;
     }
     [data-testid="stFileUploader"] small,
-    [data-testid="stFileUploader"] span,
     [data-testid="stFileUploaderDropzoneInstructions"] {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
         color: var(--text-secondary) !important;
     }
     /* "Browse files" button inside the dropzone */
     [data-testid="stFileUploader"] button {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 600 !important;
         background: var(--card-bg) !important;
         color: var(--text-primary) !important;
         border: 1px solid var(--card-border) !important;
     }
     [data-testid="stFileUploader"] button:hover {
         background: var(--terracotta) !important;
-        color: #FFFFFF !important;
+        color: var(--text-on-accent) !important;
         border-color: var(--terracotta) !important;
     }
 
@@ -419,6 +698,7 @@ _GLOBAL_STYLES = """
     [data-testid="stRadio"] [data-testid="stMarkdownContainer"] p {
         color: var(--text-primary) !important;
         font-family: var(--font-body) !important;
+        font-style: normal !important;
         font-size: 1.05rem !important;
     }
     /* The unchecked circle */
@@ -491,6 +771,9 @@ _GLOBAL_STYLES = """
         border-radius: var(--radius-button) !important;
         color: var(--text-primary) !important;
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 400 !important;
+        font-size: 1rem !important;
     }
 
     [data-testid="stTextInput"] input:focus,
@@ -515,10 +798,29 @@ _GLOBAL_STYLES = """
     [data-baseweb="select"] > div,
     [data-baseweb="select"] [role="combobox"] {
         background: var(--card-bg) !important;
-        border: 1px solid var(--card-border) !important;
-        border-radius: var(--radius-button) !important;
         color: var(--text-primary) !important;
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        font-weight: 400 !important;
+        font-size: 1rem !important;
+        letter-spacing: 0 !important;
+    }
+
+    [data-testid="stSelectbox"] [data-testid="stMarkdownContainer"] p,
+    [data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+        margin: 0 !important;
+        color: inherit !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
+        font-weight: inherit !important;
+    }
+
+    [data-testid="stSelectbox"] > div,
+    [data-testid="stSelectbox"] > div > div,
+    [data-baseweb="select"] > div,
+    [data-baseweb="select"] [role="combobox"] {
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-button) !important;
     }
 
     /* Hide the text caret AND any value-container separator in
@@ -545,46 +847,107 @@ _GLOBAL_STYLES = """
     }
 
     /* Labels above inputs */
-    [data-testid="stWidgetLabel"] {
+    [data-testid="stWidgetLabel"],
+    [data-testid="InputInstructions"] {
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
+    }
+
+    [data-testid="stWidgetLabel"] {
         font-weight: 600 !important;
         color: var(--text-primary) !important;
+    }
+
+    [data-testid="stWidgetLabel"] p {
+        margin: 0 !important;
+        color: inherit !important;
+        font-family: inherit !important;
+        font-weight: inherit !important;
+    }
+
+    [data-testid="InputInstructions"] {
+        font-weight: 400 !important;
+        color: var(--text-muted) !important;
+    }
+
+    /* ---- Expanders ----------------------------------------------- */
+    [data-testid="stExpander"],
+    [data-testid="stExpander"] details,
+    [data-testid="stExpander"] summary {
+        background: var(--card-bg) !important;
+        border-color: var(--card-border) !important;
+        border-radius: var(--radius-card) !important;
+    }
+
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        color: var(--text-primary) !important;
+        letter-spacing: 0 !important;
+    }
+
+    [data-testid="stExpander"] summary {
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stExpander"] summary p {
+        margin: 0 !important;
+        color: inherit !important;
+        font-family: inherit !important;
+        font-weight: inherit !important;
     }
 
     /* ---- Alerts / info / warning / error -------------------------- */
     [data-testid="stAlert"] {
+        font-family: var(--font-body) !important;
+        font-style: normal !important;
+        color: var(--text-primary) !important;
+    }
+
+    [data-testid="stAlert"] {
         border-radius: var(--radius-card) !important;
         border: 1px solid var(--card-border) !important;
+    }
+
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] li,
+    [data-testid="stAlert"] strong,
+    [data-testid="stAlert"] em {
         font-family: var(--font-body) !important;
+        font-style: normal !important;
+        letter-spacing: 0 !important;
+        color: var(--text-primary) !important;
     }
 
     /* ---- Metric (st.metric) --------------------------------------- */
     [data-testid="stMetric"] {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: var(--radius-card);
-        padding: 16px;
-        box-shadow: var(--shadow-card);
-        transition: transform 0.15s ease;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: var(--radius-card) !important;
+        padding: 16px !important;
+        box-shadow: var(--shadow-card) !important;
+        transition: transform 0.15s ease !important;
     }
     [data-testid="stMetric"]:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-card-hover);
+        transform: translateY(-1px) !important;
+        box-shadow: var(--shadow-card-hover) !important;
     }
-    [data-testid="stMetricLabel"] {
-        font-family: var(--font-body) !important;
-        font-size: 0.8rem !important;
-        font-weight: 600 !important;
-        color: var(--text-secondary) !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    [data-testid="stMetricValue"] {
-        font-family: var(--font-display) !important;
-        font-weight: 700 !important;
-        color: var(--text-primary) !important;
-        font-variant-numeric: tabular-nums;
-        font-feature-settings: "tnum" 1;
+
+    /* Re-assert Streamlit's icon font after widget text rules. */
+    [class*="material-icons"],
+    [class*="material-symbols"],
+    [data-testid="stIconMaterial"],
+    button span[aria-hidden="true"],
+    [role="button"] span[aria-hidden="true"],
+    [data-testid="stExpander"] summary span[aria-hidden="true"],
+    [data-testid="stPopover"] button span[aria-hidden="true"],
+    [data-baseweb="select"] span[aria-hidden="true"],
+    [data-testid="stIconMaterial"] * {
+        font-family: 'Material Symbols Rounded',
+                     'Material Symbols Outlined',
+                     'Material Icons' !important;
     }
 
     /* ---- Decorative horizontal divider --------------------------- */
@@ -638,6 +1001,12 @@ _GALLERY_STYLES = """\
     margin-bottom: 0 !important;
 }
 
+.wine-card {
+    font-family: var(--font-body) !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+}
+
 
 /* Wine Gallery Grid — back to 3-per-row with larger photos.
    minmax(280px, 1fr) gives 3 columns at 1100px, 4 at ~1450px. */
@@ -659,9 +1028,9 @@ _GALLERY_STYLES = """\
     max-height: 400px;
     aspect-ratio: 3 / 4;
     object-fit: cover;
-    border-radius: 12px;
-    background: #F3EDE3;
-    border: 1px solid #E8DFCF;
+    border-radius: var(--radius-card);
+    background: var(--bg-secondary);
+    border: 1px solid var(--card-border);
     margin: 0 0 12px 0;
 }
 
@@ -669,9 +1038,12 @@ _GALLERY_STYLES = """\
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 4.5rem;
-    color: #C2410C;
-    opacity: 0.5;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
 
 .wine-card-notes {
@@ -679,11 +1051,11 @@ _GALLERY_STYLES = """\
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    color: #78716C;
+    color: var(--text-muted);
     font-size: 13px;
     line-height: 1.5;
     margin: 8px 0;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: var(--font-body);
 }
 
 .icon-row {
@@ -692,6 +1064,22 @@ _GALLERY_STYLES = """\
     gap: 8px;
     align-items: center;
     margin: 8px 0;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .wine-card-footer {
@@ -712,6 +1100,7 @@ _SELECTBOX_CARET_FIX = """
 </style>
 """
 
+
 def apply_global_styles() -> None:
     """Inject the main app theme.
 
@@ -719,6 +1108,7 @@ def apply_global_styles() -> None:
     harmless but wasteful — Streamlit will re-emit the `<style>` tag
     on every rerun, which the browser deduplicates by content.
     """
+    st.markdown(_FONT_LINKS, unsafe_allow_html=True)
     st.markdown(_GLOBAL_STYLES, unsafe_allow_html=True)
 
 

@@ -1,7 +1,7 @@
 [server]
 enableCORS = true
 enableXsrfProtection = true
-port = 8501
+port = 8503
 
 [theme]
 # Mediterranean light theme. These drive Streamlit's own widget
@@ -13,4 +13,6 @@ primaryColor = "#C2410C"              # terracotta — buttons, active states, f
 backgroundColor = "#FAF6F0"           # cream — main page background
 secondaryBackgroundColor = "#FFFDF8"  # warm white — cards, dropdowns, inputs
 textColor = "#3D2817"                 # warm dark brown — body text
-font = "sans serif"
+font = "DM Sans:https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap, sans-serif"
+headingFont = "Playfair Display:https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap, serif"
+baseFontWeight = 400
