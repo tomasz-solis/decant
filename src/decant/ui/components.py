@@ -12,11 +12,10 @@ straightforward to cache (`@st.cache_data`) if needed in future.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from decant.schema import WineFeatures
+from decant.constants import UIConstants, WineColor
 from decant.services.data_access import normalize as _ensure_wine_df
 
 
@@ -29,13 +28,23 @@ _THEME = {
     "bg_card": "#FFFDF8",       # warm white — matches --card-bg
     "grid": "rgba(120, 60, 30, 0.10)",   # faint warm brown — radial/angular axes
     "text": "#3D2817",          # warm dark brown — matches --text-primary
-    "text_muted": "#78716C",    # secondary text colour
-    "accent": "#C2410C",        # terracotta — primary accent
-    "olive": "#65733E",         # secondary accent for second-line series
-    "wine": "#7C2D12",          # deep wine red for the main palate trace
+    "text_muted": "#8B7E6D",    # warm muted brown — matches --text-muted
+    "accent": "#C2410C",        # terracotta — primary accent (--terracotta)
+    "olive": "#65733E",         # secondary accent for second-line series (--olive)
+    "wine": "#7C2D12",          # deep wine red for the main palate trace (--wine)
+    "wine_fill": "rgba(124, 45, 18, 0.4)",  # translucent wine for fills (--wine-fill)
     "font_family": "DM Sans, system-ui, -apple-system, sans-serif",
-    "font_family_display": "Playfair Display, Georgia, serif",
 }
+
+
+_WINE_COLOR_CHART = {
+    color.value: spec for color, spec in UIConstants.WINE_COLORS_CHART.items()
+}
+
+
+def _chart_palette_for(wine_color: str) -> dict[str, str]:
+    """Return the Plotly palette for a wine colour name."""
+    return _WINE_COLOR_CHART.get(wine_color, _WINE_COLOR_CHART[WineColor.WHITE.value])
 
 
 def create_mini_radar_chart(liked_avg):
@@ -49,9 +58,9 @@ def create_mini_radar_chart(liked_avg):
         r=values,
         theta=categories + [categories[0]],
         fill='toself',
-        fillcolor='rgba(139, 0, 0, 0.4)',
-        line=dict(color='#8B0000', width=2),
-        marker=dict(size=4, color='#8B0000')
+        fillcolor=_THEME["wine_fill"],
+        line=dict(color=_THEME["wine"], width=2),
+        marker=dict(size=4, color=_THEME["wine"])
     ))
 
     fig.update_layout(
@@ -63,11 +72,12 @@ def create_mini_radar_chart(liked_avg):
                 gridcolor=_THEME['grid'],
             ),
             angularaxis=dict(
-                tickfont=dict(size=9, color=_THEME['text']),
+                tickfont=dict(size=9, family=_THEME['font_family'], color=_THEME['text']),
             )
         ),
         showlegend=False,
         height=200,
+        font=dict(family=_THEME['font_family'], color=_THEME['text']),
         margin=dict(l=10, r=10, t=10, b=10),
         paper_bgcolor=_THEME['bg'],
         plot_bgcolor=_THEME['bg']
@@ -99,7 +109,7 @@ def create_decision_boundary_plot(df):
             sizemode='diameter',
             sizemin=4
         ),
-        name='✓ Liked',
+        name='Liked',
         text=liked_df['wine_name'],
         hovertemplate='<b>%{text}</b><br>Acidity: %{x}<br>Minerality: %{y}<br>Price: €%{marker.size:.0f}<extra></extra>'
     ))
@@ -118,7 +128,7 @@ def create_decision_boundary_plot(df):
                 sizemode='diameter',
                 sizemin=4
             ),
-            name='✗ Disliked',
+            name='Disliked',
             text=disliked_df['wine_name'],
             hovertemplate='<b>%{text}</b><br>Acidity: %{x}<br>Minerality: %{y}<br>Price: €%{marker.size:.0f}<extra></extra>'
         ))
@@ -126,7 +136,7 @@ def create_decision_boundary_plot(df):
     fig.update_layout(
         title=dict(
             text='<b>Decision Boundary: Acidity vs Minerality</b>',
-            font=dict(size=16),
+            font=dict(size=16, family=_THEME['font_family'], color=_THEME['text']),
             x=0.5,
             xanchor='center'
         ),
@@ -144,6 +154,7 @@ def create_decision_boundary_plot(df):
         ),
         height=400,
         showlegend=True,
+        font=dict(family=_THEME['font_family'], color=_THEME['text']),
         legend=dict(
             orientation='h',
             yanchor='bottom',
@@ -225,14 +236,7 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
 
     categories = ['Acidity', 'Minerality', 'Fruitiness', 'Tannin', 'Body']
 
-    # Color schemes for dark mode (40% transparency for better visibility)
-    style_colors = {
-        'White': {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)'},
-        'Red': {'primary': '#8B0000', 'fill': 'rgba(139, 0, 0, 0.4)'},
-        'Rosé': {'primary': '#FF8C69', 'fill': 'rgba(255, 140, 105, 0.4)'},
-        'Orange': {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)'}
-    }
-    colors = style_colors.get(wine_color, style_colors['White'])
+    colors = _chart_palette_for(wine_color)
 
     # Safe extraction helper
     def safe_get(obj, attr):
@@ -296,7 +300,7 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
             color='white',
             width=6,  # Extra bold
         ),
-        name='🎯 Current Wine',
+        name='Current Wine',
         marker=dict(size=12, symbol='star', color='white')
     ))
 
@@ -307,18 +311,18 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
                 visible=True,
                 range=[0, 10],
                 showticklabels=True,
-                tickfont=dict(size=14, family=_THEME['font_family_display'], color=_THEME['text']),
+                tickfont=dict(size=14, family=_THEME['font_family'], color=_THEME['text']),
                 gridcolor=_THEME['grid'],
             ),
             angularaxis=dict(
-                tickfont=dict(size=16, family=_THEME['font_family_display'], color=_THEME['text']),
+                tickfont=dict(size=16, family=_THEME['font_family'], color=_THEME['text']),
             ),
             bgcolor=_THEME['bg_card']
         ),
         showlegend=True,
         title=dict(
             text=f'<b>Master Radar: {wine_color} Wine Analysis</b>',
-            font=dict(size=18, color=colors['primary']),
+            font=dict(size=18, family=_THEME['font_family'], color=_THEME['text']),
             x=0.5,
             xanchor='center'
         ),
@@ -328,9 +332,10 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
             y=-0.15,
             xanchor='center',
             x=0.5,
-            font=dict(size=12, color=_THEME['text'])
+            font=dict(size=12, family=_THEME['font_family'], color=_THEME['text'])
         ),
         height=550,
+        font=dict(family=_THEME['font_family'], color=_THEME['text']),
         paper_bgcolor=_THEME['bg']
     )
 
@@ -363,18 +368,10 @@ def create_consolidated_palate_radar(color_profiles: dict):
 
     categories = ['Acidity', 'Minerality', 'Fruitiness', 'Tannin', 'Body']
 
-    # High-contrast color schemes for dark mode (40% transparency for fills)
-    style_colors = {
-        'White': {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)', 'emoji': '⚪'},
-        'Red': {'primary': '#8B0000', 'fill': 'rgba(139, 0, 0, 0.4)', 'emoji': '🔴'},
-        'Rosé': {'primary': '#FF69B4', 'fill': 'rgba(255, 105, 180, 0.4)', 'emoji': '🌸'},
-        'Orange': {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)', 'emoji': '🟠'}
-    }
-
     # Add trace for each color profile
     for wine_color, profile in color_profiles.items():
         if len(profile) > 0:
-            colors = style_colors.get(wine_color, style_colors['White'])
+            colors = _chart_palette_for(wine_color)
 
             # Get values and close the polygon
             vals = profile.fillna(0).replace(0, 5).tolist()
@@ -387,26 +384,26 @@ def create_consolidated_palate_radar(color_profiles: dict):
                 fill='toself',  # Solid fill with transparency
                 fillcolor=colors['fill'],
                 line=dict(color=colors['primary'], width=3),
-                name=f"{colors['emoji']} {wine_color} Profile",
+                name=f"{wine_color} Profile",
                 marker=dict(size=8, symbol='diamond', color=colors['primary']),
                 hovertemplate=f"<b>{wine_color}</b><br>" +
                              "%{theta}: %{r:.1f}/10<br>" +
                              "<extra></extra>"
             ))
 
-    # Styling - clean and high contrast for dark mode
+    # Styling: clean and high contrast on the Mediterranean light theme.
     fig.update_layout(
         polar=dict(
             radialaxis=dict(
                 visible=True,
                 range=[0, 10],
                 showticklabels=True,
-                tickfont=dict(size=14, family=_THEME['font_family_display'], color=_THEME['text']),
+                tickfont=dict(size=14, family=_THEME['font_family'], color=_THEME['text']),
                 gridcolor=_THEME['grid'],
                 tickvals=[0, 2, 4, 6, 8, 10]
             ),
             angularaxis=dict(
-                tickfont=dict(size=16, family=_THEME['font_family_display'], color=_THEME['text']),
+                tickfont=dict(size=16, family=_THEME['font_family'], color=_THEME['text']),
                 linewidth=2,
                 gridcolor=_THEME['grid']
             ),
@@ -414,8 +411,8 @@ def create_consolidated_palate_radar(color_profiles: dict):
         ),
         showlegend=True,
         title=dict(
-            text='<b>🎯 Master Palate Radar: All Wine Profiles</b>',
-            font=dict(size=20, color=_THEME['text'], family=_THEME['font_family_display']),
+            text='<b>Master Palate Radar: All Wine Profiles</b>',
+            font=dict(size=20, color=_THEME['text'], family=_THEME['font_family']),
             x=0.5,
             xanchor='center'
         ),
@@ -431,9 +428,9 @@ def create_consolidated_palate_radar(color_profiles: dict):
             borderwidth=1
         ),
         height=600,
+        font=dict(family=_THEME['font_family'], color=_THEME['text']),
         paper_bgcolor=_THEME['bg'],
         margin=dict(t=80, b=100, l=80, r=80)
     )
 
     return fig
-

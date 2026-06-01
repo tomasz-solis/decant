@@ -1,7 +1,7 @@
 """Constants, enums, and validation schemas for Decant."""
 
 from enum import Enum
-from typing import Tuple
+
 from pydantic import BaseModel, Field
 
 
@@ -34,11 +34,11 @@ class Verdict(Enum):
     If you're trying to understand what verdict the user sees, read
     palate_engine.calculate_match, not this enum.
     """
-    STRONG_MATCH = ("💙 Strong Match", 60.0)
-    WORTH_TRYING = ("🧡 Worth Trying", 50.0)
-    EXPLORE = ("🟡 Explore", 40.0)
-    DIFFERENT_STYLE = ("⚪ Different Style", 0.0)
-    FIRST_WINE = ("🔍 First Wine", 0.0)
+    STRONG_MATCH = ("Strong Match", 60.0)
+    WORTH_TRYING = ("Worth Trying", 50.0)
+    EXPLORE = ("Explore", 40.0)
+    DIFFERENT_STYLE = ("Different Style", 0.0)
+    FIRST_WINE = ("First Wine", 0.0)
 
     def __init__(self, display: str, threshold: float):
         self.display = display
@@ -210,12 +210,15 @@ class FilePaths:
 class UIConstants:
     """UI-related constants."""
 
-    # Color schemes for radar charts (dark mode)
+    # Per-wine-color chart palette. Red mirrors the CSS wine token.
+    # White, Rosé, and Orange are chart-only category colours; Plotly
+    # cannot read CSS variables, so components.py imports this mapping
+    # directly to avoid a second hand-maintained copy.
     WINE_COLORS_CHART = {
-        WineColor.WHITE: {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)', 'emoji': '⚪'},
-        WineColor.RED: {'primary': '#8B0000', 'fill': 'rgba(139, 0, 0, 0.4)', 'emoji': '🔴'},
-        WineColor.ROSE: {'primary': '#FF69B4', 'fill': 'rgba(255, 105, 180, 0.4)', 'emoji': '🌸'},
-        WineColor.ORANGE: {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)', 'emoji': '🟠'}
+        WineColor.WHITE: {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)'},
+        WineColor.RED: {'primary': '#7C2D12', 'fill': 'rgba(124, 45, 18, 0.4)'},
+        WineColor.ROSE: {'primary': '#FF69B4', 'fill': 'rgba(255, 105, 180, 0.4)'},
+        WineColor.ORANGE: {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)'}
     }
 
     # Feature display names
@@ -225,13 +228,4 @@ class UIConstants:
         'fruitiness': 'Fruitiness',
         'tannin': 'Tannin',
         'body': 'Body'
-    }
-
-    # Feature emojis
-    FEATURE_EMOJIS = {
-        'acidity': '⚡',
-        'minerality': '💎',
-        'fruitiness': '🍇',
-        'tannin': '🌰',
-        'body': '💪'
     }

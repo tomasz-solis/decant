@@ -2,8 +2,8 @@
 
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, Optional
+from dataclasses import dataclass
 import math
 import json
 
@@ -12,6 +12,9 @@ try:
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
+
+
+_APP_FONT_FAMILY = "DM Sans, system-ui, -apple-system, sans-serif"
 
 
 @dataclass
@@ -222,7 +225,7 @@ class PalateEngine:
                 likelihood_score=50.0,
                 n_samples=0,
                 confidence_factor=0.0,
-                verdict="🔍 First Wine",
+                verdict="First Wine",
                 explanation="No history yet - this will establish your baseline",
             )
 
@@ -274,30 +277,30 @@ class PalateEngine:
         CONFIDENT_ENOUGH = 0.6
 
         if palate_match >= STRONG_ALIGNMENT and confidence_factor >= CONFIDENT_ENOUGH:
-            verdict = "💙 Strong Match"
+            verdict = "Strong Match"
             explanation = (
                 f"High flavor alignment ({palate_match:.0f}%) with "
                 f"strong confidence ({n_samples} wines)"
             )
         elif palate_match >= STRONG_ALIGNMENT:
-            # High alignment but not enough data — call it Promising
+            # High alignment but not enough data: call it Promising
             # rather than Strong, so the verdict copy doesn't oversell
             # what's still an early signal.
-            verdict = "🌱 Promising — rate more to confirm"
+            verdict = "Promising - rate more to confirm"
             explanation = (
                 f"High flavor alignment ({palate_match:.0f}%), but "
                 f"only {n_samples} wine(s) rated so far"
             )
         elif palate_match >= EXPLORE_ALIGNMENT:
-            verdict = "🟡 Worth Exploring"
+            verdict = "Worth Exploring"
             explanation = (
-                f"Moderate alignment ({palate_match:.0f}%) — could "
+                f"Moderate alignment ({palate_match:.0f}%) - could "
                 f"go either way"
             )
         else:
-            verdict = "⚪ Different Style"
+            verdict = "Different Style"
             explanation = (
-                f"Low alignment ({palate_match:.0f}%) — departure "
+                f"Low alignment ({palate_match:.0f}%) - departure "
                 f"from your usual profile"
             )
 
@@ -414,18 +417,18 @@ class PalateEngine:
                     tick0=0,
                     dtick=2,
                     showticklabels=True,
-                    tickfont=dict(size=12),
+                    tickfont=dict(size=12, family=_APP_FONT_FAMILY, color='#3D2817'),
                     gridcolor='rgba(128, 128, 128, 0.2)'
                 ),
                 angularaxis=dict(
-                    tickfont=dict(size=14, family='Arial', color='#1A202C')
+                    tickfont=dict(size=14, family=_APP_FONT_FAMILY, color='#3D2817')
                 ),
                 bgcolor='rgba(250, 250, 250, 0.5)'
             ),
             showlegend=True,
             title=dict(
                 text='<b>Flavor Profile Comparison</b>',
-                font=dict(size=16, color='#1A202C'),
+                font=dict(size=16, family=_APP_FONT_FAMILY, color='#3D2817'),
                 x=0.5,
                 xanchor='center'
             ),
@@ -437,6 +440,7 @@ class PalateEngine:
                 x=0.5
             ),
             height=500,
+            font=dict(family=_APP_FONT_FAMILY, color='#3D2817'),
             paper_bgcolor='white'
         )
 
