@@ -1,7 +1,6 @@
 """Tests for decant.wines_repo.repo_update_wine.
 
-The Supabase client is mocked. We're testing the function's contract —
-field filtering, the query filters, and what it returns — not the
+The Supabase client is mocked. We're testing the function's contract - field filtering, the query filters, and what it returns - not the
 network round-trip.
 """
 
@@ -51,7 +50,7 @@ class TestRepoUpdateWine:
         repo_update_wine(mock_sb, 42, {"vintage": 2021})
 
         chain = mock_sb.table.return_value
-        # Both filters must be applied — id for the row, cellar_id as
+        # Both filters must be applied - id for the row, cellar_id as
         # a defense in depth against RLS misconfiguration.
         eq_calls = chain.eq.call_args_list
         assert ("id", 42) in [call.args for call in eq_calls]
@@ -93,7 +92,7 @@ class TestRepoUpdateWine:
         Supabase-managed columns (created_at, updated_at) are never
         editable via this path.
 
-        wine_name IS editable — see test_renames_wine_name. That's a
+        wine_name IS editable - see test_renames_wine_name. That's a
         deliberate exception: the original LLM extraction sometimes
         misses words (e.g. '1er' in a Premier Cru name) and there's
         no other way to correct it. The trade-offs are documented in

@@ -109,7 +109,7 @@ class TestPromptBuilding:
             assert isinstance(prompt, str)
 
     def test_prompt_uses_euro_symbol(self, sample_history):
-        """EUR pricing — prompt should use € not $."""
+        """EUR pricing - prompt should use € not $."""
         from decant.predictor import VinoPredictor
         from decant.schema import WineFeatures
         with patch("decant.predictor.OpenAI"), patch("decant.predictor.get_global_limiter"):

@@ -1,8 +1,8 @@
 """Tests for decant.services.data_access.
 
 Covers two responsibilities:
-1. `normalize` — schema-stable DataFrames from messy inputs.
-2. `load_history` — wrapping the Supabase repo with normalisation.
+1. `normalize` - schema-stable DataFrames from messy inputs.
+2. `load_history` - wrapping the Supabase repo with normalisation.
 """
 
 from unittest.mock import MagicMock
@@ -118,7 +118,7 @@ class TestNormalize:
 
     def test_id_defaults_to_zero_when_missing(self):
         """If a frame somehow arrives without id (legacy callers,
-        test fixtures), default to 0 — consumers treat that as
+        test fixtures), default to 0 - consumers treat that as
         'no id available' and skip the edit affordance.
         """
         df = pd.DataFrame([{"wine_name": "X"}])
@@ -158,7 +158,7 @@ class TestSchemaSingleSource:
     """Phase 3 Chunk 2: the wine schema lives in data_access only.
 
     Before Chunk 2, app.py duplicated the schema constants. These
-    tests pin that the consolidation actually consolidated — if
+    tests pin that the consolidation actually consolidated - if
     someone re-introduces a duplicate, the tests fail.
     """
 
@@ -191,6 +191,6 @@ class TestSchemaSingleSource:
         ]
         for constant in forbidden_constants:
             assert constant not in app_source, (
-                f"{constant!r} found in app.py — schema lives in "
+                f"{constant!r} found in app.py - schema lives in "
                 "decant.services.data_access only."
             )

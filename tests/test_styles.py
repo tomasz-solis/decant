@@ -2,13 +2,13 @@
 
 These pin three things:
 1. The styles module exposes the two functions app.py needs.
-2. Inline `<style>` blocks no longer live in app.py — CSS is
+2. Inline `<style>` blocks no longer live in app.py - CSS is
    sourced from decant.ui.styles. A regression test catches the
    "someone hand-pasted CSS back into app.py" failure mode.
 3. The Streamlit config theme palette and fonts match the CSS theme.
    This catches the exact bug where .streamlit/config.toml was
    still set to dark-mode colours while the CSS had moved to the
-   light Mediterranean theme — which made every portaled widget
+   light Mediterranean theme - which made every portaled widget
    (dropdowns, file uploader, tooltips) render dark.
 """
 
@@ -65,7 +65,7 @@ class TestConfigThemeConsistency:
         # The old dark-theme values that caused the black-dropdown bug.
         for stale in ["#0F0F12", "#1A1A1E", "#E8E8EB", "#8B0000"]:
             assert stale not in config, (
-                f"Stale dark-theme colour {stale} still in config.toml — "
+                f"Stale dark-theme colour {stale} still in config.toml - "
                 f"this is what made the dropdowns render black"
             )
 
@@ -187,6 +187,6 @@ class TestNoInlineCssInApp:
         """Defensive: confirm the global theme is actually applied."""
         app_source = (REPO_ROOT / "app.py").read_text()
         assert "apply_global_styles()" in app_source, (
-            "app.py imports but never calls apply_global_styles — "
+            "app.py imports but never calls apply_global_styles - "
             "the theme wouldn't render."
         )

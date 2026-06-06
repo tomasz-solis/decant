@@ -137,7 +137,7 @@ class TestFindPriorTasting:
             history,
         )
         # Producer matches, but name has zero overlap with anything
-        # in their history — no match.
+        # in their history - no match.
         assert result is None
 
     def test_empty_history(self):

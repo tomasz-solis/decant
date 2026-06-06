@@ -189,7 +189,7 @@ class TestCalculateMatch:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "🔍 First Wine"
+        assert score.verdict == "Check: First Wine"
         assert score.palate_match == 50.0
         assert score.likelihood_score == 50.0
         assert score.n_samples == 0
@@ -200,7 +200,7 @@ class TestCalculateMatch:
         Under v1 (plain cosine on positive vectors) every wine scored
         85-100% because the cosine couldn't be negative. Under v2
         (centred cosine) similarity to the ideal still produces high
-        scores, but the spread is real — see test_centring_creates_spread.
+        scores, but the spread is real - see test_centring_creates_spread.
         """
         engine = PalateEngine(sample_history)
 
@@ -263,7 +263,7 @@ class TestCalculateMatch:
 
         Display fix (2026-05): the verdict considers alignment and
         confidence as separate dimensions. High alignment alone is
-        not enough — needs the sample size too.
+        not enough - needs the sample size too.
         """
         engine = PalateEngine(sample_history)  # 3 liked wines, conf ~= 0.7
 
@@ -275,7 +275,7 @@ class TestCalculateMatch:
         score = engine.calculate_match(strong_wine)
 
         if score.palate_match >= 70.0 and score.confidence_factor >= 0.6:
-            assert "💙 Strong Match" in score.verdict, (
+            assert " Strong Match" in score.verdict, (
                 f"Expected Strong Match with alignment={score.palate_match:.1f} "
                 f"and confidence={score.confidence_factor:.2f}, got: {score.verdict!r}"
             )
@@ -293,7 +293,7 @@ class TestCalculateMatch:
         df_one = sample_history[sample_history['wine_name'] == 'Albariño 1'].copy()
         engine = PalateEngine(df_one)
 
-        # Identical to the liked wine — perfect alignment.
+        # Identical to the liked wine - perfect alignment.
         score = engine.calculate_match({
             'acidity': 9, 'fruitiness': 7, 'body': 5,
             'tannin': 1, 'minerality': 9,
@@ -379,7 +379,7 @@ class TestScoreDeterminism:
         engine_a = PalateEngine(history.copy())
         score_a = engine_a.calculate_match(candidate, 'Red').palate_match
 
-        # Shuffle the rows — a DB query without ORDER BY can return
+        # Shuffle the rows - a DB query without ORDER BY can return
         # rows in any order. The score must not depend on it.
         shuffled = history.sample(frac=1.0, random_state=7).reset_index(drop=True)
         engine_b = PalateEngine(shuffled)
@@ -415,7 +415,7 @@ class TestCentredCosine:
 
     def test_wine_on_population_mean_scores_neutral(self, diverse_history):
         """A wine sitting exactly on the population mean is neutral by
-        definition — no deviation to correlate with anything."""
+        definition - no deviation to correlate with anything."""
         engine = PalateEngine(diverse_history)
         mean_wine = {
             'acidity': float(engine.population_mean[0]),
@@ -555,7 +555,7 @@ class TestEdgeCases:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "🔍 First Wine"
+        assert score.verdict == "Check: First Wine"
         assert score.n_samples == 0
 
     def test_none_dataframe(self):
@@ -565,7 +565,7 @@ class TestEdgeCases:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "🔍 First Wine"
+        assert score.verdict == "Check: First Wine"
 
     def test_missing_features_in_wine(self):
         """Engine should handle wines with missing features."""

@@ -1,7 +1,7 @@
 """Tests for decant.services.text_infer.
 
 The LLM call is mocked. We're testing the parsing, rounding, and
-failure-handling logic — not the model. The point of the module is
+failure-handling logic - not the model. The point of the module is
 to run inference once and return clean, rounded features; these tests
 pin that contract.
 """
