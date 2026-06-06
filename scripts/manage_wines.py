@@ -51,12 +51,12 @@ def list_wines(detailed=False):
     history_path = project_root / "data" / "history.csv"
 
     if not history_path.exists():
-        console.print("[red]✗ No history.csv found[/red]")
+        console.print("[red]Failed No history.csv found[/red]")
         return
 
     df = pd.read_csv(history_path)
 
-    console.print("\n[bold]🍷 Wine Database[/bold]")
+    console.print("\n[bold]Wine Wine Database[/bold]")
     console.print(f"Total wines: {len(df)}\n")
 
     if detailed:
@@ -67,7 +67,7 @@ def list_wines(detailed=False):
             wine_name = row.get('wine_name', 'Unknown')
             producer = row.get('producer', 'Unknown')
             vintage = row.get('vintage', 'NV')
-            liked = "✅ Liked" if row['liked'] else "❌ Disliked"
+            liked = "OK Liked" if row['liked'] else "Failed Disliked"
 
             # Handle both price column names
             price_col = 'price' if 'price' in row else 'price_usd' if 'price_usd' in row else 'price_eur'
@@ -109,7 +109,7 @@ Region: {region}
             wine_name = str(row.get('wine_name', 'Unknown'))[:30]
             producer = str(row.get('producer', 'Unknown'))[:20]
             vintage = str(row.get('vintage', 'NV'))
-            liked = "✅" if row['liked'] else "❌"
+            liked = "OK" if row['liked'] else "Failed"
 
             # Handle both price column names
             price_col = 'price' if 'price' in row else 'price_usd' if 'price_usd' in row else 'price_eur'
@@ -137,7 +137,7 @@ def remove_wines(wine_ids, regenerate=True):
     history_path = project_root / "data" / "history.csv"
 
     if not history_path.exists():
-        console.print("[red]✗ No history.csv found[/red]")
+        console.print("[red]Failed No history.csv found[/red]")
         return
 
     # Parse wine IDs
@@ -152,12 +152,12 @@ def remove_wines(wine_ids, regenerate=True):
     # Validate IDs
     invalid_ids = [i for i in ids_to_remove if i >= len(df) or i < 0]
     if invalid_ids:
-        console.print(f"[red]✗ Invalid row numbers: {invalid_ids}[/red]")
+        console.print(f"[red]Failed Invalid row numbers: {invalid_ids}[/red]")
         console.print(f"   Valid range: 0-{len(df)-1}")
         return
 
     # Show wines to be removed
-    console.print("\n[bold yellow]⚠ Wines to be removed:[/bold yellow]\n")
+    console.print("\n[bold yellow]Warning: Wines to be removed:[/bold yellow]\n")
     for idx in ids_to_remove:
         wine = df.iloc[idx]
         wine_name = wine.get('wine_name', 'Unknown')
@@ -174,13 +174,13 @@ def remove_wines(wine_ids, regenerate=True):
     console.print("\n[dim]Creating backups...[/dim]")
     backups = backup_files()
     for backup in backups:
-        console.print(f"[dim]  ✓ {backup.name}[/dim]")
+        console.print(f"[dim]  OK {backup.name}[/dim]")
 
     # Remove wines
     df = df.drop(ids_to_remove).reset_index(drop=True)
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]✓ Removed {len(ids_to_remove)} wine(s) from history.csv[/green]")
+    console.print(f"\n[green]OK Removed {len(ids_to_remove)} wine(s) from history.csv[/green]")
     console.print(f"  Remaining wines: {len(df)}")
 
     # Regenerate features
@@ -188,7 +188,7 @@ def remove_wines(wine_ids, regenerate=True):
         console.print("\n[dim]Regenerating features...[/dim]")
         regenerate_features()
     else:
-        console.print("\n[yellow]⚠ Remember to run: python scripts/extract_features.py[/yellow]")
+        console.print("\n[yellow]Warning: Remember to run: python scripts/extract_features.py[/yellow]")
 
 
 def remove_wines_by_name(name_pattern, regenerate=True):
@@ -197,7 +197,7 @@ def remove_wines_by_name(name_pattern, regenerate=True):
     history_path = project_root / "data" / "history.csv"
 
     if not history_path.exists():
-        console.print("[red]✗ No history.csv found[/red]")
+        console.print("[red]Failed No history.csv found[/red]")
         return
 
     df = pd.read_csv(history_path)
@@ -211,7 +211,7 @@ def remove_wines_by_name(name_pattern, regenerate=True):
         return
 
     # Show matches
-    console.print(f"\n[bold yellow]⚠ Found {len(matches)} wine(s) matching '{name_pattern}':[/bold yellow]\n")
+    console.print(f"\n[bold yellow]Warning: Found {len(matches)} wine(s) matching '{name_pattern}':[/bold yellow]\n")
     for idx, wine in matches.iterrows():
         wine_name = wine.get('wine_name', 'Unknown')
         console.print(f"  [{idx}] {wine_name}")
@@ -227,13 +227,13 @@ def remove_wines_by_name(name_pattern, regenerate=True):
     console.print("\n[dim]Creating backups...[/dim]")
     backups = backup_files()
     for backup in backups:
-        console.print(f"[dim]  ✓ {backup.name}[/dim]")
+        console.print(f"[dim]  OK {backup.name}[/dim]")
 
     # Remove wines
     df = df[~mask].reset_index(drop=True)
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]✓ Removed {len(matches)} wine(s) from history.csv[/green]")
+    console.print(f"\n[green]OK Removed {len(matches)} wine(s) from history.csv[/green]")
     console.print(f"  Remaining wines: {len(df)}")
 
     # Regenerate features
@@ -241,7 +241,7 @@ def remove_wines_by_name(name_pattern, regenerate=True):
         console.print("\n[dim]Regenerating features...[/dim]")
         regenerate_features()
     else:
-        console.print("\n[yellow]⚠ Remember to run: python scripts/extract_features.py[/yellow]")
+        console.print("\n[yellow]Warning: Remember to run: python scripts/extract_features.py[/yellow]")
 
 
 def regenerate_features():
@@ -252,7 +252,7 @@ def regenerate_features():
     sync_script = project_root / "scripts" / "sync_features.py"
 
     if not sync_script.exists():
-        console.print("[red]✗ sync_features.py not found[/red]")
+        console.print("[red]Failed sync_features.py not found[/red]")
         return
 
     try:
@@ -265,19 +265,19 @@ def regenerate_features():
         )
 
         if result.returncode == 0:
-            console.print("[green]✓ Features synced successfully[/green]")
+            console.print("[green]OK Features synced successfully[/green]")
         else:
-            console.print("[red]✗ Feature sync failed[/red]")
+            console.print("[red]Failed Feature sync failed[/red]")
 
     except subprocess.TimeoutExpired:
-        console.print("[red]✗ Feature sync timed out[/red]")
+        console.print("[red]Failed Feature sync timed out[/red]")
     except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print(f"[red]Failed Error: {e}[/red]")
 
 
 def add_wine_template():
     """Show template for adding wine manually."""
-    console.print("\n[bold]📝 CSV Template for Adding Wines[/bold]\n")
+    console.print("\n[bold] CSV Template for Adding Wines[/bold]\n")
 
     template = """Add this line to data/history.csv (all one line):
 
@@ -353,7 +353,7 @@ Examples:
     args = parser.parse_args()
 
     # Show header
-    console.print("\n[bold magenta]🍷 Decant Wine Database Manager[/bold magenta]\n")
+    console.print("\n[bold magenta]Wine Decant Wine Database Manager[/bold magenta]\n")
 
     # Execute commands
     if args.list:

@@ -89,7 +89,7 @@ Italian examples: Tuscany, Piedmont, Veneto, Sicily
         return country, region
 
     except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print(f"[red]Failed Error: {e}[/red]")
         return "Unknown", "Unknown"
 
 
@@ -98,10 +98,10 @@ def enrich_geography():
     project_root = Path(__file__).parent.parent
     history_path = project_root / "data" / "history.csv"
 
-    console.print("\n[bold]🌍 Batch Geography Enrichment[/bold]\n")
+    console.print("\n[bold]World Batch Geography Enrichment[/bold]\n")
 
     if not history_path.exists():
-        console.print(f"[red]✗ history.csv not found at {history_path}[/red]")
+        console.print(f"[red]Failed history.csv not found at {history_path}[/red]")
         return
 
     # Load data
@@ -125,7 +125,7 @@ def enrich_geography():
     ]
 
     if len(needs_enrichment) == 0:
-        console.print("[green]✓ All wines already have geography data![/green]\n")
+        console.print("[green]OK All wines already have geography data![/green]\n")
         return
 
     console.print(f"[yellow]Found {len(needs_enrichment)} wines needing geography enrichment[/yellow]\n")
@@ -137,7 +137,7 @@ def enrich_geography():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_path = project_root / "data" / f"history.csv.backup_{timestamp}"
     df.to_csv(backup_path, index=False)
-    console.print(f"[dim]✓ Backup saved to {backup_path.name}[/dim]\n")
+    console.print(f"[dim]OK Backup saved to {backup_path.name}[/dim]\n")
 
     # Process each wine
     enriched_count = 0
@@ -172,14 +172,14 @@ def enrich_geography():
     # Save enriched data
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]✓ Enrichment complete![/green]")
-    console.print(f"[green]✓ Updated {enriched_count} wines with geography data[/green]")
-    console.print(f"[green]✓ Saved to {history_path.name}[/green]\n")
+    console.print(f"\n[green]OK Enrichment complete![/green]")
+    console.print(f"[green]OK Updated {enriched_count} wines with geography data[/green]")
+    console.print(f"[green]OK Saved to {history_path.name}[/green]\n")
 
     # Show top regions
     regional_wines = df[(df['region'] != 'Unknown') & (df['region'].notna())]
     if len(regional_wines) > 0:
-        console.print("[bold]🏆 Your Wine Regions:[/bold]")
+        console.print("[bold] Your Wine Regions:[/bold]")
         region_counts = regional_wines['region'].value_counts().head(5)
         for region, count in region_counts.items():
             console.print(f"  {region}: {count} wines")

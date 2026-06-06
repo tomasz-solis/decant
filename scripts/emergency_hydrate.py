@@ -14,7 +14,7 @@ client = OpenAI()
 project_root = Path(__file__).parent.parent
 df = pd.read_csv(project_root / 'data' / 'history.csv')
 
-print("=== EMERGENCY HYDRATION ===\n")
+print("Emergency hydration")
 
 # Find the wine needing hydration (Martín Códax)
 wine_name = df.at[0, 'wine_name']
@@ -87,5 +87,5 @@ df.at[0, 'tannin'] = tannin
 # Save
 df.to_csv(project_root / 'data' / 'history.csv', index=False)
 
-print(f"\n✅ Hydration complete!")
+print(f"\nOK Hydration complete!")
 print(f"Final values: A:8 M:{minerality} F:{fruitiness} T:{tannin} B:6")

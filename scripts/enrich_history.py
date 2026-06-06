@@ -163,7 +163,7 @@ Use standard profiles for each wine region/style. Be precise and research-based.
         return result
 
     except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print(f"[red]Failed Error: {e}[/red]")
         return None
 
 
@@ -172,10 +172,10 @@ def enrich_history():
     project_root = Path(__file__).parent.parent
     history_path = project_root / "data" / "history.csv"
 
-    console.print("\n[bold]🔬 History Enrichment Loop[/bold]\n")
+    console.print("\n[bold] History Enrichment Loop[/bold]\n")
 
     if not history_path.exists():
-        console.print(f"[red]✗ history.csv not found at {history_path}[/red]")
+        console.print(f"[red]Failed history.csv not found at {history_path}[/red]")
         return
 
     # Load data
@@ -191,7 +191,7 @@ def enrich_history():
     ]
 
     if len(needs_enrichment) == 0:
-        console.print("[green]✓ All wines already have complete profiles![/green]\n")
+        console.print("[green]OK All wines already have complete profiles![/green]\n")
         return
 
     console.print(f"[yellow]Found {len(needs_enrichment)} wines needing enrichment[/yellow]")
@@ -204,7 +204,7 @@ def enrich_history():
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_path = project_root / "data" / f"history.csv.backup_{timestamp}"
     df.to_csv(backup_path, index=False)
-    console.print(f"[dim]✓ Backup saved to {backup_path.name}[/dim]\n")
+    console.print(f"[dim]OK Backup saved to {backup_path.name}[/dim]\n")
 
     # Process each wine
     enriched_count = 0
@@ -252,22 +252,22 @@ def enrich_history():
 
                 # Display progress
                 console.print(f"  [cyan]{wine_name[:50]}[/cyan]")
-                console.print(f"    📍 {profile['region']}, {profile['country']}")
-                console.print(f"    🎯 Acidity: {profile['acidity']}/10, Minerality: {profile['minerality']}/10, Fruit: {profile['fruitiness']}/10")
-                console.print(f"    🎯 Tannin: {profile['tannin']}/10, Body: {profile['body']}/10")
+                console.print(f"     {profile['region']}, {profile['country']}")
+                console.print(f"    Target Acidity: {profile['acidity']}/10, Minerality: {profile['minerality']}/10, Fruit: {profile['fruitiness']}/10")
+                console.print(f"    Target Tannin: {profile['tannin']}/10, Body: {profile['body']}/10")
 
             progress.advance(task)
 
     # Save enriched data
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]✓ Enrichment complete![/green]")
-    console.print(f"[green]✓ Updated {enriched_count} wines with complete profiles[/green]")
-    console.print(f"[green]✓ Saved to {history_path.name}[/green]\n")
+    console.print(f"\n[green]OK Enrichment complete![/green]")
+    console.print(f"[green]OK Updated {enriched_count} wines with complete profiles[/green]")
+    console.print(f"[green]OK Saved to {history_path.name}[/green]\n")
 
     # VERIFICATION: Show at least 2 wines with non-zero values
     if verification_examples:
-        console.print("[bold]🔍 Verification - Sample Enriched Wines:[/bold]\n")
+        console.print("[bold]Check: Verification - Sample Enriched Wines:[/bold]\n")
         for i, example in enumerate(verification_examples, 1):
             console.print(f"[bold cyan]{i}. {example['wine_name']}[/bold cyan]")
             console.print(f"   Location: {example['profile']['region']}, {example['profile']['country']}")
@@ -279,11 +279,11 @@ def enrich_history():
             console.print(f"   [green]Body: {example['profile']['body']}/10[/green]")
             console.print()
 
-        console.print("[bold green]✅ Radar charts will now display with complete data![/bold green]\n")
+        console.print("[bold green]OK Radar charts will now display with complete data![/bold green]\n")
 
     # Show enrichment summary
     feature_stats = df[feature_cols].describe()
-    console.print("[bold]📊 Feature Statistics After Enrichment:[/bold]")
+    console.print("[bold]Results: Feature Statistics After Enrichment:[/bold]")
     console.print(f"  Acidity: avg {feature_stats.loc['mean', 'acidity']:.1f}/10")
     console.print(f"  Minerality: avg {feature_stats.loc['mean', 'minerality']:.1f}/10")
     console.print(f"  Fruitiness: avg {feature_stats.loc['mean', 'fruitiness']:.1f}/10")

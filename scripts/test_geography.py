@@ -85,11 +85,11 @@ Italian examples: Tuscany, Piedmont, Veneto, Sicily
         country = country_match.group(1).strip() if country_match else "Unknown"
         region = region_match.group(1).strip() if region_match else "Unknown"
 
-        console.print(f"[green]✓ Extracted Country:[/green] {country}")
-        console.print(f"[green]✓ Extracted Region:[/green] {region}\n")
+        console.print(f"[green]OK Extracted Country:[/green] {country}")
+        console.print(f"[green]OK Extracted Region:[/green] {region}\n")
 
     except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
+        console.print(f"[red]Failed Error: {e}[/red]")
 
 if __name__ == "__main__":
     test_single_extraction()

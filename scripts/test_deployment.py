@@ -12,7 +12,7 @@ from datetime import datetime
 
 project_root = Path(__file__).parent.parent
 
-print("=== DEPLOYMENT TEST ===\n")
+print("Deployment test")
 print("Simulating a 'Save New Wine' operation...\n")
 
 # Load current history
@@ -44,7 +44,7 @@ new_wine = {
     'body': 9
 }
 
-print("=== NEW WINE DATA ===")
+print("NEW WINE DATA")
 print(f"Wine: {new_wine['wine_name']}")
 print(f"Location: {new_wine['region']}, {new_wine['country']}")
 print(f"Color: {new_wine['wine_color']} | Sweetness: {new_wine['sweetness']}")
@@ -66,34 +66,34 @@ expected_cols = [
 
 missing_in_new = set(expected_cols) - set(new_wine.keys())
 if missing_in_new:
-    print(f"❌ FAILURE: Missing columns in new wine data: {missing_in_new}")
+    print(f"Failed FAILURE: Missing columns in new wine data: {missing_in_new}")
     sys.exit(1)
 
-print("✅ All 18 columns present in new wine data")
+print("OK All 18 columns present in new wine data")
 
 # Append to dataframe
 df_new = pd.DataFrame([new_wine])
 df_combined = pd.concat([df, df_new], ignore_index=True)
 
-print(f"✅ Combined dataframe: {len(df_combined)} wines (was {len(df)})")
+print(f"OK Combined dataframe: {len(df_combined)} wines (was {len(df)})")
 
 # Verify no NaN values in critical fields
 critical_fields = ['wine_name', 'country', 'region', 'acidity', 'body']
 for field in critical_fields:
     if df_combined[field].isna().any():
-        print(f"⚠️  Warning: NaN values found in {field}")
+        print(f"Warning:  Warning: NaN values found in {field}")
     else:
-        print(f"✅ No NaN values in {field}")
+        print(f"OK No NaN values in {field}")
 
 # Create test save
 test_path = project_root / "data" / "history_test_deployment.csv"
 df_combined.to_csv(test_path, index=False)
 
-print(f"\n✅ Test save successful: {test_path.name}")
+print(f"\nOK Test save successful: {test_path.name}")
 
 # Verify we can read it back
 df_verify = pd.read_csv(test_path)
-print(f"✅ Read back verification: {len(df_verify)} wines, {len(df_verify.columns)} columns")
+print(f"OK Read back verification: {len(df_verify)} wines, {len(df_verify.columns)} columns")
 
 # Check the last row (our test wine)
 last_row = df_verify.iloc[-1]
@@ -110,14 +110,14 @@ for key, expected_value in new_wine.items():
     if pd.isna(expected_value) and pd.isna(actual_value):
         continue  # Both NaN is OK
     if expected_value != actual_value:
-        print(f"❌ Mismatch in {key}: expected {expected_value}, got {actual_value}")
+        print(f"Failed Mismatch in {key}: expected {expected_value}, got {actual_value}")
         errors += 1
 
 if errors == 0:
-    print("\n✅✅✅ DEPLOYMENT TEST PASSED ✅✅✅")
+    print("\nOKOKOK DEPLOYMENT TEST PASSED OKOKOK")
     print("All 18 columns write and read correctly!")
     print(f"\nTest file saved at: {test_path}")
     print("You can delete this file or keep it for reference.")
 else:
-    print(f"\n❌ DEPLOYMENT TEST FAILED: {errors} mismatches found")
+    print(f"\nFailed DEPLOYMENT TEST FAILED: {errors} mismatches found")
     sys.exit(1)

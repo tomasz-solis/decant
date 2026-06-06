@@ -15,7 +15,7 @@ from datetime import datetime
 project_root = Path(__file__).parent.parent
 history_path = project_root / "data" / "history.csv"
 
-print("=== TOTAL DATABASE PURGE ===\n")
+print("Total database purge")
 
 # Load data
 df = pd.read_csv(history_path)
@@ -25,10 +25,10 @@ print(f"Starting with: {len(df)} wines\n")
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 backup_path = project_root / "data" / f"history.csv.backup_purge_{timestamp}"
 df.to_csv(backup_path, index=False)
-print(f"✓ Backup saved to {backup_path.name}\n")
+print(f"OK Backup saved to {backup_path.name}\n")
 
-# STEP 1: Remove wines with 'Unknown' or empty wine_name
-print("=== STEP 1: Remove Zombie Wines ===")
+# Remove wines with 'Unknown' or empty wine_name
+print("Remove unknown wines")
 before_count = len(df)
 
 # Check for zombies
@@ -48,12 +48,12 @@ if len(zombies) > 0:
 
     # Remove zombies
     df = df[~zombie_mask].copy()
-    print(f"✓ Removed {before_count - len(df)} zombie wines\n")
+    print(f"OK Removed {before_count - len(df)} zombie wines\n")
 else:
-    print("✓ No zombie wines found\n")
+    print("OK No zombie wines found\n")
 
-# STEP 2: Remove duplicates
-print("=== STEP 2: Remove Duplicates ===")
+# Remove duplicates
+print("Remove duplicates")
 before_count = len(df)
 
 # Find duplicates
@@ -66,12 +66,12 @@ if len(duplicates) > 0:
 
     # Remove duplicates (keep first occurrence)
     df = df.drop_duplicates(subset=['wine_name'], keep='first')
-    print(f"✓ Removed {before_count - len(df)} duplicates\n")
+    print(f"OK Removed {before_count - len(df)} duplicates\n")
 else:
-    print("✓ No duplicates found\n")
+    print("OK No duplicates found\n")
 
-# STEP 3: Fix Martín Códax 2022 specifically
-print("=== STEP 3: Fix Martín Códax 2022 ===")
+# Fix Martín Códax 2022 specifically
+print("Fix Martín Códax 2022")
 
 # Find Martín Códax row
 martin_mask = df['wine_name'].str.contains('Martín Códax', case=False, na=False)
@@ -92,27 +92,27 @@ if martin_mask.any():
     df.at[martin_idx, 'sweetness'] = 'Dry'
 
     print("\nUpdated to:")
-    print(f"  ✓ Country: Spain")
-    print(f"  ✓ Region: Rías Baixas")
-    print(f"  ✓ Wine Color: White")
-    print(f"  ✓ Sweetness: Dry\n")
+    print(f"  OK Country: Spain")
+    print(f"  OK Region: Rías Baixas")
+    print(f"  OK Wine Color: White")
+    print(f"  OK Sweetness: Dry\n")
 else:
-    print("⚠️  Martín Códax 2022 not found in database\n")
+    print("Warning:  Martín Códax 2022 not found in database\n")
 
 # Save cleaned data
 df.to_csv(history_path, index=False)
-print(f"=== DATABASE PURGED ===")
+print("DATABASE PURGED")
 print(f"Final count: {len(df)} wines")
 print(f"Saved to: {history_path.name}\n")
 
 # Print cleaned database for verification
-print("=== CLEANED DATABASE ===")
+print("CLEANED DATABASE")
 print(f"{'#':<3} {'Wine Name':<40} {'Region':<20} {'Country':<10}")
-print("-" * 80)
+print()
 for idx, row in df.iterrows():
     wine = str(row['wine_name'])[:38]
     region = str(row['region'])[:18] if pd.notna(row['region']) else 'Unknown'
     country = str(row['country'])[:8] if pd.notna(row['country']) else 'Unknown'
     print(f"{idx+1:<3} {wine:<40} {region:<20} {country:<10}")
 
-print(f"\n✅ Total: {len(df)} clean wines\n")
+print(f"\nOK Total: {len(df)} clean wines\n")

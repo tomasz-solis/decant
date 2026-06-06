@@ -30,10 +30,10 @@ def load_tasting_history(file_path: Path) -> TastingHistory:
 
     try:
         history = TastingHistory(**data)
-        print(f"✓ Loaded {len(history.comparisons)} comparisons")
+        print(f"OK Loaded {len(history.comparisons)} comparisons")
         return history
     except ValidationError as e:
-        print(f"✗ Validation error in {file_path}:")
+        print(f"Failed Validation error in {file_path}:")
         print(e)
         sys.exit(1)
 
@@ -44,7 +44,7 @@ def extract_features_with_llm(wine: Wine, client: OpenAI) -> WineFeatures:
 
     Uses structured outputs with Pydantic schema for reliable validation.
     """
-    # Combine all tasting notes into a comprehensive description
+    # Combine all tasting notes into a complete description
     tasting_text = f"""
     Wine: {wine.producer} {wine.vintage}
 
@@ -93,11 +93,11 @@ def extract_features_with_llm(wine: Wine, client: OpenAI) -> WineFeatures:
         )
 
         features = completion.choices[0].message.parsed
-        print(f"  ✓ Extracted features for {wine.producer}")
+        print(f"  OK Extracted features for {wine.producer}")
         return features
 
     except Exception as e:
-        print(f"  ✗ Error extracting features for {wine.producer}: {e}")
+        print(f"  Failed Error extracting features for {wine.producer}: {e}")
         # Return default mid-range values on error
         return WineFeatures(
             acidity=5,
@@ -144,7 +144,7 @@ def create_feature_dataframe(history: TastingHistory, client: OpenAI) -> pd.Data
             rows.append(row)
 
     df = pd.DataFrame(rows)
-    print(f"\n✓ Created feature matrix with {len(df)} wines")
+    print(f"\nOK Created feature matrix with {len(df)} wines")
     return df
 
 
@@ -161,13 +161,13 @@ def main():
     # Check for OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("✗ Error: OPENAI_API_KEY environment variable not set")
+        print("Failed Error: OPENAI_API_KEY environment variable not set")
         print("  Set it with: export OPENAI_API_KEY='your-key-here'")
         sys.exit(1)
 
     # Initialize OpenAI client
     client = OpenAI(api_key=api_key)
-    print("✓ OpenAI client initialized")
+    print("OK OpenAI client initialized")
 
     # Load tasting history
     print(f"\nLoading data from {input_file}...")
@@ -182,16 +182,16 @@ def main():
 
     # Save to CSV
     df.to_csv(output_file, index=False)
-    print(f"\n✓ Features saved to {output_file}")
+    print(f"\nOK Features saved to {output_file}")
 
     # Display summary statistics
-    print("\n" + "="*60)
+    print()
     print("FEATURE SUMMARY")
-    print("="*60)
+    print()
     print(df[["acidity", "minerality", "fruitiness", "tannin", "body"]].describe())
     print(f"\nLiked distribution:")
     print(df["liked"].value_counts())
-    print("="*60)
+    print()
 
 
 if __name__ == "__main__":

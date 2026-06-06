@@ -35,7 +35,7 @@ def migrate_json_to_csv():
     json_path = project_root / "data" / "history.json"
     csv_path = project_root / "data" / "history.csv"
 
-    print("🔄 Starting migration from JSON to CSV...")
+    print(" Starting migration from JSON to CSV...")
     print(f"   Reading: {json_path}")
     print(f"   Writing: {csv_path}")
     print()
@@ -46,13 +46,13 @@ def migrate_json_to_csv():
             data = json.load(f)
 
         history = TastingHistory(**data)
-        print(f"✓ Loaded {len(history.comparisons)} comparisons")
+        print(f"OK Loaded {len(history.comparisons)} comparisons")
     except FileNotFoundError:
-        print(f"✗ Error: {json_path} not found")
+        print(f"Failed Error: {json_path} not found")
         print("  Make sure you have wine data in data/history.json")
         sys.exit(1)
     except Exception as e:
-        print(f"✗ Error loading JSON: {e}")
+        print(f"Failed Error loading JSON: {e}")
         sys.exit(1)
 
     # Extract wines into flat structure
@@ -119,27 +119,27 @@ def migrate_json_to_csv():
     # Save to CSV
     df.to_csv(csv_path, index=False)
 
-    print(f"✓ Migrated {len(df)} wines to CSV")
+    print(f"OK Migrated {len(df)} wines to CSV")
     print()
-    print("📊 Summary:")
+    print("Results: Summary:")
     print(f"   Total wines: {len(df)}")
     print(f"   Liked: {df['liked'].sum()}")
     print(f"   Disliked: {(~df['liked']).sum()}")
     print()
-    print(f"✓ CSV saved to: {csv_path}")
+    print(f"OK CSV saved to: {csv_path}")
     print()
-    print("📝 Note: minerality, fruitiness, and tannin columns are set to 0")
+    print(" Note: minerality, fruitiness, and tannin columns are set to 0")
     print("   Run 'python scripts/extract_features.py' to populate these with AI-extracted values")
     print()
 
     # Display sample
     print("Sample data (first 3 rows):")
-    print("=" * 80)
+    print()
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', None)
     pd.set_option('display.max_colwidth', 50)
     print(df[['wine_name', 'liked', 'price', 'acidity', 'body', 'score']].head(3))
-    print("=" * 80)
+    print()
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ from decant.predictor import VinoPredictor
 def create_features_table(features, match_score):
     """Create a beautiful table showing wine features."""
     table = Table(
-        title="🍷 Wine Feature Analysis",
+        title="Wine Wine Feature Analysis",
         box=box.ROUNDED,
         show_header=True,
         header_style="bold cyan",
@@ -39,18 +39,18 @@ def create_features_table(features, match_score):
 
     # Define feature colors and assessments
     features_data = [
-        ("Acidity", features.acidity, "🟦", "High" if features.acidity >= 8 else "Moderate" if features.acidity >= 5 else "Low"),
+        ("Acidity", features.acidity, "", "High" if features.acidity >= 8 else "Moderate" if features.acidity >= 5 else "Low"),
         ("Minerality", features.minerality, "⬜", "High" if features.minerality >= 8 else "Moderate" if features.minerality >= 5 else "Low"),
-        ("Fruitiness", features.fruitiness, "🟩", "High" if features.fruitiness >= 8 else "Moderate" if features.fruitiness >= 5 else "Low"),
-        ("Tannin", features.tannin, "🟫", "High" if features.tannin >= 8 else "Moderate" if features.tannin >= 5 else "Low"),
-        ("Body", features.body, "🟧", "Full" if features.body >= 8 else "Medium" if features.body >= 5 else "Light"),
+        ("Fruitiness", features.fruitiness, "", "High" if features.fruitiness >= 8 else "Moderate" if features.fruitiness >= 5 else "Low"),
+        ("Tannin", features.tannin, "", "High" if features.tannin >= 8 else "Moderate" if features.tannin >= 5 else "Low"),
+        ("Body", features.body, "", "Full" if features.body >= 8 else "Medium" if features.body >= 5 else "Light"),
     ]
 
     for feature_name, score, icon, assessment in features_data:
         # Create visual bar
         filled = int(score)
         empty = 10 - filled
-        bar = icon * filled + "⚪" * empty
+        bar = icon * filled + "" * empty
 
         # Color code the score
         if score >= 8:
@@ -76,21 +76,21 @@ def create_features_table(features, match_score):
     table.add_row(
         "[bold]Structure Score[/bold]",
         f"[bold magenta]{structure_score}/20[/bold magenta]",
-        "🔷" * int(structure_score / 2),
+        "" * int(structure_score / 2),
         "Acid + Mineral"
     )
 
     table.add_row(
         "[bold]Acidity/Body[/bold]",
         f"[bold cyan]{acidity_body_ratio:.2f}[/bold cyan]",
-        "⚡" * min(int(acidity_body_ratio), 10),
+        "" * min(int(acidity_body_ratio), 10),
         "Crispness Index"
     )
 
     table.add_row(
         "[bold]Palate Score[/bold]",
         f"[bold white]{palate_score:.1f}[/bold white]",
-        "🌟" * min(int(palate_score / 3), 10),
+        "" * min(int(palate_score / 3), 10),
         "Overall Match"
     )
 
@@ -107,15 +107,15 @@ def create_verdict_panel(match, features):
     # Determine color based on match score with consistent branding
     if match.match_score >= 75:
         color = "blue"
-        emoji = "💙"
+        emoji = ""
         border_style = "bold blue"
     elif match.match_score >= 50:
         color = "yellow"
-        emoji = "🟡"
+        emoji = "Warning"
         border_style = "bold yellow"
     else:
         color = "dim yellow"
-        emoji = "⚠️"
+        emoji = "Warning:"
         border_style = "dim yellow"
 
     # Build verdict content
@@ -127,16 +127,16 @@ def create_verdict_panel(match, features):
 [bold cyan]Qualitative Analysis:[/bold cyan]
 {match.qualitative_analysis}
 
-[bold green]✓ Key Alignment:[/bold green]
+[bold green]OK Key Alignment:[/bold green]
 {match.key_alignment}
 
-[bold red]⚠ Key Concerns:[/bold red]
+[bold red]Warning: Key Concerns:[/bold red]
 {match.key_concerns}
 """
 
     panel = Panel(
         content.strip(),
-        title="🎯 Palate Match Verdict",
+        title="Target Palate Match Verdict",
         border_style=border_style,
         box=box.DOUBLE,
         padding=(1, 2)
@@ -152,7 +152,7 @@ def main():
     # Print header
     console.print()
     console.print(Panel.fit(
-        "[bold white]🍷 Decant Wine Recommender[/bold white]\n"
+        "[bold white]Wine Decant Wine Recommender[/bold white]\n"
         "[dim]Powered by In-Context Learning & OpenAI[/dim]",
         border_style="cyan"
     ))
@@ -172,7 +172,7 @@ def main():
     # Show input
     console.print(Panel(
         f"[bold white]Tasting Notes:[/bold white]\n{tasting_notes}",
-        title="📝 Input",
+        title=" Input",
         border_style="dim white"
     ))
     console.print()
@@ -182,13 +182,13 @@ def main():
         with console.status("[bold cyan]Loading wine preference model...", spinner="dots"):
             predictor = VinoPredictor()
 
-        console.print("[green]✓[/green] Model loaded successfully\n")
+        console.print("[green]OK[/green] Model loaded successfully\n")
 
         # Get prediction
         with console.status("[bold cyan]Analyzing wine with In-Context Learning...", spinner="dots"):
             features, match = predictor.predict_match(tasting_notes)
 
-        console.print("[green]✓[/green] Analysis complete\n")
+        console.print("[green]OK[/green] Analysis complete\n")
 
         # Display results
         console.print(create_features_table(features, match.match_score))
