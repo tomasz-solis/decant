@@ -148,12 +148,12 @@ class RateLimiter:
         # Check warning thresholds
         if requests_in_minute >= self.config.requests_per_minute * self.config.warning_threshold:
             logger.warning(
-                f"⚠️  Approaching minute limit: {requests_in_minute}/{self.config.requests_per_minute}"
+                f"Warning:  Approaching minute limit: {requests_in_minute}/{self.config.requests_per_minute}"
             )
 
         if cost_in_hour >= self.config.cost_limit_per_hour * self.config.warning_threshold:
             logger.warning(
-                f"⚠️  Approaching cost limit: ${cost_in_hour:.2f}/${self.config.cost_limit_per_hour:.2f}"
+                f"Warning:  Approaching cost limit: ${cost_in_hour:.2f}/${self.config.cost_limit_per_hour:.2f}"
             )
 
         return limits_status

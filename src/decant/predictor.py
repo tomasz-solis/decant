@@ -161,7 +161,7 @@ class VinoPredictor:
         """Build in-context learning prompt with liked/disliked examples."""
         prompt = """You are a wine sommelier analyzing palate compatibility based on tasting history.
 
-## LIKED WINES ✓
+## LIKED WINES OK
 """
 
         # Add liked examples with derived features
@@ -179,7 +179,7 @@ class VinoPredictor:
 
         # Add disliked examples if available
         if len(self.disliked_examples) > 0:
-            prompt += "\n## DISLIKED WINES ✗\n"
+            prompt += "\n## DISLIKED WINES Failed\n"
 
             for idx, (_, wine) in enumerate(self.disliked_examples.iterrows(), 1):
                 acidity_body_ratio = safe_divide(
@@ -222,7 +222,7 @@ Provide JSON with: match_score (0-100), qualitative_analysis, key_alignment, key
         Cached by wine name. The LLM is not truly deterministic even at
         temperature 0 with a fixed seed, so re-extracting the same wine
         would otherwise return slightly different flavour features each
-        time — which made the downstream palate score visibly unstable
+        time - which made the downstream palate score visibly unstable
         (the same wine scored 84% then 95% across renders). Caching the
         first extraction freezes the result for that name.
         """
@@ -254,30 +254,30 @@ Infer all attributes using wine knowledge.
 ## REQUIRED FIELDS:
 
 ### Basic Info
-1. **wine_name**: Full name with vintage (e.g., "Fefiñanes Albariño 2022")
-2. **producer**: Winery name
-3. **vintage**: Year (or use current year if not specified)
-4. **notes**: Professional tasting notes based on typical characteristics
-5. **score**: Your quality rating 1-10 based on wine knowledge and reputation
+1. wine_name: Full name with vintage (e.g., "Fefiñanes Albariño 2022")
+2. producer: Winery name
+3. vintage: Year (or use current year if not specified)
+4. notes: Professional tasting notes based on typical characteristics
+5. score: Your quality rating 1-10 based on wine knowledge and reputation
 
 ### WINE ORIGIN (MANDATORY - NEVER LEAVE BLANK)
-6. **country**: Country of origin - REQUIRED
-7. **region**: Specific wine region/appellation - REQUIRED
+6. country: Country of origin - REQUIRED
+7. region: Specific wine region/appellation - REQUIRED
 
 ### HIGH-DIMENSIONAL ATTRIBUTES
-8. **wine_color**: MUST be one of: "White", "Red", "Rosé", "Orange"
-9. **is_sparkling**: Boolean (True/False)
-10. **is_natural**: Boolean (True/False)
-11. **sweetness**: MUST be one of: "Dry", "Medium-Dry", "Medium-Sweet", "Sweet"
+8. wine_color: MUST be one of: "White", "Red", "Rosé", "Orange"
+9. is_sparkling: Boolean (True/False)
+10. is_natural: Boolean (True/False)
+11. sweetness: MUST be one of: "Dry", "Medium-Dry", "Medium-Sweet", "Sweet"
 
 ### Core 5 Flavor Features (1-10 scale)
-12. **acidity**: 1-10 (crisp/tart = high)
-13. **minerality**: 1-10 (stony/saline = high)
-14. **fruitiness**: 1-10 (fruit-forward = high)
-15. **tannin**: 1-10 (grippy = high, whites typically 1-3)
-16. **body**: 1-10 (full-bodied = high)
+12. acidity: 1-10 (crisp/tart = high)
+13. minerality: 1-10 (stony/saline = high)
+14. fruitiness: 1-10 (fruit-forward = high)
+15. tannin: 1-10 (grippy = high, whites typically 1-3)
+16. body: 1-10 (full-bodied = high)
 
-⚠️ **NEVER DEFAULT TO 5/10** - Use regional and varietal knowledge to infer accurate values.
+Warning: NEVER DEFAULT TO 5/10 - Use regional and varietal knowledge to infer accurate values.
 
 Return JSON only with these exact field names.
 """

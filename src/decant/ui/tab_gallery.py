@@ -3,7 +3,7 @@
 Browse the household's full wine collection. Anonymous users get a
 pure read-only view. Authenticated users can also edit a wine's
 metadata in place (vintage, producer, price, score, etc) via an
-inline form on each card. Flavour features stay read-only — editing
+inline form on each card. Flavour features stay read-only - editing
 them affects every downstream palate score, which needs its own
 path with explicit user confirmation about the blast radius.
 
@@ -101,7 +101,7 @@ def _apply_filters(df: pd.DataFrame) -> pd.DataFrame:
         out = out[out["wine_color"] == color_filter]
 
     if liked_filter == "Liked":
-        out = out[out["liked"] == True]  # noqa: E712 — pandas needs ==, not `is`
+        out = out[out["liked"] == True]  # noqa: E712 - pandas needs ==, not `is`
     elif liked_filter == "Not Liked":
         out = out[out["liked"] == False]  # noqa: E712
 
@@ -111,7 +111,7 @@ def _apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 def _render_grid(df: pd.DataFrame) -> None:
     """Render filtered wines as a card grid using batched columns.
 
-    Streamlit doesn't have a "true" grid widget — we fake one by
+    Streamlit doesn't have a "true" grid widget - we fake one by
     creating one row of N columns per batch. Batched (not one big
     columns call) so that incomplete final rows don't render empty
     boxes.
@@ -208,7 +208,7 @@ def _render_card_metrics(wine: pd.Series) -> None:
 def _render_card_icons(wine: pd.Series) -> None:
     """Liked / sparkling / natural badge row.
 
-    Always renders the row container even if no badges fire — keeps
+    Always renders the row container even if no badges fire - keeps
     card heights consistent across the grid.
     """
     active_icons = []
@@ -238,7 +238,7 @@ def _render_card_notes(wine: pd.Series) -> None:
 # ---- editable field set ----------------------------------------------
 # Mirrors `wines_repo._EDITABLE_FIELDS`. Kept here as a separate
 # constant so a UI-side dropdown change doesn't have to round-trip
-# through the repo module — the actual security filter is enforced
+# through the repo module - the actual security filter is enforced
 # server-side by repo_update_wine.
 _SWEETNESS_OPTIONS = ["Dry", "Off-Dry", "Semi-Sweet", "Sweet"]
 _WINE_COLOR_OPTIONS = ["Red", "White", "Rosé", "Orange", "Sparkling"]
@@ -273,7 +273,7 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
     doesn't clutter the card's resting state.
 
     Edits metadata fields only. Flavour features (acidity, body, etc)
-    are intentionally absent — changing them affects every downstream
+    are intentionally absent - changing them affects every downstream
     palate score and needs an explicit blast-radius warning. See
     `wines_repo.repo_update_wine`.
     """
@@ -285,7 +285,7 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
         # `id` is the int4 primary key from Supabase, normalized to
         # int via data_access.normalize. 0 means "no id available"
         # (shouldn't happen for rows loaded from Supabase, but guard
-        # anyway — we can't update a row without a primary key).
+        # anyway - we can't update a row without a primary key).
         return
 
     with st.expander("Edit details"):
@@ -294,7 +294,7 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
         # trigger a rerun and the in-progress edits would be lost.
         with st.form(f"edit_wine_{wine_idx}", clear_on_submit=False):
             # Name goes at the top, full-width. It's the wine's
-            # identity, not just another attribute — corrections to
+            # identity, not just another attribute - corrections to
             # missing/wrong words in the original extraction live here.
             new_wine_name = st.text_input(
                 "Name",
@@ -443,7 +443,7 @@ def _render_card_edit(wine: pd.Series, wine_idx: int) -> None:
 
                 if not result:
                     st.error(
-                        "Save returned no row — the wine may no longer "
+                        "Save returned no row - the wine may no longer "
                         "exist or you may not have permission to edit it."
                     )
                     return
@@ -456,7 +456,7 @@ def _render_card_upload(wine: pd.Series, wine_name: str, wine_idx: int) -> None:
     """Photo upload + Vivino link, both inside an expander.
 
     Photo upload writes locally via `save_wine_image`. The Vivino
-    link goes to an external search URL — useful when the user
+    link goes to an external search URL - useful when the user
     wants to look up something the household hasn't photographed yet.
     """
     with st.expander("Upload Photo"):

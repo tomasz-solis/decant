@@ -103,7 +103,7 @@ def _render_login_inputs(contact_email: str) -> None:
 def _render_help_form(contact_email: str) -> None:
     """Compose a sign-in help email pre-filled with the user's message.
 
-    The browser handles the click — there's no SMTP, no Supabase call,
+    The browser handles the click - there's no SMTP, no Supabase call,
     no backend involvement. The user's mail client opens with the
     address, subject, and body already populated; they hit Send in
     their own client. Tomasz (or whoever `contact_email` is) gets the
@@ -154,7 +154,7 @@ def _render_help_form(contact_email: str) -> None:
     col_send, col_back = st.columns([2, 1])
     with col_send:
         # Streamlit's link_button renders an anchor tag, so the browser
-        # handles the click as a navigation — which for a mailto URL
+        # handles the click as a navigation - which for a mailto URL
         # means "open the user's default mail client." st.button would
         # not work here; it'd run Python code instead.
         st.link_button("Open in mail client", mailto_url, type="primary")

@@ -175,7 +175,7 @@ class PalateEngine:
         norm_i = np.linalg.norm(centred_ideal)
 
         # If either centred vector is the zero vector, the wine sits
-        # exactly on the population mean — neutral by construction.
+        # exactly on the population mean - neutral by construction.
         if norm_c == 0 or norm_i == 0:
             return 50.0
 
@@ -248,7 +248,7 @@ class PalateEngine:
             else:
                 # No liked wine of this colour yet. We can still compute a
                 # similarity against the global profile, but confidence
-                # must be zero — we have no evidence for this colour.
+                # must be zero - we have no evidence for this colour.
                 ideal_vec = self.ideal_profile.to_array()
                 n_samples = 0
         else:
@@ -268,7 +268,7 @@ class PalateEngine:
         # `palate_match` is the centred-cosine output mapped to
         # [0, 100]. 50 corresponds to neutral (zero alignment with
         # the liked-deviation pattern); 70 corresponds to centred
-        # cosine ~0.4 — solid positive alignment.
+        # cosine ~0.4 - solid positive alignment.
         #
         # `confidence_factor` is exponential, hitting ~0.6 at n=3
         # liked wines (the "we have enough data to commit" threshold).
@@ -518,7 +518,7 @@ if __name__ == "__main__":
     # Calculate match
     score = engine.calculate_match(test_wine, wine_color='White')
 
-    print("=== PalateEngine Test ===")
+    print("PalateEngine Test")
     print(f"Flavor Profile Alignment: {score.palate_match}%")
     print(f"Match Likelihood: {score.likelihood_score}%")
     print(f"Confidence Factor: {score.confidence_factor} (based on {score.n_samples} wines)")

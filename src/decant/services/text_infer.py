@@ -4,7 +4,7 @@ Used for text-entered wines, where the user types a name (e.g.
 "Fefiñanes Albariño 2022") and we have no label photo to read the
 profile from. A single LLM call estimates the five flavour features.
 
-This must run exactly once per wine, at extraction time — NOT at
+This must run exactly once per wine, at extraction time - NOT at
 display time. Running it inside a Streamlit render path means it
 re-fires on every rerun, and because the OpenAI API is not truly
 deterministic (even at temperature 0 with a fixed seed, the `seed`

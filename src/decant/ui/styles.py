@@ -2,7 +2,7 @@
 
 Two functions, two scopes:
 
-- `apply_global_styles()` ships the main theme — typography, colour
+- `apply_global_styles()` ships the main theme - typography, colour
   variables, layout polish for tabs, buttons, cards, mobile
   responsiveness. Call it once at app boot, right after
   `st.set_page_config`.
@@ -15,10 +15,10 @@ Two functions, two scopes:
 
 Both functions emit a single `st.markdown(..., unsafe_allow_html=True)`
 call. That's the only way Streamlit accepts custom CSS. The
-`unsafe_allow_html=True` here is benign — the markup is a static
+`unsafe_allow_html=True` here is benign - the markup is a static
 string we control, not user-supplied content.
 
-Phase 4 — Mediterranean light theme:
+Phase 4 - Mediterranean light theme:
 - Cream background (#FAF6F0), warm white cards (#FFFDF8)
 - Terracotta primary (#C2410C), olive accent (#65733E),
   deep wine red for verdicts (#7C2D12)
@@ -50,21 +50,21 @@ _GLOBAL_STYLES = """
 
     /* ---- Mediterranean light palette ------------------------------- */
     :root {
-        --bg-primary: #FAF6F0;         /* cream — baked paper, not stark white */
+        --bg-primary: #FAF6F0;         /* cream - baked paper, not stark white */
         --bg-secondary: #F3EDE3;       /* slightly deeper for tab nav, sidebar */
         --card-bg: #FFFDF8;            /* warm white for raised surfaces */
         --card-border: #E8DFCF;        /* hairline between card and background */
 
-        --terracotta: #C2410C;         /* primary accent — restaurant signage */
+        --terracotta: #C2410C;         /* primary accent - restaurant signage */
         --terracotta-dark: #9A330A;    /* hover state for terracotta controls */
         --terracotta-soft: #FED7AA;    /* terracotta tint for hover/highlight */
-        --olive: #65733E;              /* secondary accent — herbal */
+        --olive: #65733E;              /* secondary accent - herbal */
         --olive-soft: #DCE3C4;         /* olive tint */
         --wine: #7C2D12;               /* deep red for verdicts, liked badge */
         --wine-fill: rgba(124, 45, 18, 0.4);
 
         --text-primary: #3D2817;       /* warm dark brown, not pure black */
-        --text-secondary: #5C4D3F;     /* darker brown for captions/subtitles — readable on cream */
+        --text-secondary: #5C4D3F;     /* darker brown for captions/subtitles - readable on cream */
         --text-muted: #8B7E6D;         /* fainter, for tertiary info only (timestamps, hints) */
         --text-on-accent: #FFFFFF;     /* text on terracotta/olive/wine surfaces */
 
@@ -87,7 +87,7 @@ _GLOBAL_STYLES = """
         font-weight: 400;
     }
 
-    /* Subtle paper texture — a barely-visible noise pattern gives
+    /* Subtle paper texture - a barely-visible noise pattern gives
        the cream background actual depth instead of feeling flat.
        Inline SVG noise so we don't depend on an external asset. */
     [data-testid="stAppViewContainer"] {
@@ -503,7 +503,7 @@ _GLOBAL_STYLES = """
         text-transform: none !important;
     }
 
-    /* Primary buttons — terracotta */
+    /* Primary buttons - terracotta */
     .stButton > button[kind="primary"],
     [data-testid="baseButton-primary"],
     [data-testid="stPopover"] button[kind="primary"],
@@ -520,7 +520,7 @@ _GLOBAL_STYLES = """
         box-shadow: var(--shadow-card-hover);
     }
 
-    /* Secondary buttons — outlined cream */
+    /* Secondary buttons - outlined cream */
     .stButton > button[kind="secondary"],
     [data-testid="baseButton-secondary"] {
         background: var(--card-bg) !important;
@@ -533,7 +533,7 @@ _GLOBAL_STYLES = """
         color: var(--terracotta) !important;
     }
 
-    /* Download / link buttons — Streamlit's testid for the inner
+    /* Download / link buttons - Streamlit's testid for the inner
        button varies; cover the section and the link variant too. */
     [data-testid="stDownloadButton"] > button,
     [data-testid="stDownloadButton"] button,
@@ -599,7 +599,7 @@ _GLOBAL_STYLES = """
     }
 
     /* Dropdown menus (selectbox open state). The menu is portaled,
-       so we target it globally — every menu role across the app
+       so we target it globally - every menu role across the app
        inherits cream. */
     [data-baseweb="menu"],
     [data-baseweb="menu"] ul,
@@ -628,7 +628,7 @@ _GLOBAL_STYLES = """
         color: var(--terracotta) !important;
     }
 
-    /* Tooltips — BaseWeb renders these in the portal layer too. */
+    /* Tooltips - BaseWeb renders these in the portal layer too. */
     [data-baseweb="tooltip"],
     [role="tooltip"] {
         background: var(--text-primary) !important;
@@ -640,7 +640,7 @@ _GLOBAL_STYLES = """
         box-shadow: var(--shadow-card-hover) !important;
     }
 
-    /* Signed-in user pill — the popover trigger renders with a dark
+    /* Signed-in user pill - the popover trigger renders with a dark
        chip background by default. Override to a soft olive tint so
        it reads as "you're signed in" without competing with the
        primary Sign-in button. */
@@ -749,7 +749,7 @@ _GLOBAL_STYLES = """
         display: flex;
         justify-content: flex-end;
     }
-    /* Fallback for browsers without :has() — apply to any popover
+    /* Fallback for browsers without :has() - apply to any popover
        inside a horizontal block's last column. */
     [data-testid="stHorizontalBlock"] [data-testid="column"]:last-child {
         text-align: right;
@@ -783,7 +783,7 @@ _GLOBAL_STYLES = """
         outline: none !important;
     }
 
-    /* Placeholder text — the default is too pale on cream. Bump to
+    /* Placeholder text - the default is too pale on cream. Bump to
        a readable mid-brown. */
     [data-testid="stTextInput"] input::placeholder,
     [data-testid="stTextArea"] textarea::placeholder {
@@ -791,7 +791,7 @@ _GLOBAL_STYLES = """
         opacity: 1 !important;  /* Firefox lowers placeholder opacity by default */
     }
 
-    /* Selectbox — Streamlit nests multiple divs under data-testid;
+    /* Selectbox - Streamlit nests multiple divs under data-testid;
        override the BaseWeb control wrapper specifically. */
     [data-testid="stSelectbox"] > div,
     [data-testid="stSelectbox"] > div > div,
@@ -828,7 +828,7 @@ _GLOBAL_STYLES = """
        on the Streamlit version the trailing vertical bar is either
        the text input's caret or a BaseWeb separator element. Suppress
        both so the picker doesn't show a stray "All Regions|".
-       The input stays functional — clicking still opens the menu. */
+       The input stays functional - clicking still opens the menu. */
     [data-testid="stSelectbox"] input,
     [data-baseweb="select"] input {
         caret-color: transparent !important;
@@ -1008,7 +1008,7 @@ _GALLERY_STYLES = """\
 }
 
 
-/* Wine Gallery Grid — back to 3-per-row with larger photos.
+/* Wine Gallery Grid - back to 3-per-row with larger photos.
    minmax(280px, 1fr) gives 3 columns at 1100px, 4 at ~1450px. */
 .wine-gallery-grid {
     display: grid;
@@ -1018,7 +1018,7 @@ _GALLERY_STYLES = """\
     margin: 24px 0;
 }
 
-/* Wine card image — bottle photos benefit from the larger format.
+/* Wine card image - bottle photos benefit from the larger format.
    max-height kept generous (400px) so portrait photos display well
    without exploding to natural size. */
 .wine-card-img,
@@ -1105,7 +1105,7 @@ def apply_global_styles() -> None:
     """Inject the main app theme.
 
     Call once at app boot, after `st.set_page_config`. Re-calling is
-    harmless but wasteful — Streamlit will re-emit the `<style>` tag
+    harmless but wasteful - Streamlit will re-emit the `<style>` tag
     on every rerun, which the browser deduplicates by content.
     """
     st.markdown(_FONT_LINKS, unsafe_allow_html=True)

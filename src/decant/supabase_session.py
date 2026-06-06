@@ -74,12 +74,12 @@ def _session_expired() -> bool:
     client refreshes automatically on its own auth calls but not on
     arbitrary `.table()` operations, so we check explicitly. When the
     token is expired we clear local state and force a re-sign-in rather
-    than try to refresh — refresh logic adds complexity for a household
+    than try to refresh - refresh logic adds complexity for a household
     app that's rarely left open across token boundaries.
     """
     expires_at = st.session_state.get(_SESSION_EXPIRES_AT_KEY)
     if expires_at is None:
-        # No expiry recorded — assume the session is fine. This path is
+        # No expiry recorded - assume the session is fine. This path is
         # only hit for sessions created before the field was tracked.
         return False
     import time
@@ -97,7 +97,7 @@ def is_authenticated() -> bool:
     """True if a non-expired Supabase session exists in this Streamlit session.
 
     If a cached session has passed its access-token expiry, the cached
-    state is cleared and this returns False — the next interaction will
+    state is cleared and this returns False - the next interaction will
     prompt the user to sign in again. This trades automatic refresh for
     a simpler model: sessions are valid until they expire, then you
     re-sign-in.

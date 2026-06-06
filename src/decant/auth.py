@@ -26,7 +26,7 @@ def setup_authentication(guest_allowed: bool = True) -> Optional[str]:
         cookie_config = dict(st.secrets["cookie"])
     except (FileNotFoundError, KeyError):
         if not guest_allowed:
-            st.error("🔒 Authentication not configured")
+            st.error(" Authentication not configured")
             st.warning("Add credentials to `.streamlit/secrets.toml` to enable login.")
             st.code("""[passwords]
 admin = "your-password-hash-here"
@@ -77,7 +77,7 @@ expiry_days = 30""", language="toml")
             st.stop()
         return None
     elif authentication_status is None:
-        # Not logged in — guest mode
+        # Not logged in - guest mode
         if not guest_allowed:
             st.warning("Please enter your username and password")
             st.stop()

@@ -1,4 +1,4 @@
-"""Add Wine tab body — the auth-gated wine-extraction flow.
+"""Add Wine tab body - the auth-gated wine-extraction flow.
 
 The biggest tab by surface area. Two input modes (text or photo)
 both flow through the same downstream "review and confirm" UX
@@ -11,14 +11,14 @@ OpenAI client are passed in rather than re-instantiated here because
 both are cached at the app level (`@st.cache_resource`).
 
 The Supabase write client and the cache-clear function are imported
-lazily inside the submit handler — same pattern as `tab_palate_maps`.
+lazily inside the submit handler - same pattern as `tab_palate_maps`.
 This keeps the module's import graph minimal and avoids circular
 imports back into `app.py`.
 
 This module is large and the original code paths are preserved
 verbatim from `app.py`. A follow-up pass could decompose the
 `else` branch into smaller functions (input-mode dispatch, review
-form, submit handler) — flagged but not done in Chunk 4 to keep
+form, submit handler) - flagged but not done in Chunk 4 to keep
 the diff a pure extraction.
 """
 
@@ -46,7 +46,7 @@ def _render_prior_tasting_badge(prior) -> None:
     - Exact-vintage match: olive accent ("you've had this exact wine").
     - Different-vintage match: terracotta accent ("you've had another vintage").
 
-    Kept deliberately small — one line, no expansion. The goal is a
+    Kept deliberately small - one line, no expansion. The goal is a
     quick recognition cue, not a full review surface.
     """
     score_part = f"{prior.score:.1f}/10" if prior.score is not None else "no score"
@@ -82,7 +82,7 @@ def _render_prior_tasting_badge(prior) -> None:
             font-size: 14px;
             color: var(--text-primary);
         ">
-            <strong>{leading}</strong> — {rating_text}
+            <strong>{leading}</strong> - {rating_text}
         </div>""",
         unsafe_allow_html=True,
     )
@@ -108,14 +108,14 @@ def render(
     """
     # Local alias preserving the original variable name used inside this
     # function body. Inside the else-branch (the signed-in UI),
-    # `is_guest` is logically always False — but the original code
+    # `is_guest` is logically always False - but the original code
     # threaded it through the save-button disabled state, so the alias
     # keeps that wiring intact rather than removing dead code as part of
     # a pure-extraction pass.
     is_guest = not is_authenticated_now
 
     # Auth gate: anonymous users see a sign-in nudge instead of the add UI.
-    # This closes the OpenAI abuse vector — no Vision API or extraction
+    # This closes the OpenAI abuse vector - no Vision API or extraction
     # calls are reachable without a signed-in session.
     if not is_authenticated_now:
         st.markdown("## Add Wine to Collection")
@@ -123,12 +123,12 @@ def render(
             "Sign in to add wines and use the AI extraction feature. "
             "Browsing the gallery and palate maps doesn't require an account."
         )
-        st.caption("Use the **Sign in** button at the top right.")
+        st.caption("Use the Sign in button at the top right.")
     else:
         st.markdown("## Add Wine to Collection")
         st.caption("Enter wine name or upload a photo - AI extracts everything else")
 
-        # `history_df` is the parameter — no reload needed.
+        # `history_df` is the parameter - no reload needed.
 
         # Input mode selection
         input_mode = st.radio(
@@ -181,7 +181,7 @@ def render(
                         }
 
                         # If the structured extraction didn't produce a
-                        # flavour profile (common for text entry — the
+                        # flavour profile (common for text entry - the
                         # name-based extraction focuses on metadata), infer
                         # it ONCE here, at extraction time. Doing it now
                         # rather than at display time is the fix for the
@@ -302,7 +302,7 @@ def render(
                 # stored wine record. Inference happened ONCE at
                 # extraction time (see the text-entry path and
                 # services/text_infer). The display path must never call
-                # the LLM — that was the source of the unstable score,
+                # the LLM - that was the source of the unstable score,
                 # because reruns re-inferred and the LLM isn't truly
                 # deterministic.
                 wine_features_dict = {
@@ -315,7 +315,7 @@ def render(
 
                 # If features are still all zero, inference failed at
                 # extraction time (LLM unavailable, etc). Don't retry
-                # here — show a manual-entry prompt and skip scoring.
+                # here - show a manual-entry prompt and skip scoring.
                 if all((v or 0) == 0 for v in wine_features_dict.values()):
                     st.info(
                         "No flavour profile available for this wine. Enter "
@@ -372,7 +372,7 @@ def render(
 """, unsafe_allow_html=True)
 
                     # Breakdown panel: alignment + confidence as two
-                    # separate facts. No "x = y" formula — that's the
+                    # separate facts. No "x = y" formula - that's the
                     # framing that made users read low-confidence scores
                     # as a regression. Confidence is shown so the user
                     # can read both numbers but isn't asked to multiply
@@ -391,7 +391,7 @@ def render(
                     # pointless "the headline number is how closely…"
                     # explanation and a separate confidence line. Merged
                     # to one line: the concrete basis (rated-wine count)
-                    # plus the nudge. No "confidence" wording — it was
+                    # plus the nudge. No "confidence" wording - it was
                     # referenced in the nudge while removed everywhere
                     # else, which was inconsistent.
                     st.markdown(f"""<div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); padding: 1rem 1.5rem; margin: 1.5rem 0;">
@@ -419,25 +419,25 @@ def render(
 
                 # LEFT COLUMN: Style, Origin, Vintage
                 with eval_col1:
-                    st.markdown("**Style & Origin**")
+                    st.markdown("Style & Origin")
                     # Vertical bulleted list format - clean hierarchy
-                    st.markdown(f"- **Type:** {wine_color}")
-                    st.markdown(f"- **Style:** {style_full}")
+                    st.markdown(f"- Type: {wine_color}")
+                    st.markdown(f"- Style: {style_full}")
                     # Show Appellation with region hierarchy
                     if region != 'Unknown' and country != 'Unknown':
-                        st.markdown(f"- **Appellation:** {region} ({country})")
+                        st.markdown(f"- Appellation: {region} ({country})")
                     elif region != 'Unknown':
-                        st.markdown(f"- **Appellation:** {region}")
+                        st.markdown(f"- Appellation: {region}")
                     elif country != 'Unknown':
-                        st.markdown(f"- **Origin:** {country}")
+                        st.markdown(f"- Origin: {country}")
                     if should_display_vintage(wine_data.get('vintage')):
-                        st.markdown(f"- **Vintage:** {int(wine_data.get('vintage'))}")
+                        st.markdown(f"- Vintage: {int(wine_data.get('vintage'))}")
                     if wine_data.get('producer'):
-                        st.markdown(f"- **Producer:** {wine_data.get('producer')}")
+                        st.markdown(f"- Producer: {wine_data.get('producer')}")
 
                 # RIGHT COLUMN: Tasting Notes & Verdict
                 with eval_col2:
-                    st.markdown("**Tasting Notes & Verdict**")
+                    st.markdown("Tasting Notes & Verdict")
                     notes = wine_data.get('notes', 'No tasting notes available')
 
                     # Display full notes with natural wrapping (no truncation).
@@ -446,24 +446,24 @@ def render(
                     # intent explicit at the call site.
                     st.markdown(notes)
 
-                    # Why you'll like it — copy adapts to the alignment
+                    # Why you'll like it - copy adapts to the alignment
                     # score (the new headline). Thresholds mirror the
                     # engine's STRONG_ALIGNMENT (70) and EXPLORE_ALIGNMENT (55).
                     st.markdown("")  # spacing
                     if display_match_score is not None:
                         if display_match_score >= 70:
                             why_like = (
-                                f"**Why you'll like it:** This matches your "
+                                f"Why you'll like it: This matches your "
                                 f"preferred {wine_color.lower()} style closely."
                             )
                         elif display_match_score >= 55:
                             why_like = (
-                                "**Why try it:** Reasonable compatibility "
+                                "Why try it: Reasonable compatibility "
                                 "with your palate, worth exploring."
                             )
                         else:
                             why_like = (
-                                f"**Different:** This is a departure from your "
+                                f"Different: This is a departure from your "
                                 f"usual {wine_color.lower()} wines."
                             )
                         st.markdown(why_like)
@@ -503,7 +503,7 @@ def render(
 
             with col3:
                 # Liked toggle: smart default based on alignment.
-                # 55 mirrors the engine's EXPLORE_ALIGNMENT — solidly
+                # 55 mirrors the engine's EXPLORE_ALIGNMENT - solidly
                 # positive alignment territory. Conservative on
                 # purpose: better to default to "not yet liked" and
                 # have the user opt in than oversell.
@@ -539,16 +539,16 @@ def render(
                 st.markdown("#### Full Technical Specifications")
                 tech_col1, tech_col2 = st.columns(2)
                 with tech_col1:
-                    st.markdown(f"**Wine Color:** {wine_data.get('wine_color', 'White')}")
-                    st.markdown(f"**Sparkling:** {'Yes' if wine_data.get('is_sparkling', False) else 'No'}")
-                    st.markdown(f"**Natural:** {'Yes' if wine_data.get('is_natural', False) else 'No'}")
+                    st.markdown(f"Wine Color: {wine_data.get('wine_color', 'White')}")
+                    st.markdown(f"Sparkling: {'Yes' if wine_data.get('is_sparkling', False) else 'No'}")
+                    st.markdown(f"Natural: {'Yes' if wine_data.get('is_natural', False) else 'No'}")
                 with tech_col2:
-                    st.markdown(f"**Sweetness:** {wine_data.get('sweetness', 'Dry')}")
-                    st.markdown(f"**Producer:** {wine_data.get('producer', 'Unknown')}")
+                    st.markdown(f"Sweetness: {wine_data.get('sweetness', 'Dry')}")
+                    st.markdown(f"Producer: {wine_data.get('producer', 'Unknown')}")
                     if should_display_vintage(wine_data.get('vintage')):
-                        st.markdown(f"**Vintage:** {int(wine_data.get('vintage'))}")
+                        st.markdown(f"Vintage: {int(wine_data.get('vintage'))}")
                     else:
-                        st.markdown("**Vintage:** NV")
+                        st.markdown("Vintage: NV")
 
             # Large, prominent Save button (login required)
             if is_guest:

@@ -22,7 +22,7 @@ EXPECTED_COLUMNS = [
     # Row identity from Supabase (int4 PRIMARY KEY). Preserved so
     # callers that need to update a specific row (e.g. the Gallery
     # edit form) can pass the primary key to repo_update_wine.
-    # Defaults to 0 when absent — consumers check for truthiness
+    # Defaults to 0 when absent - consumers check for truthiness
     # before using it (0 is treated as "no id available").
     "id",
     "wine_name",

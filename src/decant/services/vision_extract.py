@@ -6,8 +6,8 @@ Tab 1 (Add Wine).
 
 Streamlit coupling: this module calls `st.warning`, `st.error`,
 `st.info` directly to surface partial-failure and validation issues
-inline as the extraction progresses. That's a small smell — services
-shouldn't touch the UI layer — but it preserves the original
+inline as the extraction progresses. That's a small smell - services
+shouldn't touch the UI layer - but it preserves the original
 behaviour during the Phase 3 refactor. A future pass should refactor
 to return a result + warnings list and have the caller render them.
 
@@ -159,7 +159,7 @@ Return ONLY valid JSON."""
         if not raw_data.get('producer') or len(raw_data['producer']) < 1:
             validation_errors.append("producer is empty or too short")
 
-        # Validate vintage — the LLM legitimately returns None for non-vintage
+        # Validate vintage - the LLM legitimately returns None for non-vintage
         # wines (NV champagne, sparkling, some natural wines). Treat None as
         # "no year known" rather than an error.
         vintage = raw_data.get('vintage')

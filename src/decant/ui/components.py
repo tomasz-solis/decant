@@ -2,7 +2,7 @@
 
 All functions in this module are pure: they take inputs (DataFrames,
 arrays, dicts) and return Plotly figures. They do not call Streamlit
-directly — the caller does the `st.plotly_chart(fig)` rendering.
+directly - the caller does the `st.plotly_chart(fig)` rendering.
 
 This separation matters because Streamlit reruns the entire script on
 every interaction, and Plotly figure construction is the most expensive
@@ -19,17 +19,17 @@ from decant.constants import UIConstants, WineColor
 from decant.services.data_access import normalize as _ensure_wine_df
 
 
-# Plotly figure theming — single source of truth for chart colours.
+# Plotly figure theming - single source of truth for chart colours.
 # Changing this dict re-themes every chart in the app. Values mirror the
 # CSS palette in `ui/styles.py` so charts feel like part of the page.
 # Keep these in sync if either side moves.
 _THEME = {
-    "bg": "#FAF6F0",            # cream — matches --bg-primary
-    "bg_card": "#FFFDF8",       # warm white — matches --card-bg
-    "grid": "rgba(120, 60, 30, 0.10)",   # faint warm brown — radial/angular axes
-    "text": "#3D2817",          # warm dark brown — matches --text-primary
-    "text_muted": "#8B7E6D",    # warm muted brown — matches --text-muted
-    "accent": "#C2410C",        # terracotta — primary accent (--terracotta)
+    "bg": "#FAF6F0",            # cream - matches --bg-primary
+    "bg_card": "#FFFDF8",       # warm white - matches --card-bg
+    "grid": "rgba(120, 60, 30, 0.10)",   # faint warm brown - radial/angular axes
+    "text": "#3D2817",          # warm dark brown - matches --text-primary
+    "text_muted": "#8B7E6D",    # warm muted brown - matches --text-muted
+    "accent": "#C2410C",        # terracotta - primary accent (--terracotta)
     "olive": "#65733E",         # secondary accent for second-line series (--olive)
     "wine": "#7C2D12",          # deep wine red for the main palate trace (--wine)
     "wine_fill": "rgba(124, 45, 18, 0.4)",  # translucent wine for fills (--wine-fill)

@@ -2,17 +2,17 @@
 
 Two sections, in this order:
 
-1. **Palate maps** — the consolidated radar chart and per-colour
+1. **Palate maps** - the consolidated radar chart and per-colour
    "ideal profile" metrics, computed from liked wines. Read-only,
    no auth gate.
 
-2. **Data persistence** — download the collection as CSV (anyone),
+2. **Data persistence** - download the collection as CSV (anyone),
    and restore from a previously-downloaded CSV (signed-in users
    only). The restore path writes to Supabase via the `wines_repo`.
 
 `render(history_df, is_guest)` is called from inside `with tab2:` in
 `app.py`. The Supabase client for writes is fetched lazily inside
-the restore handler — it's only needed when a signed-in user
+the restore handler - it's only needed when a signed-in user
 actually uploads a file, so binding it earlier would be wasteful.
 """
 
@@ -83,7 +83,7 @@ def _render_palate_maps(history_df: pd.DataFrame) -> None:
         st.caption("No liked wines with complete feature data yet.")
         return
 
-    # Consolidated radar first — gives the at-a-glance view before
+    # Consolidated radar first - gives the at-a-glance view before
     # the per-colour breakdowns.
     consolidated_radar = create_consolidated_palate_radar(color_profiles)
     st.plotly_chart(consolidated_radar, width='stretch')
@@ -164,7 +164,7 @@ def _render_restore_form(history_df: pd.DataFrame) -> None:
     """Upload a previously-downloaded CSV and merge non-duplicates.
 
     Dedup key is (wine_name + vintage). Existing rows in Supabase
-    are looked up at submission time, not at render — the user may
+    are looked up at submission time, not at render - the user may
     have added wines since the form was rendered.
     """
     uploaded_file = st.file_uploader(
@@ -233,7 +233,7 @@ def _import_new_wines(new_wines: pd.DataFrame) -> None:
 
     Per-row try/except so a single bad row doesn't abort the import.
     The Supabase client and cache-clear are imported lazily to keep
-    this module's import graph small — they're only used here.
+    this module's import graph small - they're only used here.
     """
     from decant.supabase_session import get_user_supabase
     from decant.wines_repo import repo_add_wine

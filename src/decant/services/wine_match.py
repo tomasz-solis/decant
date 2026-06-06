@@ -3,7 +3,7 @@
 Two-stage token-based matching:
 
 1. **Producer match** (gate). Producer is the strongest identity
-   signal — same producer name almost certainly means the same
+   signal - same producer name almost certainly means the same
    winemaker. Jaccard >= 0.7 on producer tokens required to proceed.
 
 2. **Name + vintage** (rank). Among producer-matching history rows,
@@ -30,7 +30,7 @@ from typing import Literal, Optional
 import pandas as pd
 
 
-# Common wine-name words that carry no identifying signal — dropping
+# Common wine-name words that carry no identifying signal - dropping
 # them prevents false matches like "Chateau X" matching "Chateau Y"
 # purely on the "chateau" token.
 _STOPWORDS = frozenset({
@@ -39,13 +39,13 @@ _STOPWORDS = frozenset({
     "cellars", "winery", "vineyard", "vineyards", "bodega", "bodegas",
     "azienda", "agricola", "tenuta",
     # Quality tier markers that appear on many wines from the same
-    # producer — useful to drop so different cuvées don't accidentally
+    # producer - useful to drop so different cuvées don't accidentally
     # match each other on the tier word alone.
     "1er", "premier", "grand", "cru", "reserve", "réserve", "reserva",
     "gran", "riserva",
 })
 
-_PUNCT_RE = re.compile(r"[.,;:!?\"'&()\[\]{}\-—–_/\\]")
+_PUNCT_RE = re.compile(r"[.,;:!?\"'&()\[\]{}\- - - _/\\]")
 
 _PRODUCER_MATCH_THRESHOLD = 0.7
 _NAME_MATCH_THRESHOLD = 0.5
@@ -56,8 +56,8 @@ class PriorTasting:
     """A prior tasting of the same (or related) wine.
 
     `match_kind`:
-        "exact"            — same producer, same wine name, same vintage
-        "different_vintage" — same producer, same wine name, different vintage
+        "exact" - same producer, same wine name, same vintage
+        "different_vintage" - same producer, same wine name, different vintage
     """
 
     wine_name: str
@@ -106,7 +106,7 @@ def find_prior_tasting(
         candidate_producer: Producer name. If None or empty, the function
             falls back to name-only matching with a higher threshold.
         candidate_vintage: Year, or None if unknown.
-        history_df: The wine history (already normalised — assumes the
+        history_df: The wine history (already normalised - assumes the
             standard columns: wine_name, producer, vintage, score, liked).
 
     Behaviour notes:
@@ -135,14 +135,14 @@ def find_prior_tasting(
         row_producer_tokens = tokenize_wine(row.get("producer"))
 
         if candidate_producer_tokens and row_producer_tokens:
-            # Producer present on both sides — gate on producer match.
+            # Producer present on both sides - gate on producer match.
             producer_score = _jaccard(candidate_producer_tokens, row_producer_tokens)
             if producer_score < _PRODUCER_MATCH_THRESHOLD:
                 continue
             name_threshold = _NAME_MATCH_THRESHOLD
         else:
             # No producer to gate on; demand a stronger name match
-            # instead. This is the degraded path — false positives
+            # instead. This is the degraded path - false positives
             # are more likely here.
             name_threshold = 0.7
 

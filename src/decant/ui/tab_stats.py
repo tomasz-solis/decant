@@ -117,11 +117,11 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
             regional_stats.columns = ['avg_score', 'count']
             regional_stats = regional_stats.sort_values('avg_score', ascending=False)
             for idx, (region, stats) in enumerate(regional_stats.head(3).iterrows()):
-                medal = {0: '🥇', 1: '🥈', 2: '🥉'}.get(idx, f"#{idx + 1}")
+                medal = {0: '', 1: '', 2: ''}.get(idx, f"#{idx + 1}")
                 rcol1, rcol2, rcol3 = st.columns([1, 5, 2])
                 with rcol1:
                     # Medal: an inline icon, NOT a section heading. Rendering
-                    # via `### {medal}` makes it an h3 — same heading level as
+                    # via `### {medal}` makes it an h3 - same heading level as
                     # the "Top Regions" section title above, which confuses
                     # the visual hierarchy.
                     st.markdown(
@@ -146,14 +146,14 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
     if top_wines_df.empty:
         st.caption("Add and rate wines to see your top picks.")
     elif not required_for_top.issubset(top_wines_df.columns):
-        st.caption("Score column missing — can't rank wines yet.")
+        st.caption("Score column missing - can't rank wines yet.")
     else:
         top3 = top_wines_df.sort_values('score', ascending=False).head(3)
         for rank, (_, wine) in enumerate(top3.iterrows(), start=1):
             producer = wine.get('producer', '')
             vintage = wine.get('vintage')
             year = f" {int(vintage)}" if vintage and not pd.isna(vintage) and vintage > 0 else ""
-            medal = {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, f"#{rank}")
+            medal = {1: '', 2: '', 3: ''}.get(rank, f"#{rank}")
             wcol1, wcol2, wcol3 = st.columns([1, 6, 2])
             with wcol1:
                 # Medal as inline icon (see _render_regions for rationale).

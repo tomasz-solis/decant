@@ -74,7 +74,7 @@ def is_debug_enabled() -> bool:
 # Authentication: anonymous browsing is allowed by default. Sign-in is
 # rendered via the top-right popover (see render_header_auth) and
 # unlocks Tab 1 + any RLS-protected operation. There is no
-# Streamlit-side username concept anymore — `is_authenticated()`
+# Streamlit-side username concept anymore - `is_authenticated()`
 # checks the Supabase session.
 check_required_supabase_secrets()
 is_guest = not is_authenticated()
@@ -98,7 +98,7 @@ client = OpenAI(api_key=api_key)
 # Page configuration
 st.set_page_config(
     page_title="Decant - Taste, with confidence",
-    page_icon="🍷",
+
     layout="wide",
     initial_sidebar_state="auto"
 )
@@ -113,7 +113,7 @@ def get_predictor():
     """Build the VinoPredictor once per session.
 
     The expensive parts (OpenAI client, rate limiter) are cached.
-    History is *not* cached here — call `refresh_predictor(df)` after
+    History is *not* cached here - call `refresh_predictor(df)` after
     loading wines to point the predictor at the current data.
     """
     try:
@@ -185,7 +185,7 @@ def main():
 
     # Guest mode banner
     if is_guest:
-        st.info("**Guest mode** — You can browse the collection. Log in to add wines.")
+        st.info("**Guest mode** - You can browse the collection. Log in to add wines.")
 
     # Streamlit Cloud deployment warning (persistent at top)
     if IS_STREAMLIT_CLOUD:
@@ -196,7 +196,7 @@ def main():
         )
 
     # Four tabs always created so Streamlit tab indexing stays stable.
-    # Tab 1 (Add Wine) content is gated inside the tab body — anonymous
+    # Tab 1 (Add Wine) content is gated inside the tab body - anonymous
     # users see a sign-in nudge inside the tab rather than a hidden tab.
     # This avoids the AttributeError that would come from `with None:` if we
     # tried to skip tab1 entirely, and keeps the layout consistent.
@@ -207,7 +207,7 @@ def main():
         "Wine Gallery",
     ])
 
-    # All four tabs are now thin dispatch calls — bodies live in
+    # All four tabs are now thin dispatch calls - bodies live in
     # decant.ui.tab_*. history_df is loaded once per tab to stay
     # conservative about post-write freshness; load_wine_data is
     # cached at the function level so the redundancy is cheap.

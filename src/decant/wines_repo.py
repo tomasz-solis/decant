@@ -126,7 +126,7 @@ def repo_update_wine(
 
     Notes:
         The query filters on both `id` AND `cellar_id` as a defense
-        in depth — even if RLS were misconfigured, a caller couldn't
+        in depth - even if RLS were misconfigured, a caller couldn't
         update a wine outside their cellar via this function.
 
         Flavour features (acidity/fruitiness/body/tannin/minerality)
@@ -163,7 +163,7 @@ def repo_update_wine(
 
 
 # Fields that `repo_update_wine` will accept. Everything else is
-# silently dropped — see the docstring for why flavour features and
+# silently dropped - see the docstring for why flavour features and
 # id are excluded. wine_name IS editable here because the original
 # extraction is sometimes wrong (e.g. missing '1er' in a Premier Cru
 # name) and there's no other way to fix it. Renaming has a few

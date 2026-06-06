@@ -105,8 +105,8 @@ class WineFeatures(BaseModel):
 class WineExtraction(BaseModel):
     """Complete wine data extraction from name or image.
 
-    All fields auto-extracted for HIGH-DIMENSIONAL TASTE SPACE + GEOGRAPHY.
-    Zero-friction logging - AI does all the homework.
+    Includes taste attributes and origin fields inferred from the supplied text
+    or label image.
     """
 
     wine_name: str = Field(..., description="Full wine name with vintage")
@@ -119,7 +119,7 @@ class WineExtraction(BaseModel):
     country: str = Field(..., description="Country of origin (e.g., Spain, France, Italy)")
     region: str = Field(..., description="Wine region (e.g., Rías Baixas, Bordeaux, Tuscany)")
 
-    # HIGH-DIMENSIONAL WINE ATTRIBUTES (AI-inferred)
+    # Wine attributes inferred from the supplied evidence.
     wine_color: str = Field(..., description="Wine color: White, Red, Rosé, or Orange")
     is_sparkling: bool = Field(..., description="True if sparkling/champagne/cava/prosecco")
     is_natural: bool = Field(..., description="True if natural/organic/biodynamic wine")
