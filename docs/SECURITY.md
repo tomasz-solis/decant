@@ -1,18 +1,18 @@
 # Security Guidelines for Decant
 
-## ⚠️ API Key Management
+## Warning: API Key Management
 
 ### DO NOT:
-- ❌ Share API keys in chat, emails, or messages
-- ❌ Commit API keys to git (even in private repos)
-- ❌ Include API keys in screenshots
-- ❌ Hardcode API keys in source code
+- Failed Share API keys in chat, emails, or messages
+- Failed Commit API keys to git (even in private repos)
+- Failed Include API keys in screenshots
+- Failed Hardcode API keys in source code
 
 ### DO:
-- ✅ Store API keys in `.env` file (already in `.gitignore`)
-- ✅ Revoke compromised keys immediately
-- ✅ Use environment variables for sensitive data
-- ✅ Rotate API keys periodically
+- OK Store API keys in `.env` file (already in `.gitignore`)
+- OK Revoke compromised keys immediately
+- OK Use environment variables for sensitive data
+- OK Rotate API keys periodically
 
 ## Setting Up Your API Key Securely
 
@@ -59,11 +59,11 @@ api_key = os.getenv("OPENAI_API_KEY")  # Reads from .env
 
 ## What to Do If You Exposed a Key
 
-1. **Immediately revoke** at https://platform.openai.com/api-keys
-2. **Create a new key**
-3. **Update your `.env` file** with the new key
-4. **Check git history** - if committed, consider it permanently compromised
-5. **Rotate any other keys** that might have been exposed
+1. Immediately revoke at https://platform.openai.com/api-keys
+2. Create a new key
+3. Update your `.env` file with the new key
+4. Check git history - if committed, consider it permanently compromised
+5. Rotate any other keys that might have been exposed
 
 ## Best Practices
 

@@ -2,21 +2,21 @@
 
 *Taste, with confidence.*
 
-A household wine app. Take a photo of a bottle, or type the name, and Decant predicts how much you'll like it based on the wines you've already rated. Built for two users sharing a single cellar — not multi-tenant SaaS.
+A household wine app. Take a photo of a bottle, or type the name, and Decant predicts how much you'll like it based on the wines you've already rated. Built for two users sharing a single cellar - not multi-tenant SaaS.
 
 ## What it does
 
-- **Add wines** — upload a label photo (OpenAI Vision extracts the producer, region, vintage, and tasting features) or type the name (the model infers a feature profile from training-data context).
-- **Predict palate match** — a centred-cosine score against the average flavour profile of the wines you've liked. See [docs/ALGORITHM.md](docs/ALGORITHM.md) for the math.
-- **Browse the collection** — search and filter, with a "you've had this" badge if a wine you're adding matches one already in the cellar.
-- **See your palate at a glance** — a stats tab with top regions, top wines, and your ideal flavour profile per wine colour.
+- Add wines - upload a label photo (OpenAI Vision extracts the producer, region, vintage, and tasting features) or type the name (the model infers a feature profile from training-data context).
+- Predict palate match - a centred-cosine score against the average flavour profile of the wines you've liked. See [docs/ALGORITHM.md](docs/ALGORITHM.md) for the math.
+- Browse the collection - search and filter, with a "you've had this" badge if a wine you're adding matches one already in the cellar.
+- See your palate at a glance - a stats tab with top regions, top wines, and your ideal flavour profile per wine colour.
 
 ## Architecture
 
-- **Streamlit** for the UI
-- **Supabase** (PostgreSQL + Auth) for the wine table and household login
-- **OpenAI** for photo extraction and text inference (Vision + chat completions)
-- **No background workers, no scheduled tasks, no caching layer beyond Streamlit's built-ins.** It's a single Python process per user session.
+- Streamlit for the UI
+- Supabase (PostgreSQL + Auth) for the wine table and household login
+- OpenAI for photo extraction and text inference (Vision + chat completions)
+- No background workers, no scheduled tasks, no caching layer beyond Streamlit's built-ins. It's a single Python process per user session.
 
 The household uses one Supabase account. Anonymous visitors can browse the gallery and palate maps but can't add wines or call the OpenAI API.
 
@@ -83,4 +83,4 @@ Personal project, household use only. Not actively soliciting external contribut
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).
