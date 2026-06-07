@@ -77,9 +77,9 @@ def _render_login_inputs(contact_email: str) -> None:
         autocomplete="current-password",
     )
 
-    col_signin, col_help = st.columns([2, 1])
+    col_signin, col_help = st.columns([1, 1])
     with col_signin:
-        if st.button("Sign in", type="primary", key="auth_signin_btn"):
+        if st.button("Sign in", type="primary", key="auth_signin_btn", width="stretch"):
             if not email or not password:
                 st.error("Email and password required.")
             else:
@@ -91,7 +91,7 @@ def _render_login_inputs(contact_email: str) -> None:
                     st.error(err or "Sign-in failed.")
 
     with col_help:
-        if st.button("Need help?", key="auth_help_btn"):
+        if st.button("Need help?", key="auth_help_btn", width="stretch"):
             st.session_state["_auth_show_help"] = True
             st.rerun()
 

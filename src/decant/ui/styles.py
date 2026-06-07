@@ -598,6 +598,13 @@ _GLOBAL_STYLES = """
         color: var(--text-primary) !important;
     }
 
+    [data-baseweb="popover"] [data-testid="stButton"] button,
+    [data-baseweb="popover"] [data-testid="stButton"] button p {
+        white-space: nowrap !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+    }
+
     /* Dropdown menus (selectbox open state). The menu is portaled,
        so we target it globally - every menu role across the app
        inherits cream. */
