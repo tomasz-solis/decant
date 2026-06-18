@@ -25,11 +25,14 @@ The household uses one Supabase account. Anonymous visitors can browse the galle
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync                       # install dependencies
-uv run streamlit run app.py   # launch locally at http://localhost:8501
+uv run --with-requirements requirements.txt streamlit run app.py
 ```
 
-You'll need a `.streamlit/secrets.toml` with:
+That launches the app locally at `http://localhost:8501`. Without
+secrets, Decant opens in read-only local preview mode using the bundled
+`data/history.csv` sample.
+
+To connect the live cellar, add `.streamlit/secrets.toml` with:
 
 ```toml
 OPENAI_API_KEY = "sk-..."

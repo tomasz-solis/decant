@@ -13,7 +13,7 @@ The CSS variables and Plotly `_THEME` have to stay in sync by hand. The per-wine
 
 ## The theme in one sentence
 
-A Mediterranean light palette: cream paper, terracotta accents, olive secondary, deep wine red for verdicts, warm brown text. Playfair Display is reserved for the masthead, `h2`-`h4` section headings, and big metric numbers. DM Sans handles everything else. The reference points are wine magazines and the cleaner end of Stripe's documentation - restrained, editorial, no glow effects. Saturated colours are limited to Plotly's wine-category traces, where colour recognition matters more than page chrome restraint.
+An editorial cellar palette: ivory page, parchment panels, bordeaux primary, mineral green secondary, near-ink text. Newsreader is reserved for the Decant masthead only. Inter handles headings, controls, cards, metadata, helper copy, dense values, and charts. The reference points are modern wine magazines, restrained cellar labels, and the quieter side of gallery publishing - crisp rules, generous whitespace, no glow effects. Saturated colours are limited to Plotly's wine-category traces, feature bars, and tiny card accents, where colour recognition matters more than page chrome restraint.
 
 ## Colours
 
@@ -21,36 +21,39 @@ A Mediterranean light palette: cream paper, terracotta accents, olive secondary,
 
 | Token | Hex | Use |
 |---|---|---|
-| `--bg-primary` | `#FAF6F0` | The page background. Cream, not white - closer to baked paper than fresh copier paper. |
-| `--bg-secondary` | `#F3EDE3` | A half-step darker. Tab nav, sidebar, gallery image placeholders. The "behind cards" surface. |
-| `--card-bg` | `#FFFDF8` | Warm white for raised surfaces - wine cards, info panels, the inside of expanders. |
-| `--card-border` | `#E8DFCF` | A hairline that separates a card from the page without competing with content. |
+| `--bg-primary` | `#F6F3EC` | The page background. Ivory, warm but cleaner than cream. |
+| `--bg-secondary` | `#ECE6DA` | A half-step deeper. Tab nav, sidebar, gallery image placeholders. The "behind cards" surface. |
+| `--card-bg` | `#FFFCF6` | Parchment white for raised surfaces - wine cards, info panels, the inside of expanders. |
+| `--card-border` | `#D8D0C2` | A printed hairline that separates a card from the page without competing with content. |
 
 ### Accents
 
 | Token | Hex | Use |
 |---|---|---|
-| `--terracotta` | `#C2410C` | Primary accent. Buttons, the active tab underline, the masthead bar, focus rings. |
-| `--terracotta-dark` | `#9A330A` | Hover/active state of terracotta surfaces. |
-| `--terracotta-soft` | `#FED7AA` | A 10 - 15% tint of terracotta. Hover background on neutral controls. |
-| `--olive` | `#65733E` | Secondary accent. Sparingly: a second chart series, the "logged in" pill, decorative hairlines. |
-| `--olive-soft` | `#DCE3C4` | Olive tint. Background of soft notification chips. |
-| `--wine` | `#7C2D12` | Deep red used for verdicts, the "liked" badge, and red-wine chart traces. |
-| `--wine-fill` | `rgba(124, 45, 18, 0.4)` | The same wine red as a translucent fill - for chart areas under the trace. |
+| `--terracotta` | `#8A1F3D` | Primary accent. The token name is historical; the colour is bordeaux. Use for buttons, active tab underline, focus rings. |
+| `--terracotta-dark` | `#66162E` | Hover/active state of bordeaux surfaces. |
+| `--terracotta-soft` | `#F1DCE1` | A quiet bordeaux tint. Hover background on neutral controls. |
+| `--olive` | `#55614B` | Secondary accent. Sparingly: a second chart series and the signed-in pill. |
+| `--olive-soft` | `#E2E7D8` | Mineral green tint. Background of soft notification chips. |
+| `--wine` | `#7A1730` | Deep red used for verdicts, the "liked" badge, and red-wine chart traces. |
+| `--wine-fill` | `rgba(122, 23, 48, 0.18)` | The same wine red as a translucent fill - for chart areas under the trace. |
+| `--gold` | `#B89A4D` | White-wine feature bars and placeholder accents. |
+| `--rose` | `#C77683` | Rose-wine feature bars and placeholder accents. |
+| `--orange` | `#B86A3C` | Orange-wine feature bars and placeholder accents. |
 
 ### Text
 
 | Token | Hex | Use |
 |---|---|---|
-| `--text-primary` | `#3D2817` | Warm dark brown. Body text, headings, headline numbers. Not pure black - pure black against cream reads as harsh. |
-| `--text-secondary` | `#5C4D3F` | Slightly lighter brown for captions, subtitles, secondary metadata. Still readable as body. |
-| `--text-muted` | `#8B7E6D` | For tertiary info: timestamps, placeholder hints, things the eye should slide over. |
-| `--text-on-accent` | `#FFFFFF` | White text on terracotta/olive/wine backgrounds. The only place pure white appears. |
+| `--text-primary` | `#211A16` | Near-ink. Body text, headings, headline numbers. Softer than pure black. |
+| `--text-secondary` | `#5B544B` | Slightly lighter brown for captions, subtitles, secondary metadata. Still readable as body. |
+| `--text-muted` | `#7F7568` | For tertiary info: timestamps, placeholder hints, things the eye should slide over. |
+| `--text-on-accent` | `#FFFCF6` | Parchment text on bordeaux/mineral/wine backgrounds. |
 
 ### When to use which accent
 
-- Terracotta is the primary call-to-action colour. Anything the user is supposed to *do* lives in terracotta.
-- Olive is for "this is happening" rather than "do this." Status pills, secondary chart series.
+- Bordeaux (`--terracotta`) is the primary call-to-action colour. Anything the user is supposed to *do* lives in bordeaux.
+- Mineral green (`--olive`) is for "this is happening" rather than "do this." Status pills, secondary chart series.
 - Wine is for "this is wine the user has decided they like." Verdict labels, the heart icon, primary radar trace.
 
 If two of these would compete for the user's eye in the same view, escalate to a design review - they're meant to land on different conceptual layers.
@@ -59,8 +62,8 @@ If two of these would compete for the user's eye in the same view, escalate to a
 
 | Token | Stack | Use |
 |---|---|---|
-| `--font-display` | Playfair Display, Georgia, Times New Roman, serif | Masthead, `h2`-`h4` section headings, and big metric numbers. |
-| `--font-body` | DM Sans, system-ui, -apple-system, sans-serif | Everything else: tabs, h3/h4 labels, body text, inputs, chart titles, and chart labels. |
+| `--font-display` | Newsreader, Georgia, Times New Roman, serif | Decant masthead only. |
+| `--font-body` | Inter, system-ui, -apple-system, sans-serif | Everything else: tabs, h3/h4 labels, body text, inputs, chart titles, and chart labels. |
 
 The two-font pairing earns its complexity from the editorial direction - a wine magazine can have a distinctive masthead without making every label decorative. If you find yourself wanting a third font, push back hard.
 
@@ -70,26 +73,26 @@ Fonts are loaded with a Google Fonts `<link>` emitted by `_FONT_LINKS`, before `
 
 | Role | Font | Weight | Size | Use |
 |---|---|---:|---|---|
-| Page title | Playfair Display | 700 | `3.4rem` desktop, `2.4rem` mobile | `Decant` masthead |
-| Section title | Playfair Display | 700 | Streamlit `h2` default | Main tab titles |
-| Subsection title | Playfair Display | 700 | `1.5rem` | Section blocks inside tabs |
-| Sub-subsection title | Playfair Display | 700 | `1.25rem` | Nested technical sections |
-| Big metric value | Playfair Display | 700 | Streamlit metric default | Scores, prices, palate percentages |
-| Body text | DM Sans | 400 | `1rem` | Paragraphs, lists, normal Markdown |
-| Body bold | DM Sans | 700 | `1rem` | Markdown `bold` inside body text |
-| Card title | DM Sans | 700 | `16px` | Wine card names in the gallery |
-| Metric label | DM Sans | 600 | `0.8rem` | Uppercase metric labels |
-| Caption/subtitle | DM Sans | 400 | `0.85rem` | Captions and secondary metadata |
-| Button text | DM Sans | 600 | `1rem` | Buttons and download buttons |
-| Input text | DM Sans | 400 | `1rem` | Form inputs |
+| Page title | Newsreader | 700 | `5.8rem` desktop, `3.1rem` mobile | `Decant` masthead |
+| Section title | Inter | 700 | Streamlit `h2` default | Main tab titles |
+| Subsection title | Inter | 700 | `1.5rem` | Section blocks inside tabs |
+| Sub-subsection title | Inter | 700 | `1.25rem` | Nested technical sections |
+| Big metric value | Inter | 700 | `2.05rem` | Scores, prices, palate percentages |
+| Body text | Inter | 400 | `1rem` | Paragraphs, lists, normal Markdown |
+| Body bold | Inter | 700 | `1rem` | Markdown `bold` inside body text |
+| Card title | Inter | 700 | `1.02rem` | Wine card names in the gallery |
+| Metric label | Inter | 600 | `0.8rem` | Uppercase metric labels |
+| Caption/subtitle | Inter | 400 | `0.85rem` | Captions and secondary metadata |
+| Button text | Inter | 600 | `1rem` | Buttons and download buttons |
+| Input text | Inter | 400 | `1rem` | Form inputs |
 
 Everything is upright. Do not use italic Markdown, `<em>`, or `font-style: italic`.
 
 Do not put emoji in Markdown headings, tab labels, metric labels, or chart labels. If an icon is needed, render it separately as an inline icon or badge so it doesn't become part of the typographic hierarchy.
 
 Streamlit widgets need both config and explicit typography selectors.
-`.streamlit/config.toml` sets `theme.font` to DM Sans and
-`theme.headingFont` to Playfair Display so Streamlit/BaseWeb starts
+`.streamlit/config.toml` sets `theme.font` to Inter and
+`theme.headingFont` to Inter so Streamlit/BaseWeb starts
 from the right family. `_GLOBAL_STYLES` still targets tabs, filters,
 selectboxes, radio labels, helper text, file uploaders, expanders,
 alerts, and buttons because those surfaces use generated nested
@@ -107,16 +110,27 @@ those names into visible overlapping text.
 
 | Token | Value | Use |
 |---|---|---|
-| `--shadow-card` | `0 2px 8px rgba(120, 60, 30, 0.06)` | The resting shadow under wine cards, the hero card, info panels. Warm rather than neutral - the shadow itself is a faint brown tint. |
-| `--shadow-card-hover` | `0 4px 14px rgba(120, 60, 30, 0.10)` | The same direction, more spread. For hover states and the primary button at rest. |
+| `--shadow-card` | `0 1px 0 rgba(33, 26, 22, 0.04), 0 18px 50px rgba(69, 42, 30, 0.07)` | The resting shadow under wine cards and chart panels. Still restrained, but with more print-editorial depth. |
+| `--shadow-card-hover` | `0 1px 0 rgba(33, 26, 22, 0.05), 0 24px 60px rgba(69, 42, 30, 0.10)` | The same direction, more spread. For hover states on repeated cards. |
 
 No other elevation levels exist deliberately. Two levels are enough for a single-screen app; adding more creates a hierarchy users will try to read meaning into.
+
+## Editorial Components
+
+The app now uses a small set of custom HTML components in `src/decant/ui/editorial.py` for read-only surfaces where native Streamlit widgets look too plain:
+
+- `.cellar-snapshot` and `.editorial-stat-grid` render high-level stat tiles with a printed top rule.
+- `.feature-profile` and `.feature-profile-grid` render palate values as horizontal tasting bars instead of five separate `st.metric` blocks.
+- `.ranked-list` renders Top Regions and Top Wines as numbered editorial rows.
+- `.gallery-result-line`, `.wine-card-title`, `.wine-card-facts`, and `.wine-card-img-placeholder` give the gallery a bottle-note feel even when no photo has been uploaded.
+
+Use native Streamlit inputs for interaction, but prefer these components for read-only summaries, rankings, and feature profiles.
 
 ## Radii
 
 | Token | Value | Use |
 |---|---|---|
-| `--radius-card` | `12px` | Wine cards, hero card, info panels, gallery image placeholders. |
+| `--radius-card` | `8px` | Wine cards, hero card, info panels, gallery image placeholders. |
 | `--radius-button` | `8px` | Buttons, inputs, selectboxes, the auth popover. |
 
 ## The Plotly mirror
@@ -141,12 +155,14 @@ Plotly can't read CSS variables, so we duplicate. If you change a value on one s
 
 Wine-category chart colours live in `UIConstants.WINE_COLORS_CHART` and are imported by `components.py`. They are not general UI accents.
 
-| Wine colour | Primary | Fill |
-|---|---|---|
-| White | `#FFD700` | `rgba(255, 215, 0, 0.4)` |
-| Red | `#7C2D12` | `rgba(124, 45, 18, 0.4)` |
-| Rosé | `#FF69B4` | `rgba(255, 105, 180, 0.4)` |
-| Orange | `#FF8C00` | `rgba(255, 140, 0, 0.4)` |
+These deliberately diverge from the muted CSS feature-bar tokens (`--gold`/`--wine`/`--rose`/`--orange`). On the consolidated palate radar every wine colour overlays in one plot; the brand tokens are all warm and close in value, so their translucent fills blended into one indistinguishable mass. The chart palette pulls the hues apart and gives each colour a distinct marker `symbol` (used by `create_consolidated_palate_radar`) so overlapping traces stay separable, including for colour-blind readers. Fills are kept light so stacked overlaps don't muddy. The feature-bar tokens in the cards are unchanged — distinctness only matters where the colours overlap.
+
+| Wine colour | Primary | Fill | Marker |
+|---|---|---|---|
+| White | `#C9A227` | `rgba(201, 162, 39, 0.12)` | circle |
+| Red | `#B0142F` | `rgba(176, 20, 47, 0.12)` | diamond |
+| Rosé | `#E879A6` | `rgba(232, 121, 166, 0.12)` | square |
+| Orange | `#D2691E` | `rgba(210, 105, 30, 0.12)` | triangle-up |
 
 ## What this system deliberately doesn't have
 
@@ -160,6 +176,6 @@ Wine-category chart colours live in `UIConstants.WINE_COLORS_CHART` and are impo
 The most likely way this system breaks is value drift between the CSS variables and `_THEME`. Two things help:
 
 1. The four `test_styles.py` assertions on the config palette catch drift between `.streamlit/config.toml` and the CSS - see `TestConfigThemeConsistency`.
-2. Anytime you grep for a literal hex code (e.g. `#7C2D12`) and find it outside the source-of-truth definitions, that's a leak. Fix it back to a token or to `UIConstants.WINE_COLORS_CHART`.
+2. Anytime you grep for a literal hex code (e.g. `#7A1730`) and find it outside the source-of-truth definitions, that's a leak. Fix it back to a token or to `UIConstants.WINE_COLORS_CHART`.
 
 The leakage audit that produced this doc found six such sites; they're now all using tokens. If a future audit finds more, the same fix pattern applies: replace the literal with a token, or if no token fits, add a token first.
