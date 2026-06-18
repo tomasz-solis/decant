@@ -34,6 +34,7 @@ from decant.services.text_infer import infer_features_from_text
 from decant.services.vision_extract import extract_complete_wine_data
 from decant.services.wine_match import find_prior_tasting
 from decant.supabase_session import get_user_supabase
+from decant.ui.editorial import render_feature_profile
 from decant.ui.helpers import should_display_vintage
 from decant.wines_repo import repo_add_wine
 
@@ -124,6 +125,13 @@ def render(
             "Browsing the gallery and palate maps doesn't require an account."
         )
         st.caption("Use the Sign in button at the top right.")
+    elif client is None or predictor is None:
+        st.markdown("## Add Wine to Collection")
+        st.warning(
+            "AI wine extraction is disabled because OPENAI_API_KEY is not "
+            "configured for this local run."
+        )
+        st.caption("Browsing the gallery and palate maps still works.")
     else:
         st.markdown("## Add Wine to Collection")
         st.caption("Enter wine name or upload a photo - AI extracts everything else")
@@ -522,17 +530,18 @@ def render(
             # Advanced details in expander (AI-extracted technical data)
             with st.expander("Technical Details & Edit Data (Optional)"):
                 st.markdown("#### Flavor Profile (0-10 Scale)")
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    st.metric("Acidity", f"{wine_data['acidity']}/10")
-                with col2:
-                    st.metric("Minerality", f"{wine_data['minerality']}/10")
-                with col3:
-                    st.metric("Fruitiness", f"{wine_data['fruitiness']}/10")
-                with col4:
-                    st.metric("Tannin", f"{wine_data['tannin']}/10")
-                with col5:
-                    st.metric("Body", f"{wine_data['body']}/10")
+                render_feature_profile(
+                    "Extracted profile",
+                    {
+                        "acidity": wine_data["acidity"],
+                        "minerality": wine_data["minerality"],
+                        "fruitiness": wine_data["fruitiness"],
+                        "tannin": wine_data["tannin"],
+                        "body": wine_data["body"],
+                    },
+                    note="0-10 scale",
+                    tone=wine_data.get("wine_color", "neutral"),
+                )
 
                 st.markdown("---")
 

@@ -21,6 +21,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from decant.ui.editorial import render_feature_profiles, render_tab_heading
 from decant.ui.components import create_consolidated_palate_radar
 
 
@@ -38,8 +39,11 @@ def render(history_df: pd.DataFrame, is_guest: bool) -> None:
         is_guest: True if the visitor is not signed in. Gates the
             restore-from-backup upload widget.
     """
-    st.markdown("## My Palate Maps")
-    st.caption("Your ideal flavor profiles by wine color")
+    render_tab_heading(
+        "My Palate Maps",
+        "Taste atlas",
+        "Your preferred structure, fruit, body, and texture by wine colour.",
+    )
 
     _render_palate_maps(history_df)
     _render_data_persistence(history_df, is_guest)
@@ -88,7 +92,7 @@ def _render_palate_maps(history_df: pd.DataFrame) -> None:
     consolidated_radar = create_consolidated_palate_radar(color_profiles)
     st.plotly_chart(consolidated_radar, width='stretch')
 
-    _render_per_color_metrics(color_profiles)
+    _render_per_color_metrics(color_profiles, color_counts)
 
 
 def _compute_color_profiles(
@@ -105,28 +109,17 @@ def _compute_color_profiles(
     return profiles, counts
 
 
-def _render_per_color_metrics(color_profiles: dict[str, pd.Series]) -> None:
-    """Five-column ideal-profile metrics per wine colour."""
-    for wine_color in _WINE_COLORS:
-        if wine_color not in color_profiles:
-            continue
-
-        st.markdown(f"#### {wine_color} Wines")
-        ideal = color_profiles[wine_color]
-
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric("Acidity", f"{ideal['acidity']:.1f}/10")
-        with col2:
-            st.metric("Minerality", f"{ideal['minerality']:.1f}/10")
-        with col3:
-            st.metric("Fruitiness", f"{ideal['fruitiness']:.1f}/10")
-        with col4:
-            st.metric("Tannin", f"{ideal['tannin']:.1f}/10")
-        with col5:
-            st.metric("Body", f"{ideal['body']:.1f}/10")
-
-        st.markdown("---")
+def _render_per_color_metrics(
+    color_profiles: dict[str, pd.Series],
+    color_counts: dict[str, int],
+) -> None:
+    """Ideal-profile feature bars per wine colour."""
+    ordered_profiles = {
+        wine_color: color_profiles[wine_color]
+        for wine_color in _WINE_COLORS
+        if wine_color in color_profiles
+    }
+    render_feature_profiles(ordered_profiles, color_counts)
 
 
 def _render_data_persistence(history_df: pd.DataFrame, is_guest: bool) -> None:

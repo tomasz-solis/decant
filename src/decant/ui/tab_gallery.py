@@ -29,6 +29,14 @@ from decant.services.image_storage import (
     save_wine_image,
 )
 from decant.supabase_session import get_user_supabase, is_authenticated
+from decant.ui.editorial import (
+    format_price_eur,
+    format_score,
+    html_text,
+    render_gallery_result_count,
+    render_tab_heading,
+    tone_class_for_wine_color,
+)
 from decant.ui.helpers import should_display_vintage, show_empty_data_diagnostics
 from decant.ui.styles import apply_gallery_styles
 from decant.wines_repo import repo_update_wine
@@ -50,8 +58,11 @@ def render(history_df: pd.DataFrame) -> None:
             the top of `main()` to avoid redundant Supabase round
             trips across tabs.
     """
-    st.markdown("## Wine Gallery")
-    st.caption("Browse your complete wine collection with all details")
+    render_tab_heading(
+        "Wine Gallery",
+        "Bottle notes",
+        "Browse the cellar by producer, place, preference, and score.",
+    )
 
     if history_df is None or len(history_df) == 0:
         st.info("No wines in your collection yet. Add wines to see them here!")
@@ -63,8 +74,8 @@ def render(history_df: pd.DataFrame) -> None:
         st.info("No wines match the current filters.")
         return
 
-    st.markdown(f"### Found {len(filtered_df)} wines")
     apply_gallery_styles()
+    render_gallery_result_count(len(filtered_df))
 
     _render_grid(filtered_df)
 
@@ -136,9 +147,9 @@ def _render_wine_card(wine: pd.Series, wine_idx: int) -> None:
     wine_name = wine.get("wine_name", "Unknown")
 
     st.markdown('<div class="wine-card">', unsafe_allow_html=True)
-    _render_card_image(wine_name)
-    _render_card_meta(wine, wine_name)
-    _render_card_metrics(wine)
+    _render_card_image(wine_name, wine.get("wine_color"))
+    _render_card_meta_editorial(wine, wine_name)
+    _render_card_metrics_editorial(wine)
     _render_card_icons(wine)
     _render_card_notes(wine)
     _render_card_edit(wine, wine_idx)
@@ -146,7 +157,7 @@ def _render_wine_card(wine: pd.Series, wine_idx: int) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _render_card_image(wine_name: str) -> None:
+def _render_card_image(wine_name: str, wine_color: object) -> None:
     """Render the wine's saved image or a placeholder if none exists."""
     image_path = get_wine_image_path(wine_name)
     if image_path and Path(image_path).exists():
@@ -158,10 +169,60 @@ def _render_card_image(wine_name: str) -> None:
             unsafe_allow_html=True,
         )
     else:
+        tone_class = tone_class_for_wine_color(wine_color)
         st.markdown(
-            '<div class="wine-card-img-placeholder">No photo</div>',
+            (
+                f'<div class="wine-card-img-placeholder {tone_class}">'
+                '<span class="placeholder-kicker">Decant</span>'
+                f'<span class="placeholder-name">{html_text(wine_name, max_chars=44)}</span>'
+                "</div>"
+            ),
             unsafe_allow_html=True,
         )
+
+
+def _render_card_meta_editorial(wine: pd.Series, wine_name: str) -> None:
+    """Name, producer + vintage, region/country as editorial card copy."""
+    st.markdown(
+        f"<div class='wine-card-title'>{html_text(wine_name, max_chars=52)}</div>",
+        unsafe_allow_html=True,
+    )
+
+    vintage_value = wine.get("vintage")
+    vintage_suffix = (
+        f" / {int(vintage_value)}" if should_display_vintage(vintage_value) else ""
+    )
+    producer = wine.get("producer", "Unknown") or "Unknown"
+    st.markdown(
+        f"<p class='wine-card-meta'>{html_text(producer, max_chars=36)}"
+        f"{html_text(vintage_suffix, fallback='')}</p>",
+        unsafe_allow_html=True,
+    )
+
+    location = wine.get("region") or wine.get("country") or "Unknown"
+    st.markdown(
+        f"<p class='wine-card-location'>{html_text(location, max_chars=42)}</p>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_card_metrics_editorial(wine: pd.Series) -> None:
+    """Score and price as compact editorial facts."""
+    st.markdown(
+        (
+            '<div class="wine-card-facts">'
+            '<div class="wine-card-fact">'
+            "<span>Score</span>"
+            f"<strong>{format_score(wine.get('score', 0))}</strong>"
+            "</div>"
+            '<div class="wine-card-fact">'
+            "<span>Price</span>"
+            f"<strong>{format_price_eur(wine.get('price', 0))}</strong>"
+            "</div>"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _render_card_meta(wine: pd.Series, wine_name: str) -> None:

@@ -12,6 +12,14 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from decant.ui.editorial import (
+    format_score,
+    render_feature_profile,
+    render_ranked_list,
+    render_stat_grid,
+    render_tab_heading,
+)
+
 
 def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
     """Render the Stats tab body.
@@ -22,8 +30,11 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
             DataFrame shape, columns, and a preview. Defaults to False
             so production renders stay clean.
     """
-    st.markdown("## Stats")
-    st.caption("Your collection at a glance")
+    render_tab_heading(
+        "Stats",
+        "Cellar index",
+        "A clean read on what you drink, where it comes from, and what keeps winning.",
+    )
 
     df = history_df
 
@@ -47,8 +58,6 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
                 df = df[df['region'] == selected_region]
                 st.caption(f"Showing: {selected_region}")
 
-    st.markdown("---")
-
     # Headline metrics (Liked / Disliked / Total).
     total_wines = len(df)
     has_liked_col = 'liked' in df.columns
@@ -56,13 +65,15 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
     disliked_wines = max(total_wines - liked_wines, 0)
     liked_df = df[df['liked'] == True] if has_liked_col else df.iloc[0:0].copy()
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Liked", liked_wines)
-    with col2:
-        st.metric("Disliked", disliked_wines)
-    with col3:
-        st.metric("Total", total_wines)
+    like_share = f"{liked_wines / total_wines:.0%} of visible wines" if total_wines else "no visible wines"
+    render_stat_grid(
+        (
+            ("Liked", f"{liked_wines:,}", like_share),
+            ("Not liked", f"{disliked_wines:,}", "kept for context"),
+            ("Visible", f"{total_wines:,}", "after filters"),
+        ),
+        class_name="editorial-stat-grid",
+    )
 
     # --- Palate Stats (your ideal flavour numbers) ---
     st.markdown("---")
@@ -80,94 +91,81 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
         if liked_avg.sum() == 0:
             st.caption("Add wines with flavor profiles to see your palate stats")
         else:
-            st.caption("Your ideal wine profile:")
-            f1, f2, f3, f4, f5 = st.columns(5)
-            with f1:
-                st.metric("Acid", f"{liked_avg['acidity']:.1f}")
-            with f2:
-                st.metric("Mineral", f"{liked_avg['minerality']:.1f}")
-            with f3:
-                st.metric("Fruit", f"{liked_avg['fruitiness']:.1f}")
-            with f4:
-                st.metric("Tannin", f"{liked_avg['tannin']:.1f}")
-            with f5:
-                st.metric("Body", f"{liked_avg['body']:.1f}")
+            render_feature_profile(
+                "Ideal profile",
+                liked_avg,
+                note=f"{len(liked_df)} liked wine{'s' if len(liked_df) != 1 else ''}",
+                tone="neutral",
+            )
 
-    # --- Top Regions (top 3 by average score) ---
     st.markdown("---")
-    st.markdown("### Top Regions")
+    region_col, wine_col = st.columns(2, gap="large")
 
-    regional_required_cols = ['region', 'country', 'score', 'wine_name']
-    missing_regional_cols = [c for c in regional_required_cols if c not in liked_df.columns]
-
-    if liked_df.empty:
-        st.caption("Log wines with regions to see analytics")
-    elif missing_regional_cols:
-        st.caption(f"Missing fields for regional analytics: {', '.join(missing_regional_cols)}")
-    else:
-        regional_wines = liked_df[
-            (liked_df['region'] != 'Unknown') &
-            (liked_df['region'].notna())
+    with region_col:
+        st.markdown("### Top Regions")
+        regional_required_cols = ['region', 'country', 'score', 'wine_name']
+        missing_regional_cols = [
+            c for c in regional_required_cols if c not in liked_df.columns
         ]
-        if len(regional_wines) > 0:
-            regional_stats = regional_wines.groupby('region').agg({
-                'score': 'mean',
-                'wine_name': 'count'
-            }).round(1)
-            regional_stats.columns = ['avg_score', 'count']
-            regional_stats = regional_stats.sort_values('avg_score', ascending=False)
-            for idx, (region, stats) in enumerate(regional_stats.head(3).iterrows()):
-                medal = {0: '', 1: '', 2: ''}.get(idx, f"#{idx + 1}")
-                rcol1, rcol2, rcol3 = st.columns([1, 5, 2])
-                with rcol1:
-                    # Medal: an inline icon, NOT a section heading. Rendering
-                    # via `### {medal}` makes it an h3 - same heading level as
-                    # the "Top Regions" section title above, which confuses
-                    # the visual hierarchy.
-                    st.markdown(
-                        f"<div style='font-size: 2rem; line-height: 1; "
-                        f"margin: 0.5rem 0;'>{medal}</div>",
-                        unsafe_allow_html=True,
-                    )
-                with rcol2:
-                    st.markdown(f"**{region}**")
-                    st.caption(f"{int(stats['count'])} wines")
-                with rcol3:
-                    st.metric("Avg Score", f"{stats['avg_score']:.1f}/10")
+
+        if liked_df.empty:
+            st.caption("Log wines with regions to see analytics")
+        elif missing_regional_cols:
+            st.caption(
+                f"Missing fields for regional analytics: {', '.join(missing_regional_cols)}"
+            )
         else:
-            st.caption("No regional data yet")
+            regional_wines = liked_df[
+                (liked_df['region'] != 'Unknown') &
+                (liked_df['region'].notna())
+            ]
+            if len(regional_wines) > 0:
+                regional_stats = regional_wines.groupby('region').agg({
+                    'score': 'mean',
+                    'wine_name': 'count'
+                }).round(1)
+                regional_stats.columns = ['avg_score', 'count']
+                regional_stats = regional_stats.sort_values('avg_score', ascending=False)
+                rows = [
+                    (
+                        str(region),
+                        f"{int(stats['count'])} wine"
+                        f"{'s' if int(stats['count']) != 1 else ''}",
+                        format_score(stats["avg_score"]),
+                        "",
+                    )
+                    for region, stats in regional_stats.head(3).iterrows()
+                ]
+                render_ranked_list(rows)
+            else:
+                st.caption("No regional data yet")
 
-    # --- Top Wines (top 3 by score) ---
-    st.markdown("---")
-    st.markdown("### Top Wines")
-
-    top_wines_df = liked_df if not liked_df.empty else df
-    required_for_top = {'wine_name', 'score'}
-    if top_wines_df.empty:
-        st.caption("Add and rate wines to see your top picks.")
-    elif not required_for_top.issubset(top_wines_df.columns):
-        st.caption("Score column missing - can't rank wines yet.")
-    else:
-        top3 = top_wines_df.sort_values('score', ascending=False).head(3)
-        for rank, (_, wine) in enumerate(top3.iterrows(), start=1):
-            producer = wine.get('producer', '')
-            vintage = wine.get('vintage')
-            year = f" {int(vintage)}" if vintage and not pd.isna(vintage) and vintage > 0 else ""
-            medal = {1: '', 2: '', 3: ''}.get(rank, f"#{rank}")
-            wcol1, wcol2, wcol3 = st.columns([1, 6, 2])
-            with wcol1:
-                # Medal as inline icon (see _render_regions for rationale).
-                st.markdown(
-                    f"<div style='font-size: 2rem; line-height: 1; "
-                    f"margin: 0.5rem 0;'>{medal}</div>",
-                    unsafe_allow_html=True,
+    with wine_col:
+        st.markdown("### Top Wines")
+        top_wines_df = liked_df if not liked_df.empty else df
+        required_for_top = {'wine_name', 'score'}
+        if top_wines_df.empty:
+            st.caption("Add and rate wines to see your top picks.")
+        elif not required_for_top.issubset(top_wines_df.columns):
+            st.caption("Score column missing - can't rank wines yet.")
+        else:
+            top3 = top_wines_df.sort_values('score', ascending=False).head(3)
+            rows = []
+            for _, wine in top3.iterrows():
+                producer = wine.get('producer', '')
+                vintage = wine.get('vintage')
+                has_year = vintage and not pd.isna(vintage) and vintage > 0
+                year = f" {int(vintage)}" if has_year else ""
+                meta = str(producer) if producer else "Unknown producer"
+                rows.append(
+                    (
+                        f"{wine['wine_name']}{year}",
+                        meta,
+                        format_score(wine["score"]),
+                        "",
+                    )
                 )
-            with wcol2:
-                st.markdown(f"**{wine['wine_name']}**{year}")
-                if producer:
-                    st.caption(producer)
-            with wcol3:
-                st.metric("Score", f"{wine['score']:.1f}/10")
+            render_ranked_list(rows)
 
     # --- Debug (gated by debug_mode) ---
     if debug_mode:
