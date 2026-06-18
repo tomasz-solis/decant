@@ -3,15 +3,15 @@ enableCORS = true
 enableXsrfProtection = true
 
 [theme]
-# Mediterranean light theme. These drive Streamlit's own widget
-# rendering (dropdowns, file uploader, tooltips, inputs) — the
+# Editorial cellar light theme. These drive Streamlit's own widget
+# rendering (dropdowns, file uploader, tooltips, inputs) - the
 # things CSS overrides can't reach because they render in portals.
 # The CSS in ui/styles.py layers polish on top of this base.
 base = "light"
-primaryColor = "#C2410C"              # terracotta — buttons, active states, focus
-backgroundColor = "#FAF6F0"           # cream — main page background
-secondaryBackgroundColor = "#FFFDF8"  # warm white — cards, dropdowns, inputs
-textColor = "#3D2817"                 # warm dark brown — body text
-font = "DM Sans:https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap, sans-serif"
-headingFont = "Playfair Display:https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap, serif"
+primaryColor = "#8A1F3D"              # bordeaux - buttons, active states, focus
+backgroundColor = "#F6F3EC"           # ivory - main page background
+secondaryBackgroundColor = "#FFFCF6"  # parchment - cards, dropdowns, inputs
+textColor = "#211A16"                 # near-ink - body text
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
 baseFontWeight = 400
