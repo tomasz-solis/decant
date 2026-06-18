@@ -129,8 +129,13 @@ def normalize(df: Optional[pd.DataFrame]) -> pd.DataFrame:
     # decimals).
     out["id"] = out["id"].astype(int)
 
-    for col in BOOL_COLUMNS:
-        out[col] = out[col].fillna(False).astype(bool)
+    # pandas 2.x emits a FutureWarning when fillna() silently downcasts
+    # an object column (here NaN/None -> bool). Opt into the future
+    # no-downcast behaviour and do the bool cast explicitly: the result
+    # is identical, just without the deprecation noise.
+    with pd.option_context("future.no_silent_downcasting", True):
+        for col in BOOL_COLUMNS:
+            out[col] = out[col].fillna(False).astype(bool)
 
     for col in TEXT_COLUMNS:
         out[col] = out[col].fillna(DEFAULTS[col]).astype(str)
