@@ -210,15 +210,24 @@ class FilePaths:
 class UIConstants:
     """UI-related constants."""
 
-    # Per-wine-color chart palette. Red mirrors the CSS wine token.
-    # White, Rosé, and Orange are chart-only category colours; Plotly
-    # cannot read CSS variables, so components.py imports this mapping
-    # directly to avoid a second hand-maintained copy.
+    # Per-wine-color chart palette. Plotly cannot read CSS variables, so
+    # components.py imports this mapping directly to avoid a second
+    # hand-maintained copy.
+    #
+    # These intentionally diverge from the muted CSS feature-bar tokens
+    # (--gold/--wine/--rose/--orange). On the consolidated palate radar
+    # all colours overlay in one plot, and the brand tokens are all warm
+    # and close in value, so their translucent fills blended into one
+    # indistinguishable mass. Here the hues are pulled apart (a brighter
+    # yellow-gold, a vivid red, a clearly lighter pink) and each colour
+    # carries a distinct marker `symbol`, so traces stay separable where
+    # they overlap - including for colour-blind readers. Fills are kept
+    # light so stacked overlaps don't muddy.
     WINE_COLORS_CHART = {
-        WineColor.WHITE: {'primary': '#FFD700', 'fill': 'rgba(255, 215, 0, 0.4)'},
-        WineColor.RED: {'primary': '#7C2D12', 'fill': 'rgba(124, 45, 18, 0.4)'},
-        WineColor.ROSE: {'primary': '#FF69B4', 'fill': 'rgba(255, 105, 180, 0.4)'},
-        WineColor.ORANGE: {'primary': '#FF8C00', 'fill': 'rgba(255, 140, 0, 0.4)'}
+        WineColor.WHITE: {'primary': '#C9A227', 'fill': 'rgba(201, 162, 39, 0.12)', 'symbol': 'circle'},
+        WineColor.RED: {'primary': '#B0142F', 'fill': 'rgba(176, 20, 47, 0.12)', 'symbol': 'diamond'},
+        WineColor.ROSE: {'primary': '#E879A6', 'fill': 'rgba(232, 121, 166, 0.12)', 'symbol': 'square'},
+        WineColor.ORANGE: {'primary': '#D2691E', 'fill': 'rgba(210, 105, 30, 0.12)', 'symbol': 'triangle-up'}
     }
 
     # Feature display names

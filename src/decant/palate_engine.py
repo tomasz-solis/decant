@@ -14,7 +14,14 @@ except ImportError:
     PLOTLY_AVAILABLE = False
 
 
-_APP_FONT_FAMILY = "DM Sans, system-ui, -apple-system, sans-serif"
+_APP_FONT_FAMILY = "Inter, system-ui, -apple-system, sans-serif"
+_CHART_TEXT = "#211A16"
+_CHART_MUTED = "#7F7568"
+_CHART_GRID = "rgba(33, 26, 22, 0.12)"
+_CHART_CARD = "#FFFCF6"
+_CHART_TRANSPARENT = "rgba(0, 0, 0, 0)"
+_CHART_WINE = "#7A1730"
+_CHART_WINE_FILL = "rgba(122, 23, 48, 0.18)"
 
 
 @dataclass
@@ -386,25 +393,25 @@ class PalateEngine:
         current_vec_closed = current_vec + [current_vec[0]]
         ideal_vec_closed = ideal_vec.tolist() + [ideal_vec[0]]
 
-        # USER'S IDEAL TARGET - Red/Pink filled area
+        # USER'S IDEAL TARGET - soft wine filled area
         fig.add_trace(go.Scatterpolar(
             r=ideal_vec_closed,
             theta=categories + [categories[0]],
             fill='toself',
-            fillcolor='rgba(255, 100, 150, 0.3)',  # Red/Pink with transparency
-            line=dict(color='rgb(220, 50, 100)', width=2),
+            fillcolor=_CHART_WINE_FILL,
+            line=dict(color=_CHART_WINE, width=2.4),
             name="Your Ideal Target",
-            marker=dict(size=6, color='rgb(220, 50, 100)')
+            marker=dict(size=6, symbol='circle', color=_CHART_WINE)
         ))
 
-        # CURRENT WINE - Black solid line
+        # CURRENT WINE - ink solid line
         fig.add_trace(go.Scatterpolar(
             r=current_vec_closed,
             theta=categories + [categories[0]],
             fill='none',
-            line=dict(color='black', width=4),
+            line=dict(color=_CHART_TEXT, width=3),
             name="Current Wine",
-            marker=dict(size=8, symbol='star', color='black')
+            marker=dict(size=7, symbol='circle', color=_CHART_TEXT)
         ))
 
         # Layout with 1-10 scale
@@ -417,31 +424,41 @@ class PalateEngine:
                     tick0=0,
                     dtick=2,
                     showticklabels=True,
-                    tickfont=dict(size=12, family=_APP_FONT_FAMILY, color='#3D2817'),
-                    gridcolor='rgba(128, 128, 128, 0.2)'
+                    tickfont=dict(size=11, family=_APP_FONT_FAMILY, color=_CHART_MUTED),
+                    gridcolor=_CHART_GRID,
+                    linecolor=_CHART_GRID,
                 ),
                 angularaxis=dict(
-                    tickfont=dict(size=14, family=_APP_FONT_FAMILY, color='#3D2817')
+                    tickfont=dict(size=13, family=_APP_FONT_FAMILY, color=_CHART_TEXT),
+                    gridcolor=_CHART_GRID,
+                    linecolor=_CHART_GRID,
                 ),
-                bgcolor='rgba(250, 250, 250, 0.5)'
+                bgcolor=_CHART_TRANSPARENT
             ),
             showlegend=True,
             title=dict(
-                text='<b>Flavor Profile Comparison</b>',
-                font=dict(size=16, family=_APP_FONT_FAMILY, color='#3D2817'),
-                x=0.5,
-                xanchor='center'
+                text='Flavor Profile Comparison',
+                font=dict(size=16, family=_APP_FONT_FAMILY, color=_CHART_TEXT),
+                x=0,
+                xanchor='left'
             ),
             legend=dict(
                 orientation='h',
                 yanchor='bottom',
                 y=-0.15,
                 xanchor='center',
-                x=0.5
+                x=0.5,
+                font=dict(size=12, family=_APP_FONT_FAMILY, color=_CHART_TEXT)
             ),
             height=500,
-            font=dict(family=_APP_FONT_FAMILY, color='#3D2817'),
-            paper_bgcolor='white'
+            font=dict(family=_APP_FONT_FAMILY, color=_CHART_TEXT),
+            paper_bgcolor=_CHART_TRANSPARENT,
+            margin=dict(t=64, b=92, l=64, r=64),
+            hoverlabel=dict(
+                bgcolor=_CHART_TEXT,
+                font=dict(family=_APP_FONT_FAMILY, color=_CHART_CARD),
+                bordercolor=_CHART_TEXT,
+            ),
         )
 
         return fig
