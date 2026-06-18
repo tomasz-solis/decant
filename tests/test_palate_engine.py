@@ -189,7 +189,7 @@ class TestCalculateMatch:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "Check: First Wine"
+        assert score.verdict == "First Wine"
         assert score.palate_match == 50.0
         assert score.likelihood_score == 50.0
         assert score.n_samples == 0
@@ -275,7 +275,7 @@ class TestCalculateMatch:
         score = engine.calculate_match(strong_wine)
 
         if score.palate_match >= 70.0 and score.confidence_factor >= 0.6:
-            assert " Strong Match" in score.verdict, (
+            assert "Strong Match" in score.verdict, (
                 f"Expected Strong Match with alignment={score.palate_match:.1f} "
                 f"and confidence={score.confidence_factor:.2f}, got: {score.verdict!r}"
             )
@@ -555,7 +555,7 @@ class TestEdgeCases:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "Check: First Wine"
+        assert score.verdict == "First Wine"
         assert score.n_samples == 0
 
     def test_none_dataframe(self):
@@ -565,7 +565,7 @@ class TestEdgeCases:
         test_wine = {'acidity': 8, 'fruitiness': 7, 'body': 5, 'tannin': 1, 'minerality': 8}
         score = engine.calculate_match(test_wine)
 
-        assert score.verdict == "Check: First Wine"
+        assert score.verdict == "First Wine"
 
     def test_missing_features_in_wine(self):
         """Engine should handle wines with missing features."""

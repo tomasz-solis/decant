@@ -8,7 +8,7 @@ These pin three things:
 3. The Streamlit config theme palette and fonts match the CSS theme.
    This catches the exact bug where .streamlit/config.toml was
    still set to dark-mode colours while the CSS had moved to the
-   light Mediterranean theme - which made every portaled widget
+   light editorial theme - which made every portaled widget
    (dropdowns, file uploader, tooltips) render dark.
 """
 
@@ -36,27 +36,27 @@ class TestConfigThemeConsistency:
     def test_config_is_light_base(self):
         config = self._read_config()
         assert 'base = "light"' in config, (
-            "Config theme must be light base for the Mediterranean theme; "
+            "Config theme must be light base for the editorial theme; "
             "a dark base makes dropdowns and widgets render dark"
         )
 
-    def test_config_background_is_cream(self):
+    def test_config_background_is_ivory(self):
         config = self._read_config()
-        assert "#FAF6F0" in config, "Config backgroundColor must be cream #FAF6F0"
+        assert "#F6F3EC" in config, "Config backgroundColor must be ivory #F6F3EC"
 
-    def test_config_primary_is_terracotta(self):
+    def test_config_primary_is_bordeaux(self):
         config = self._read_config()
-        assert "#C2410C" in config, "Config primaryColor must be terracotta #C2410C"
+        assert "#8A1F3D" in config, "Config primaryColor must be bordeaux #8A1F3D"
 
     def test_config_uses_decant_fonts(self):
         config = self._read_config()
-        assert 'font = "DM Sans:' in config, (
-            "Config theme.font must load DM Sans so Streamlit widgets "
+        assert 'font = "Inter:' in config, (
+            "Config theme.font must load Inter so Streamlit widgets "
             "do not fall back to the default sans-serif"
         )
-        assert 'headingFont = "Playfair Display:' in config, (
-            "Config theme.headingFont must load Playfair Display for "
-            "Streamlit headings"
+        assert 'headingFont = "Inter:' in config, (
+            "Config theme.headingFont must use Inter so Streamlit headings "
+            "do not add a third-looking typographic layer"
         )
         assert "baseFontWeight = 400" in config
 
@@ -86,18 +86,24 @@ class TestStylesModule:
         from decant.ui.styles import _GLOBAL_STYLES
         # Theme variables and key selectors that the rest of the app
         # references via class names in unsafe_allow_html markup.
-        # Phase 4: Mediterranean palette (terracotta + olive + cream)
-        # with Playfair Display display titles + DM Sans body.
+        # Editorial cellar palette with a single Inter UI layer and
+        # a Newsreader masthead wordmark.
         for landmark in [
             "--terracotta",
             "--terracotta-dark",
             "--olive",
-            "--bg-primary: #FAF6F0",
+            "--bg-primary: #F6F3EC",
             "--text-on-accent",
-            "--wine-fill: rgba(124, 45, 18, 0.4)",
-            "Playfair Display",
-            "DM Sans",
+            "--wine-fill: rgba(122, 23, 48, 0.18)",
+            "Newsreader",
+            "Inter",
             ".main-title",
+            ".app-masthead",
+            "--hero-image",
+            ".cellar-snapshot",
+            ".feature-profile",
+            ".ranked-list",
+            ".gallery-result-line",
             "STREAMLIT WIDGET TYPOGRAPHY",
             "DISPLAY HEADINGS",
             "h3",
@@ -124,17 +130,17 @@ class TestStylesModule:
         """Plotly mirrors the CSS tokens it cannot read directly."""
         from decant.ui.components import _THEME
 
-        assert _THEME["bg"] == "#FAF6F0"
-        assert _THEME["bg_card"] == "#FFFDF8"
-        assert _THEME["text"] == "#3D2817"
-        assert _THEME["text_muted"] == "#8B7E6D"
-        assert _THEME["accent"] == "#C2410C"
-        assert _THEME["olive"] == "#65733E"
-        assert _THEME["wine"] == "#7C2D12"
-        assert _THEME["wine_fill"] == "rgba(124, 45, 18, 0.4)"
+        assert _THEME["bg"] == "#F6F3EC"
+        assert _THEME["bg_card"] == "#FFFCF6"
+        assert _THEME["text"] == "#211A16"
+        assert _THEME["text_muted"] == "#7F7568"
+        assert _THEME["accent"] == "#8A1F3D"
+        assert _THEME["olive"] == "#55614B"
+        assert _THEME["wine"] == "#7A1730"
+        assert _THEME["wine_fill"] == "rgba(122, 23, 48, 0.18)"
         assert (
             _THEME["font_family"]
-            == "DM Sans, system-ui, -apple-system, sans-serif"
+            == "Inter, system-ui, -apple-system, sans-serif"
         )
         assert "font_family_display" not in _THEME
 
@@ -155,6 +161,9 @@ class TestStylesModule:
         for landmark in [
             ".wine-gallery-grid",
             ".wine-card-notes",
+            ".wine-card-title",
+            ".wine-card-facts",
+            ".placeholder-name",
             ".icon-row",
             ".wine-card-footer",
         ]:
