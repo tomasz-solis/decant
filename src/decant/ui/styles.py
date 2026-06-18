@@ -18,13 +18,13 @@ call. That's the only way Streamlit accepts custom CSS. The
 `unsafe_allow_html=True` here is benign - the markup is a static
 string we control, not user-supplied content.
 
-Phase 4 - Mediterranean light theme:
-- Cream background (#FAF6F0), warm white cards (#FFFDF8)
-- Terracotta primary (#C2410C), olive accent (#65733E),
-  deep wine red for verdicts (#7C2D12)
-- Playfair Display for h1-h4 headings and metric values; DM Sans
-  for body text, widgets, cards, labels, and controls
-- Restrained shadows, paper-like card surfaces
+Phase 5 - editorial cellar theme:
+- Ivory background (#F6F3EC), parchment cards (#FFFCF6)
+- Bordeaux primary (#8A1F3D), mineral green accent (#55614B),
+  deep wine red for verdicts (#7A1730)
+- Newsreader for the Decant masthead only; Inter for headings,
+  body text, widgets, cards, labels, values, and controls
+- Flat premium surfaces, thin rules, and restrained depth
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ _FONT_LINKS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
     '<link href="https://fonts.googleapis.com/css2?'
-    'family=DM+Sans:wght@400;600;700&'
-    'family=Playfair+Display:wght@700&display=swap" '
+    'family=Inter:wght@400;500;600;700&'
+    'family=Newsreader:opsz,wght@6..72,500;6..72,650;6..72,700&display=swap" '
     'rel="stylesheet">'
 )
 
@@ -48,34 +48,40 @@ _GLOBAL_STYLES = """
     /* Loaded separately via st.markdown(_FONT_LINKS) before this
        stylesheet. Keep external font loading out of this style block. */
 
-    /* ---- Mediterranean light palette ------------------------------- */
+    /* ---- Editorial cellar palette ---------------------------------- */
     :root {
-        --bg-primary: #FAF6F0;         /* cream - baked paper, not stark white */
-        --bg-secondary: #F3EDE3;       /* slightly deeper for tab nav, sidebar */
-        --card-bg: #FFFDF8;            /* warm white for raised surfaces */
-        --card-border: #E8DFCF;        /* hairline between card and background */
+        --bg-primary: #F6F3EC;         /* ivory - warm but cleaner than cream */
+        --bg-secondary: #ECE6DA;       /* deeper parchment for controls */
+        --card-bg: #FFFCF6;            /* parchment white for raised surfaces */
+        --card-border: #D8D0C2;        /* editorial hairline */
+        --ink-panel: #211A16;          /* dark editorial contrast panel */
+        --line-strong: rgba(33, 26, 22, 0.78);
 
-        --terracotta: #C2410C;         /* primary accent - restaurant signage */
-        --terracotta-dark: #9A330A;    /* hover state for terracotta controls */
-        --terracotta-soft: #FED7AA;    /* terracotta tint for hover/highlight */
-        --olive: #65733E;              /* secondary accent - herbal */
-        --olive-soft: #DCE3C4;         /* olive tint */
-        --wine: #7C2D12;               /* deep red for verdicts, liked badge */
-        --wine-fill: rgba(124, 45, 18, 0.4);
+        --terracotta: #8A1F3D;         /* primary accent - bordeaux */
+        --terracotta-dark: #66162E;    /* hover state for primary controls */
+        --terracotta-soft: #F1DCE1;    /* bordeaux tint for hover/highlight */
+        --olive: #55614B;              /* secondary accent - mineral green */
+        --olive-soft: #E2E7D8;         /* mineral tint */
+        --wine: #7A1730;               /* deep red for verdicts, liked badge */
+        --wine-fill: rgba(122, 23, 48, 0.18);
+        --gold: #B89A4D;
+        --rose: #C77683;
+        --orange: #B86A3C;
 
-        --text-primary: #3D2817;       /* warm dark brown, not pure black */
-        --text-secondary: #5C4D3F;     /* darker brown for captions/subtitles - readable on cream */
-        --text-muted: #8B7E6D;         /* fainter, for tertiary info only (timestamps, hints) */
-        --text-on-accent: #FFFFFF;     /* text on terracotta/olive/wine surfaces */
+        --text-primary: #211A16;       /* near-ink, softer than black */
+        --text-secondary: #5B544B;     /* readable secondary metadata */
+        --text-muted: #7F7568;         /* tertiary info only */
+        --text-on-accent: #FFFCF6;     /* text on accent surfaces */
 
-        --shadow-card: 0 2px 8px rgba(120, 60, 30, 0.06);
-        --shadow-card-hover: 0 4px 14px rgba(120, 60, 30, 0.10);
+        --shadow-card: 0 1px 0 rgba(33, 26, 22, 0.05), 0 18px 44px rgba(69, 42, 30, 0.09);
+        --shadow-card-hover: 0 1px 0 rgba(33, 26, 22, 0.06), 0 24px 58px rgba(69, 42, 30, 0.13);
 
-        --radius-card: 12px;
+        --radius-card: 8px;
         --radius-button: 8px;
 
-        --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
-        --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+        --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+        --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+        --hero-image: url("https://images.unsplash.com/photo-1643087448435-72f70bd4ce88?auto=format&fit=crop&fm=jpg&q=72&w=2400");
     }
 
     /* ---- Global base ---------------------------------------------- */
@@ -87,18 +93,21 @@ _GLOBAL_STYLES = """
         font-weight: 400;
     }
 
-    /* Subtle paper texture - a barely-visible noise pattern gives
-       the cream background actual depth instead of feeling flat.
-       Inline SVG noise so we don't depend on an external asset. */
-    [data-testid="stAppViewContainer"] {
-        background-image:
-            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.24  0 0 0 0 0.16  0 0 0 0 0.09  0 0 0 0.025 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>") !important;
-        background-blend-mode: multiply;
-        background-size: 200px 200px;
+    .main .block-container {
+        max-width: 1220px;
+        padding-top: 1.35rem;
+        padding-bottom: 4rem;
     }
 
-    /* Menu-masthead bar: a thin terracotta-to-olive band at the very
-       top of the page. Subtle visual reference to printed menus. */
+    /* A faint editorial column grid adds structure without turning
+       into decoration. */
+    [data-testid="stAppViewContainer"] {
+        background-image:
+            linear-gradient(90deg, rgba(33, 26, 22, 0.035) 1px, transparent 1px) !important;
+        background-size: 96px 100%;
+    }
+
+    /* Masthead bar: a crisp printed-rule signal at the top edge. */
     .stApp::before {
         content: "";
         display: block;
@@ -106,12 +115,12 @@ _GLOBAL_STYLES = """
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
+        height: 3px;
         background: linear-gradient(to right,
-            var(--terracotta) 0%,
-            var(--terracotta) 40%,
-            var(--olive) 60%,
-            var(--olive) 100%);
+            var(--wine) 0%,
+            var(--wine) 34%,
+            var(--text-primary) 34%,
+            var(--text-primary) 100%);
         z-index: 1000;
         pointer-events: none;
     }
@@ -122,7 +131,7 @@ _GLOBAL_STYLES = """
         background: var(--bg-primary) !important;
     }
 
-    /* ---- DISPLAY HEADINGS (Playfair) ------------------------------ */
+    /* ---- DISPLAY HEADINGS (Newsreader) ---------------------------- */
     /* Targets the heading element AND its descendants (Streamlit
        renders heading text inside a <span> child). The body +
        stMarkdownContainer chains lift specificity above generated
@@ -157,13 +166,78 @@ _GLOBAL_STYLES = """
     }
 
     .main-title {
-        font-size: 3.4rem !important;
-        line-height: 1.05 !important;
+        font-size: 5.8rem !important;
+        line-height: 0.86 !important;
         margin: 0 !important;
     }
 
-    /* Section titles (h2 in tab bodies) get a soft terracotta
-       underline that ties them to the active-tab indicator. */
+    .app-masthead {
+        border: none;
+        padding: 0;
+        margin: 0;
+        position: relative;
+    }
+
+    .app-masthead::after {
+        display: none;
+    }
+
+    /* Masthead band: the hero photo now sits *behind* the wordmark and
+       the auth control instead of in a separate strip below. The dark
+       gradient overlay is the contrast guard - it keeps the light title
+       and the Sign-in button legible no matter which slice of the
+       cellar photo lands behind them. */
+    [data-testid="stHorizontalBlock"]:has(.app-masthead) {
+        position: relative;
+        padding: 30px 30px 32px 30px;
+        margin-bottom: 22px;
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        background-image:
+            linear-gradient(
+                90deg,
+                rgba(18, 12, 9, 0.86) 0%,
+                rgba(22, 15, 11, 0.58) 52%,
+                rgba(18, 12, 9, 0.80) 100%
+            ),
+            var(--hero-image);
+        background-size: cover;
+        background-position: center 50%;
+        box-shadow: var(--shadow-card);
+    }
+
+    .masthead-kicker {
+        margin: 0 0 8px 0 !important;
+        font-family: var(--font-body) !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        color: #E7C27C !important;          /* warm gold reads on the photo */
+    }
+
+    /* The global heading rules force near-ink colour with !important;
+       on the photo that would be unreadable, so re-light the masthead
+       text here (higher specificity wins) and back it with a soft
+       shadow for extra contrast insurance. */
+    body [data-testid="stHorizontalBlock"]:has(.app-masthead) .main-title,
+    body [data-testid="stHorizontalBlock"]:has(.app-masthead) .main-title * {
+        color: var(--text-on-accent) !important;
+        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+    }
+    body [data-testid="stHorizontalBlock"]:has(.app-masthead) .subtitle,
+    body [data-testid="stHorizontalBlock"]:has(.app-masthead) .subtitle * {
+        color: rgba(255, 252, 246, 0.9) !important;
+        text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Lift the Sign-in / account control off the busy photo so it stays
+       a crisp, tappable target. */
+    [data-testid="stHorizontalBlock"]:has(.app-masthead) [data-testid="stPopover"] button {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38) !important;
+    }
+
+    /* Section titles get a short editorial rule. */
     [data-testid="stMarkdownContainer"] h2 {
         position: relative;
         padding-bottom: 0.4rem;
@@ -174,9 +248,9 @@ _GLOBAL_STYLES = """
         position: absolute;
         bottom: 0;
         left: 0;
-        width: 48px;
-        height: 2px;
-        background: var(--terracotta);
+        width: 54px;
+        height: 1px;
+        background: var(--text-primary);
         border-radius: 1px;
     }
 
@@ -190,7 +264,25 @@ _GLOBAL_STYLES = """
         line-height: 1.3 !important;
     }
 
-    /* ---- LOWER-LEVEL TITLES (DM Sans) ----------------------------- */
+    body h1, body h2, body h3, body h4,
+    body h1 *, body h2 *, body h3 *, body h4 *,
+    body [data-testid="stMarkdownContainer"] h1,
+    body [data-testid="stMarkdownContainer"] h2,
+    body [data-testid="stMarkdownContainer"] h3,
+    body [data-testid="stMarkdownContainer"] h4,
+    body [data-testid="stMarkdownContainer"] h1 *,
+    body [data-testid="stMarkdownContainer"] h2 *,
+    body [data-testid="stMarkdownContainer"] h3 *,
+    body [data-testid="stMarkdownContainer"] h4 * {
+        font-family: var(--font-body) !important;
+    }
+
+    body .main-title,
+    body .main-title * {
+        font-family: var(--font-display) !important;
+    }
+
+    /* ---- LOWER-LEVEL TITLES (Inter) ------------------------------- */
     body h5, body h6,
     body h5 *, body h6 *,
     body [data-testid="stMarkdownContainer"] h5,
@@ -221,7 +313,7 @@ _GLOBAL_STYLES = """
         margin: 0 0 0.75rem 0 !important;
     }
 
-    /* ---- STREAMLIT WIDGET TYPOGRAPHY (DM Sans) ------------------- */
+    /* ---- STREAMLIT WIDGET TYPOGRAPHY (Inter) --------------------- */
     /* Keep this narrow. Streamlit renders chevrons and controls as
        Material icon spans whose text content is names like
        "expand_more". Styling every descendant with `*`, or styling
@@ -328,7 +420,7 @@ _GLOBAL_STYLES = """
         letter-spacing: 0 !important;
     }
 
-    /* ---- METRIC VALUE (Playfair big numbers) ---------------------- */
+    /* ---- METRIC VALUE (Newsreader big numbers) -------------------- */
     body [data-testid="stMetricValue"],
     body [data-testid="stMetricValue"] > div,
     body [data-testid="stMetricValue"] * {
@@ -340,7 +432,7 @@ _GLOBAL_STYLES = """
         font-feature-settings: "tnum" 1;
     }
 
-    /* ---- METRIC LABEL (DM Sans uppercase) ------------------------- */
+    /* ---- METRIC LABEL (Inter uppercase) --------------------------- */
     body [data-testid="stMetricLabel"],
     body [data-testid="stMetricLabel"] * {
         font-family: var(--font-body) !important;
@@ -352,7 +444,7 @@ _GLOBAL_STYLES = """
         letter-spacing: 0;
     }
 
-    /* ---- BODY BASELINE (DM Sans, upright, everything else) -------- */
+    /* ---- BODY BASELINE (Inter, upright, everything else) ---------- */
     /* The body+descendant chain beats Streamlit's emotion-cache classes.
        font-style: normal on em/strong is the kill-switch for any
        accidental emphasized markdown (_text_) or emphasis tags. */
@@ -376,7 +468,7 @@ _GLOBAL_STYLES = """
         font-weight: 700 !important;
     }
 
-    /* ---- CAPTION (DM Sans, muted, smaller) ------------------------ */
+    /* ---- CAPTION (Inter, muted, smaller) -------------------------- */
     body .stCaption,
     body [data-testid="stCaptionContainer"],
     body [data-testid="stCaptionContainer"] p,
@@ -395,17 +487,340 @@ _GLOBAL_STYLES = """
     body .subtitle * {
         font-family: var(--font-body) !important;
         font-style: normal !important;
-        font-weight: 400 !important;
-        font-size: 1rem !important;
+        font-weight: 500 !important;
+        font-size: 1.06rem !important;
         color: var(--text-secondary) !important;
-        margin: 4px 0 0 0 !important;
+        margin: 10px 0 0 0 !important;
+    }
+
+    /* ---- Editorial page furniture -------------------------------- */
+    .tab-heading {
+        margin: 20px 0 18px 0;
+        padding: 0 0 14px 0;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .tab-heading span {
+        display: block;
+        margin: 0 0 6px 0;
+        font-family: var(--font-body);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--terracotta);
+    }
+
+    .tab-heading h2 {
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 2.15rem !important;
+        line-height: 1 !important;
+    }
+
+    .tab-heading h2::after {
+        display: none !important;
+    }
+
+    .tab-heading p {
+        max-width: 620px;
+        margin: 8px 0 0 0 !important;
+        color: var(--text-secondary) !important;
+        font-size: 0.96rem !important;
+        line-height: 1.5 !important;
+    }
+
+    .cellar-snapshot,
+    .editorial-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin: 18px 0 24px 0;
+    }
+
+    /* Column count follows the number of tiles, set by render_stat_grid
+       via a stat-grid-cols-N modifier. Without this a 3-tile grid keeps
+       the 4-column track and leaves an empty slot on the right. These
+       come after the base rule so the matching count wins. */
+    .stat-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stat-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .cellar-snapshot {
+        padding: 14px 0;
+        border-top: 1px solid var(--text-primary);
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .stat-tile {
+        min-height: 104px;
+        padding: 16px 16px 14px 16px;
+        border: 1px solid var(--card-border);
+        border-top: 3px solid var(--line-strong);
+        border-radius: var(--radius-card);
+        background:
+            linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(250, 247, 239, 0.92));
+        box-shadow: var(--shadow-card);
+    }
+
+    .stat-label,
+    .stat-note {
+        font-family: var(--font-body);
+        font-style: normal;
+        color: var(--text-secondary);
+    }
+
+    .stat-label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .stat-value {
+        margin-top: 8px;
+        font-family: var(--font-body);
+        font-size: 2.55rem;
+        font-weight: 700;
+        line-height: 0.95;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .stat-note {
+        margin-top: 8px;
+        font-size: 0.86rem;
+        line-height: 1.35;
+    }
+
+    .feature-profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+        gap: 14px;
+        margin: 18px 0 24px 0;
+    }
+
+    .feature-profile-grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .feature-profile-grid-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .feature-profile {
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-card);
+        background: var(--card-bg);
+        box-shadow: var(--shadow-card);
+        padding: 16px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-profile::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--terracotta);
+    }
+
+    .feature-profile.tone-white::before { background: var(--gold); }
+    .feature-profile.tone-red::before { background: var(--wine); }
+    .feature-profile.tone-rose::before { background: var(--rose); }
+    .feature-profile.tone-orange::before { background: var(--orange); }
+    .feature-profile.tone-neutral::before { background: var(--olive); }
+
+    .feature-profile-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .feature-profile-head h3 {
+        margin: 0 !important;
+        font-size: 1.32rem !important;
+        line-height: 1.08 !important;
+    }
+
+    .feature-profile-head p {
+        margin: 0 !important;
+        color: var(--text-secondary) !important;
+        font-size: 0.82rem !important;
+        white-space: nowrap;
+    }
+
+    .feature-rows {
+        display: grid;
+        gap: 9px;
+    }
+
+    .feature-row {
+        display: grid;
+        grid-template-columns: 86px minmax(96px, 1fr) 36px;
+        align-items: center;
+        gap: 10px;
+        min-height: 26px;
+    }
+
+    .feature-name,
+    .feature-number {
+        font-family: var(--font-body);
+        font-size: 0.84rem;
+        color: var(--text-secondary);
+    }
+
+    .feature-number {
+        color: var(--text-primary);
+        font-weight: 700;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .feature-track {
+        display: block;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(33, 26, 22, 0.09);
+        overflow: hidden;
+    }
+
+    .feature-fill {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--terracotta);
+    }
+
+    .tone-white .feature-fill { background: var(--gold); }
+    .tone-red .feature-fill { background: var(--wine); }
+    .tone-rose .feature-fill { background: var(--rose); }
+    .tone-orange .feature-fill { background: var(--orange); }
+    .tone-neutral .feature-fill { background: var(--olive); }
+
+    .ranked-list {
+        display: grid;
+        gap: 10px;
+        padding: 0;
+        margin: 18px 0 24px 0;
+        list-style: none;
+        width: 100%;
+    }
+
+    /* Streamlit's markdown container pins direct-child <ol>/<ul> to
+       `width: fit-content`, which makes the ranked list shrink-wrap to
+       its longest row and leaves a ragged strip of dead space on the
+       right of the Top Regions / Top Wines columns. It also overrides
+       each <li>'s margin and padding (indenting the cards out of line
+       with the heading and collapsing the padding so the score hugs the
+       right border). Re-assert a full-width grid and the item's own
+       margin/padding with selectors specific enough to beat those
+       (emotion-cache) rules. */
+    [data-testid="stMarkdownContainer"] ol.ranked-list {
+        display: grid;
+        width: 100%;
+    }
+    [data-testid="stMarkdownContainer"] li.ranked-item {
+        margin: 0;
+        padding: 12px 18px;
+    }
+
+    .ranked-item {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) 82px;
+        align-items: center;
+        gap: 12px;
+        min-height: 64px;
+        padding: 12px 18px;
+        border: 1px solid var(--card-border);
+        border-left: 2px solid var(--wine);
+        border-radius: var(--radius-card);
+        background: rgba(255, 252, 246, 0.9);
+        box-shadow: 0 1px 0 rgba(33, 26, 22, 0.04);
+    }
+
+    .ranked-index {
+        font-family: var(--font-body);
+        font-size: 1.15rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--wine);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ranked-title {
+        font-family: var(--font-body);
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.25;
+    }
+
+    .ranked-meta {
+        margin-top: 4px;
+        font-family: var(--font-body);
+        font-size: 0.86rem;
+        color: var(--text-secondary);
+    }
+
+    .ranked-value {
+        text-align: right;
+        min-width: 82px;
+    }
+
+    .ranked-value span {
+        display: block;
+        font-family: var(--font-body);
+        font-size: 1.2rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .ranked-value small {
+        display: block;
+        margin-top: 4px;
+        font-family: var(--font-body);
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+
+    .gallery-result-line {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 12px 0 18px 0;
+        padding: 8px 0;
+        border-top: 1px solid var(--text-primary);
+        border-bottom: 1px solid var(--card-border);
+        width: 100%;
+    }
+
+    .gallery-result-line span {
+        font-family: var(--font-body);
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--text-primary);
+    }
+
+    .gallery-result-line p {
+        margin: 0 !important;
+        font-size: 0.9rem !important;
+        color: var(--text-secondary) !important;
     }
 
     /* ---- Tabs ------------------------------------------------------ */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {
-        gap: 4px;
+        gap: 0;
+        border-top: 1px solid var(--card-border);
         border-bottom: 1px solid var(--card-border);
         background: transparent;
+        padding: 2px 0;
     }
 
     [data-testid="stTabs"] [data-baseweb="tab"],
@@ -413,12 +828,12 @@ _GLOBAL_STYLES = """
         font-family: var(--font-body) !important;
         font-style: normal !important;
         font-weight: 600 !important;
-        font-size: 1.05rem !important;
+        font-size: 0.96rem !important;
         color: var(--text-secondary) !important;
-        padding: 12px 18px !important;
+        padding: 14px 18px !important;
         background: transparent !important;
-        border-radius: var(--radius-button) var(--radius-button) 0 0;
-        transition: color 0.15s ease;
+        border-radius: 0;
+        transition: color 0.15s ease, background 0.15s ease;
         letter-spacing: 0;
     }
 
@@ -435,11 +850,13 @@ _GLOBAL_STYLES = """
     [data-testid="stTabs"] [data-baseweb="tab"]:hover,
     [data-testid="stTabs"] [role="tab"]:hover {
         color: var(--terracotta) !important;
+        background: rgba(138, 31, 61, 0.06) !important;
     }
 
     [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"],
     [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
         color: var(--terracotta) !important;
+        background: transparent !important;
     }
     [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"],
     [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
@@ -463,9 +880,10 @@ _GLOBAL_STYLES = """
     [data-testid="baseButton-primary"],
     [data-testid="baseButton-secondary"] {
         border-radius: var(--radius-button) !important;
-        padding: 10px 20px !important;
-        transition: all 0.15s ease !important;
+        padding: 10px 18px !important;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
         border: 1px solid var(--card-border) !important;
+        box-shadow: none !important;
     }
 
     .stButton > button p,
@@ -503,7 +921,7 @@ _GLOBAL_STYLES = """
         text-transform: none !important;
     }
 
-    /* Primary buttons - terracotta */
+    /* Primary buttons - bordeaux */
     .stButton > button[kind="primary"],
     [data-testid="baseButton-primary"],
     [data-testid="stPopover"] button[kind="primary"],
@@ -512,15 +930,21 @@ _GLOBAL_STYLES = """
         color: var(--text-on-accent) !important;
         border-color: var(--terracotta) !important;
     }
+    .stButton > button[kind="primary"] *,
+    [data-testid="baseButton-primary"] *,
+    [data-testid="stPopover"] button[kind="primary"] *,
+    [data-testid="stPopover"] [data-testid="baseButton-primary"] * {
+        color: var(--text-on-accent) !important;
+    }
     .stButton > button[kind="primary"]:hover,
     [data-testid="baseButton-primary"]:hover,
     [data-testid="stPopover"] button[kind="primary"]:hover {
         background: var(--terracotta-dark) !important;
         border-color: var(--terracotta-dark) !important;
-        box-shadow: var(--shadow-card-hover);
+        box-shadow: none !important;
     }
 
-    /* Secondary buttons - outlined cream */
+    /* Secondary buttons - outlined parchment */
     .stButton > button[kind="secondary"],
     [data-testid="baseButton-secondary"] {
         background: var(--card-bg) !important;
@@ -568,7 +992,7 @@ _GLOBAL_STYLES = """
        at the bottom of <body>, NOT inside the trigger element. Selectors
        must be global, not scoped to the trigger. */
 
-    /* The portal layer wrapper itself. Force cream on every dropdown
+    /* The portal layer wrapper itself. Force parchment on every dropdown
        menu, sign-in popover, and any other BaseWeb popover that
        Streamlit renders. */
     [data-baseweb="layer"] [data-baseweb="popover"],
@@ -607,7 +1031,7 @@ _GLOBAL_STYLES = """
 
     /* Dropdown menus (selectbox open state). The menu is portaled,
        so we target it globally - every menu role across the app
-       inherits cream. */
+       inherits parchment. */
     [data-baseweb="menu"],
     [data-baseweb="menu"] ul,
     [data-baseweb="menu"] li,
@@ -648,7 +1072,7 @@ _GLOBAL_STYLES = """
     }
 
     /* Signed-in user pill - the popover trigger renders with a dark
-       chip background by default. Override to a soft olive tint so
+       chip background by default. Override to a soft mineral tint so
        it reads as "you're signed in" without competing with the
        primary Sign-in button. */
     [data-testid="stPopover"] button:not([kind="primary"]) {
@@ -790,7 +1214,7 @@ _GLOBAL_STYLES = """
         outline: none !important;
     }
 
-    /* Placeholder text - the default is too pale on cream. Bump to
+    /* Placeholder text - the default is too pale on ivory. Bump to
        a readable mid-brown. */
     [data-testid="stTextInput"] input::placeholder,
     [data-testid="stTextArea"] textarea::placeholder {
@@ -930,16 +1354,43 @@ _GLOBAL_STYLES = """
 
     /* ---- Metric (st.metric) --------------------------------------- */
     [data-testid="stMetric"] {
-        background: var(--card-bg) !important;
+        background: rgba(255, 252, 246, 0.84) !important;
         border: 1px solid var(--card-border) !important;
+        border-top: 2px solid rgba(33, 26, 22, 0.72) !important;
         border-radius: var(--radius-card) !important;
-        padding: 16px !important;
-        box-shadow: var(--shadow-card) !important;
-        transition: transform 0.15s ease !important;
+        padding: 14px 16px !important;
+        box-shadow: none !important;
+        transition: border-color 0.15s ease, background 0.15s ease !important;
     }
     [data-testid="stMetric"]:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: var(--shadow-card-hover) !important;
+        border-color: rgba(138, 31, 61, 0.36) !important;
+        background: var(--card-bg) !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 2.05rem !important;
+        line-height: 1.05 !important;
+    }
+
+    /* ---- Plotly charts ------------------------------------------- */
+    [data-testid="stPlotlyChart"] {
+        background:
+            linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(250, 247, 239, 0.9)) !important;
+        border: 1px solid var(--card-border) !important;
+        border-top: 3px solid var(--wine) !important;
+        border-radius: var(--radius-card) !important;
+        padding: 16px 16px 8px 16px !important;
+        box-shadow: var(--shadow-card) !important;
+    }
+
+    [data-testid="stPlotlyChart"] .modebar {
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    [data-testid="stPlotlyChart"]:hover .modebar,
+    [data-testid="stPlotlyChart"] .modebar:hover {
+        opacity: 1;
     }
 
     /* Re-assert Streamlit's icon font after widget text rules. */
@@ -958,21 +1409,13 @@ _GLOBAL_STYLES = """
     }
 
     /* ---- Decorative horizontal divider --------------------------- */
-    /* A thin terracotta line with a tiny olive dot in the middle.
-       Restaurant menus often have decorated rules between courses;
-       this is the restrained version. */
+    /* A plain printed rule. Decorative dividers made the app feel
+       more restaurant menu than modern magazine. */
     hr {
         border: none !important;
         height: 1px !important;
-        background: linear-gradient(to right,
-            transparent 0%,
-            var(--card-border) 20%,
-            var(--card-border) 48%,
-            var(--olive) 50%,
-            var(--card-border) 52%,
-            var(--card-border) 80%,
-            transparent 100%) !important;
-        margin: 32px 0 !important;
+        background: var(--card-border) !important;
+        margin: 30px 0 !important;
         position: relative;
         overflow: visible !important;
     }
@@ -980,11 +1423,34 @@ _GLOBAL_STYLES = """
     /* ---- Mobile responsive ---------------------------------------- */
     @media (max-width: 768px) {
         .main-title {
-            font-size: 2.4rem !important;
+            font-size: 3.1rem !important;
         }
         [data-testid="stTabs"] [data-baseweb="tab"] {
             font-size: 0.95rem !important;
             padding: 10px 12px !important;
+        }
+        .cellar-snapshot,
+        .editorial-stat-grid,
+        .feature-profile-grid {
+            grid-template-columns: 1fr;
+        }
+        .stat-tile {
+            min-height: auto;
+        }
+        .feature-profile-head {
+            display: block;
+        }
+        .feature-profile-head p {
+            margin-top: 4px !important;
+            white-space: normal;
+        }
+        .ranked-item {
+            grid-template-columns: 42px minmax(0, 1fr);
+        }
+        .ranked-value {
+            grid-column: 2;
+            text-align: left;
+            margin-top: 2px;
         }
     }
 
@@ -1014,6 +1480,22 @@ _GALLERY_STYLES = """\
     letter-spacing: 0 !important;
 }
 
+[data-testid="column"]:has(.wine-card-img),
+[data-testid="column"]:has(.wine-card-img-placeholder) {
+    background: rgba(255, 252, 246, 0.88);
+    border: 1px solid var(--card-border);
+    border-top: 3px solid var(--line-strong);
+    border-radius: var(--radius-card);
+    padding: 14px 14px 18px 14px !important;
+    box-shadow: var(--shadow-card);
+}
+
+[data-testid="column"]:has(.wine-card-img):hover,
+[data-testid="column"]:has(.wine-card-img-placeholder):hover {
+    border-color: rgba(138, 31, 61, 0.28);
+    box-shadow: var(--shadow-card-hover);
+}
+
 
 /* Wine Gallery Grid - back to 3-per-row with larger photos.
    minmax(280px, 1fr) gives 3 columns at 1100px, 4 at ~1450px. */
@@ -1025,32 +1507,130 @@ _GALLERY_STYLES = """\
     margin: 24px 0;
 }
 
-/* Wine card image - bottle photos benefit from the larger format.
-   max-height kept generous (400px) so portrait photos display well
-   without exploding to natural size. */
+/* Wine card image - bottle photos should show the full label/bottle,
+   not crop like generic product tiles. */
 .wine-card-img,
 .wine-card-img-placeholder {
     display: block;
     width: 100%;
-    max-height: 400px;
-    aspect-ratio: 3 / 4;
-    object-fit: cover;
+    max-height: 380px;
+    aspect-ratio: 4 / 5;
+    object-fit: contain;
     border-radius: var(--radius-card);
-    background: var(--bg-secondary);
+    background:
+        linear-gradient(160deg, rgba(236, 230, 218, 0.88), rgba(255, 252, 246, 0.96));
     border: 1px solid var(--card-border);
-    margin: 0 0 12px 0;
+    margin: 0 0 14px 0;
+    padding: 10px;
 }
 
 .wine-card-img-placeholder {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 10px;
+    min-height: 280px;
     font-family: var(--font-body);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
     color: var(--text-muted);
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+}
+
+.wine-card-img-placeholder::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border: 1px solid rgba(33, 26, 22, 0.18);
+    border-radius: 6px;
+}
+
+.placeholder-kicker {
+    font-family: var(--font-body);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--terracotta);
+    position: relative;
+}
+
+.placeholder-name {
+    max-width: 72%;
+    font-family: var(--font-body);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--text-primary);
+    position: relative;
+}
+
+.tone-white .placeholder-kicker { color: var(--gold); }
+.tone-red .placeholder-kicker { color: var(--wine); }
+.tone-rose .placeholder-kicker { color: var(--rose); }
+.tone-orange .placeholder-kicker { color: var(--orange); }
+
+.wine-card-title {
+    margin: 14px 0 5px 0;
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.05;
+}
+
+.wine-card-meta,
+.wine-card-location {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text-secondary);
+}
+
+.wine-card-meta {
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.wine-card-location {
+    margin-top: 4px;
+    font-size: 0.8rem;
+}
+
+.wine-card-facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 14px 0 10px 0;
+    border-top: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.wine-card-fact {
+    padding: 10px 8px 10px 0;
+}
+
+.wine-card-fact + .wine-card-fact {
+    padding-left: 12px;
+    border-left: 1px solid var(--card-border);
+}
+
+.wine-card-fact span {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.wine-card-fact strong {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--font-body) !important;
+    font-size: 1.18rem;
+    font-weight: 700 !important;
+    line-height: 1;
+    color: var(--text-primary) !important;
+    font-variant-numeric: tabular-nums;
 }
 
 .wine-card-notes {
@@ -1078,10 +1658,10 @@ _GALLERY_STYLES = """\
     align-items: center;
     min-height: 24px;
     padding: 2px 8px;
-    border: 1px solid var(--card-border);
-    border-radius: 999px;
-    background: var(--card-bg);
-    color: var(--text-secondary);
+    border: 1px solid rgba(138, 31, 61, 0.22);
+    border-radius: 6px;
+    background: rgba(138, 31, 61, 0.07);
+    color: var(--terracotta);
     font-family: var(--font-body);
     font-size: 12px;
     font-style: normal;

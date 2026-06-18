@@ -22,7 +22,9 @@ from decant.supabase_session import (
     get_user_supabase,
     is_authenticated,
 )
+from decant.constants import FilePaths
 from decant.ui.auth_form import render_header_auth
+from decant.ui.editorial import render_cellar_snapshot
 from decant.ui.styles import apply_global_styles
 from decant.services.data_access import normalize as ensure_wine_df
 from decant.ui import tab_add_wine, tab_gallery, tab_palate_maps, tab_stats
@@ -32,43 +34,67 @@ from decant.wines_repo import list_wines as repo_list_wines
 load_dotenv()
 
 
-def check_required_supabase_secrets() -> None:
-    """Fail fast when required Supabase secrets are missing.
+def is_streamlit_cloud() -> bool:
+    """Return True when running on Streamlit Cloud."""
+    return (
+        os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud"
+        or os.getenv("STREAMLIT_SHARING_MODE") is not None
+    )
 
-    Phase 2: only four keys are required at startup. No section headers.
-    The household account credentials are entered by the user at sign-in
-    time, not stored in TOML.
+
+def read_secret(key: str) -> Optional[str]:
+    """Read a Streamlit secret as a non-empty string, if present."""
+    try:
+        value = st.secrets[key]
+    except (FileNotFoundError, KeyError):
+        return None
+
+    text = str(value).strip()
+    return text or None
+
+
+def check_required_supabase_secrets() -> None:
+    """Check required secrets and enable local preview mode if absent.
+
+    Streamlit Cloud remains strict because production should never boot
+    with partial credentials. Local runs fall back to the bundled CSV so
+    the read-only app can still be opened without secrets.
     """
     if st.session_state.get("_supabase_startup_checked"):
         return
 
-    required_keys = ["SUPABASE_URL", "SUPABASE_KEY", "CELLAR_ID", "OPENAI_API_KEY"]
-    missing = []
-    for key in required_keys:
-        try:
-            value = st.secrets[key]
-        except (FileNotFoundError, KeyError):
-            value = None
-        if value is None or str(value).strip() == "":
-            missing.append(key)
+    supabase_keys = ["SUPABASE_URL", "SUPABASE_KEY", "CELLAR_ID"]
+    cloud_required_keys = supabase_keys + ["OPENAI_API_KEY"]
+    missing_cloud_keys = [
+        key for key in cloud_required_keys if read_secret(key) is None
+    ]
+    missing_supabase_keys = [key for key in supabase_keys if read_secret(key) is None]
 
-    if missing:
-        st.error("Missing required secret(s): " + ", ".join(missing))
-        st.stop()
+    if missing_cloud_keys:
+        if is_streamlit_cloud():
+            st.error("Missing required secret(s): " + ", ".join(missing_cloud_keys))
+            st.stop()
+
+    if missing_supabase_keys:
+        st.session_state["_decant_local_preview_missing_secrets"] = missing_supabase_keys
+    else:
+        st.session_state.pop("_decant_local_preview_missing_secrets", None)
 
     st.session_state["_supabase_startup_checked"] = True
 
 
+def get_openai_api_key() -> Optional[str]:
+    """Return the OpenAI key from Streamlit secrets or environment."""
+    return read_secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+
+
 def is_debug_enabled() -> bool:
     """Return debug mode from secrets."""
-    try:
-        debug_value = st.secrets.get("DEBUG", False)
-    except (FileNotFoundError, KeyError, AttributeError):
+    debug_value = read_secret("DEBUG")
+    if debug_value is None:
         return False
 
-    if isinstance(debug_value, str):
-        return debug_value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(debug_value)
+    return debug_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 # Authentication: anonymous browsing is allowed by default. Sign-in is
@@ -81,19 +107,19 @@ is_guest = not is_authenticated()
 DEBUG_MODE = is_debug_enabled()
 
 # Detect Streamlit Cloud environment
-IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_RUNTIME_ENV") == "cloud" or os.getenv("STREAMLIT_SHARING_MODE") is not None
+IS_STREAMLIT_CLOUD = is_streamlit_cloud()
 
 # Initialize OpenAI client for Vision API
 # For Streamlit Cloud: use st.secrets, fallback to env vars for local dev
-try:
-    api_key = st.secrets["OPENAI_API_KEY"]
-except (FileNotFoundError, KeyError):
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        st.error("OPENAI_API_KEY not found. Please set it in Streamlit Cloud secrets or .env file")
-        st.stop()
-
-client = OpenAI(api_key=api_key)
+api_key = get_openai_api_key()
+if api_key:
+    # VinoPredictor still reads from the environment. Mirroring the
+    # Streamlit secret here keeps local secrets.toml and Streamlit Cloud
+    # secrets working without requiring a second .env entry.
+    os.environ["OPENAI_API_KEY"] = api_key
+    client = OpenAI(api_key=api_key)
+else:
+    client = None
 
 # Page configuration
 st.set_page_config(
@@ -144,16 +170,42 @@ def load_wine_data():
     session, RLS sees the user), or the anon client for guests (read-only,
     RLS must allow anon SELECT on the wines table).
     """
+    missing_secrets = st.session_state.get("_decant_local_preview_missing_secrets")
+    if missing_secrets:
+        st.session_state["_wine_data_source"] = "local_missing_secrets"
+        return load_local_wine_data()
+
     try:
         if is_authenticated():
             sb = get_user_supabase()
         else:
             sb = get_anon_supabase()
         df = repo_list_wines(sb)
+        st.session_state["_wine_data_source"] = "supabase"
         return ensure_wine_df(df)
     except Exception as e:
         st.session_state.pop("_wine_df_empty_debug", None)
+        fallback_df = load_local_wine_data()
+        if not fallback_df.empty:
+            st.session_state["_wine_data_source"] = "local_supabase_error"
+            st.session_state["_wine_data_source_error"] = str(e)
+            return fallback_df
+
+        st.session_state["_wine_data_source"] = "empty_supabase_error"
         st.error(f"Supabase error while loading wines: {e}")
+        return ensure_wine_df(None)
+
+
+def load_local_wine_data() -> pd.DataFrame:
+    """Load bundled CSV data for local read-only preview mode."""
+    csv_path = Path(FilePaths.HISTORY_CSV)
+    if not csv_path.exists():
+        return ensure_wine_df(None)
+
+    try:
+        return ensure_wine_df(pd.read_csv(csv_path))
+    except Exception as e:
+        st.session_state["_wine_data_source_error"] = str(e)
         return ensure_wine_df(None)
 
 
@@ -165,23 +217,24 @@ def clear_wine_data_cache() -> None:
 
 
 def main():
-    # Top header: title on the left, auth popover top-right.
-    # The columns sit close so the layout reads as one header band,
-    # not "title floating in space + button stranded on the right."
-    contact_email = st.secrets.get("CONTACT_EMAIL", "tomasz.solis@gmail.com")
+    # Top header: title on the left, auth popover top-right, with the
+    # cellar hero photo as the band's background (styled in
+    # decant.ui.styles via the :has(.app-masthead) block). The columns
+    # sit close so the layout reads as one header band, not "title
+    # floating in space + button stranded on the right."
+    contact_email = read_secret("CONTACT_EMAIL") or "tomasz.solis@gmail.com"
     header_left, header_right = st.columns([4, 1], vertical_alignment="center")
     with header_left:
         st.markdown(
-            "<h1 class='main-title' style='margin: 0 0 4px 0;'>"
-            "Decant"
-            "</h1>"
-            "<p class='subtitle' style='margin: 0;'>Taste, with confidence.</p>",
+            "<div class='app-masthead'>"
+            "<p class='masthead-kicker'>Private cellar journal</p>"
+            "<h1 class='main-title'>Decant</h1>"
+            "<p class='subtitle'>Taste, with confidence.</p>"
+            "</div>",
             unsafe_allow_html=True,
         )
     with header_right:
         render_header_auth(contact_email=str(contact_email))
-
-    st.markdown("---")
 
     # Guest mode banner
     if is_guest:
@@ -194,6 +247,29 @@ def main():
             "On the free tier, data will reset when the app restarts. "
             "Use the Download button in Analytics to backup your collection regularly."
         )
+
+    history_df = ensure_wine_df(load_wine_data())
+    wine_data_source = st.session_state.get("_wine_data_source")
+    if wine_data_source == "local_missing_secrets":
+        missing = st.session_state.get("_decant_local_preview_missing_secrets", [])
+        st.info(
+            "Local preview mode: using bundled CSV data because Supabase "
+            f"secret(s) are missing: {', '.join(missing)}."
+        )
+    elif wine_data_source == "local_supabase_error":
+        st.warning(
+            "Supabase is not reachable from this local run, so Decant is "
+            "showing bundled CSV data in read-only mode."
+        )
+        if DEBUG_MODE:
+            st.caption(st.session_state.get("_wine_data_source_error", ""))
+
+    if client is None and not is_guest:
+        st.warning(
+            "OPENAI_API_KEY is not configured, so AI wine extraction is disabled."
+        )
+
+    render_cellar_snapshot(history_df)
 
     # Four tabs always created so Streamlit tab indexing stays stable.
     # Tab 1 (Add Wine) content is gated inside the tab body - anonymous
@@ -208,31 +284,30 @@ def main():
     ])
 
     # All four tabs are now thin dispatch calls - bodies live in
-    # decant.ui.tab_*. history_df is loaded once per tab to stay
-    # conservative about post-write freshness; load_wine_data is
-    # cached at the function level so the redundancy is cheap.
+    # decant.ui.tab_*. history_df is loaded once at the top of main()
+    # so local connection/fallback messages appear only once per rerun.
     with tab1:
         tab_add_wine.render(
-            history_df=ensure_wine_df(load_wine_data()),
-            predictor=load_predictor(),
+            history_df=history_df,
+            predictor=load_predictor() if not is_guest and client is not None else None,
             client=client,
             is_authenticated_now=is_authenticated(),
         )
 
     with tab2:
         tab_palate_maps.render(
-            history_df=ensure_wine_df(load_wine_data()),
+            history_df=history_df,
             is_guest=is_guest,
         )
 
     with tab3:
         tab_stats.render(
-            history_df=ensure_wine_df(load_wine_data()),
+            history_df=history_df,
             debug_mode=DEBUG_MODE,
         )
 
     with tab4:
-        tab_gallery.render(history_df=ensure_wine_df(load_wine_data()))
+        tab_gallery.render(history_df=history_df)
 
 
 if __name__ == "__main__":
