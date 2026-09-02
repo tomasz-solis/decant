@@ -94,7 +94,7 @@ def migrate_csv_to_postgres():
 
     # Summary
     print()
-    print(f"Charts: Migration Summary:")
+    print("Charts: Migration Summary:")
     print(f"   OK Successfully migrated: {success_count} wines")
     if error_count > 0:
         print(f"   Failed Errors: {error_count} wines")

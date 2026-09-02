@@ -52,7 +52,7 @@ def extract_complete_wine_data(image_file, history_df, client: OpenAI):
         context = ""
         safe_history_df = _ensure_wine_df(history_df)
         if not safe_history_df.empty:
-            liked_wines = safe_history_df[safe_history_df['liked'] == True].tail(5)
+            liked_wines = safe_history_df[safe_history_df['liked'].eq(True)].tail(5)
             if len(liked_wines) > 0:
                 context = "\n\nUSER'S TASTE PROFILE (Recent Liked Wines):\n"
                 for _, wine in liked_wines.iterrows():

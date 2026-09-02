@@ -11,7 +11,6 @@ Adds 4 new columns:
 This is the ULTIMATE zero-friction upgrade for wine logging.
 """
 
-import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -43,7 +42,7 @@ def migrate_to_high_dimensional():
         history_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(history_path, index=False)
 
-        console.print(f"[green]OK Created empty history.csv with HIGH-DIMENSIONAL schema (16 columns)[/green]\n")
+        console.print("[green]OK Created empty history.csv with HIGH-DIMENSIONAL schema (16 columns)[/green]\n")
         return
 
     # Load existing data
@@ -124,13 +123,13 @@ def migrate_to_high_dimensional():
     # Save high-dimensional schema
     df_ordered.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]OK Migration complete![/green]")
+    console.print("\n[green]OK Migration complete![/green]")
     console.print(f"[green]OK Added {len(missing_columns)} new dimensions[/green]")
     console.print(f"[green]OK {len(df_ordered)} wines saved with HIGH-DIMENSIONAL schema (16 columns)[/green]")
-    console.print(f"\n[bold]HIGH-DIMENSIONAL Columns:[/bold]")
-    console.print(f"  Basic: wine_name, producer, vintage, notes, score, liked, price")
-    console.print(f"  [cyan]Dimensions: wine_color, is_sparkling, is_natural, sweetness[/cyan]")
-    console.print(f"  Features: acidity, minerality, fruitiness, tannin, body")
+    console.print("\n[bold]HIGH-DIMENSIONAL Columns:[/bold]")
+    console.print("  Basic: wine_name, producer, vintage, notes, score, liked, price")
+    console.print("  [cyan]Dimensions: wine_color, is_sparkling, is_natural, sweetness[/cyan]")
+    console.print("  Features: acidity, minerality, fruitiness, tannin, body")
     console.print("\n[bold cyan] Welcome to the High-Dimensional Taste Space![/bold cyan]\n")
 
 

@@ -63,7 +63,7 @@ def render(history_df: pd.DataFrame, debug_mode: bool = False) -> None:
     has_liked_col = 'liked' in df.columns
     liked_wines = int(df['liked'].sum()) if has_liked_col else 0
     disliked_wines = max(total_wines - liked_wines, 0)
-    liked_df = df[df['liked'] == True] if has_liked_col else df.iloc[0:0].copy()
+    liked_df = df[df['liked'].eq(True)] if has_liked_col else df.iloc[0:0].copy()
 
     like_share = f"{liked_wines / total_wines:.0%} of visible wines" if total_wines else "no visible wines"
     render_stat_grid(

@@ -112,7 +112,7 @@ def create_decision_boundary_plot(df):
         return fig
 
     # Liked wines
-    liked_df = df[df['liked'] == True]
+    liked_df = df[df['liked'].eq(True)]
     fig.add_trace(go.Scatter(
         x=liked_df['acidity'],
         y=liked_df['minerality'],
@@ -132,7 +132,7 @@ def create_decision_boundary_plot(df):
     ))
 
     # Disliked wines
-    disliked_df = df[df['liked'] == False]
+    disliked_df = df[df['liked'].eq(False)]
     if len(disliked_df) > 0:
         fig.add_trace(go.Scatter(
             x=disliked_df['acidity'],
@@ -276,7 +276,7 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
         try:
             val = getattr(obj, attr, None)
             return val if (val is not None and val != 0 and not pd.isna(val)) else None
-        except:
+        except Exception:
             return None
 
     # SERIES 1: Global Average (Dashed muted line) - ALL liked wines
@@ -293,7 +293,7 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
                 name='Your Global Average',
                 marker=dict(size=5, symbol='circle', color=_THEME['text_muted'])
             ))
-        except:
+        except Exception:
             pass
 
     # SERIES 2: Style Target (soft fill) - liked wines of SAME color
@@ -311,7 +311,7 @@ def create_master_radar(features, global_avg, color_avg, wine_color="White"):
                 name=f'Your {wine_color} Target',
                 marker=dict(size=6, symbol='circle', color=colors['primary'])
             ))
-        except:
+        except Exception:
             pass
 
     # SERIES 3: Current Wine (ink outline)

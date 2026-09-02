@@ -117,7 +117,7 @@ class VinoPredictor:
         if len(self.df) == 0:
             return pd.DataFrame()
 
-        liked_df = self.df[self.df['liked'] == True].copy()
+        liked_df = self.df[self.df['liked'].eq(True)].copy()
 
         if len(liked_df) == 0:
             return pd.DataFrame()
@@ -147,7 +147,7 @@ class VinoPredictor:
         if len(self.df) == 0:
             return pd.DataFrame()
 
-        disliked_df = self.df[self.df['liked'] == False].copy()
+        disliked_df = self.df[self.df['liked'].eq(False)].copy()
 
         if len(disliked_df) == 0:
             return pd.DataFrame()

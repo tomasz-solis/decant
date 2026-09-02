@@ -12,9 +12,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.layout import Layout
 from rich import box
-from rich.text import Text
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

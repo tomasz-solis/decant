@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from datetime import datetime, timedelta
 
+from decant.constants import AlgorithmConstants
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -260,10 +262,6 @@ def validate_wine_features(features: dict) -> bool:
     return True
 
 
-
-
-
-from decant.constants import AlgorithmConstants
 
 class Constants:
     """Legacy constants wrapper. Use AlgorithmConstants directly."""

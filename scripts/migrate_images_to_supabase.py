@@ -15,7 +15,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from decant.database import get_supabase_client, upload_wine_image, sanitize_filename
+from decant.database import get_supabase_client, upload_wine_image
 
 
 def migrate_images_to_supabase():
@@ -104,7 +104,7 @@ def migrate_images_to_supabase():
 
     # Summary
     print()
-    print(f"Charts: Migration Summary:")
+    print("Charts: Migration Summary:")
     print(f"   OK Successfully uploaded: {success_count} images")
     if error_count > 0:
         print(f"   Failed Errors: {error_count} images")

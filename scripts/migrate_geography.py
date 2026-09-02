@@ -9,7 +9,6 @@ Adds:
 Preserves all existing data.
 """
 
-import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -42,7 +41,7 @@ def migrate_geography():
         history_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(history_path, index=False)
 
-        console.print(f"[green]OK Created empty history.csv with GEOGRAPHY schema (18 columns)[/green]\n")
+        console.print("[green]OK Created empty history.csv with GEOGRAPHY schema (18 columns)[/green]\n")
         return
 
     # Load existing data
@@ -58,7 +57,7 @@ def migrate_geography():
         console.print("[green]OK Geography columns already exist - no migration needed[/green]\n")
         return
 
-    console.print(f"[yellow]Adding geography columns: country, region[/yellow]\n")
+    console.print("[yellow]Adding geography columns: country, region[/yellow]\n")
 
     # Create backup
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -89,13 +88,13 @@ def migrate_geography():
     # Save migrated data
     df_ordered.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]OK Migration complete![/green]")
+    console.print("\n[green]OK Migration complete![/green]")
     console.print(f"[green]OK {len(df_ordered)} wines saved with GEOGRAPHY schema (18 columns)[/green]")
-    console.print(f"\n[bold]Schema:[/bold]")
-    console.print(f"  Basic: wine_name, producer, vintage, notes, score, liked, price")
-    console.print(f"  [cyan]Geography: country, region[/cyan]")
-    console.print(f"  Dimensions: wine_color, is_sparkling, is_natural, sweetness")
-    console.print(f"  Features: acidity, minerality, fruitiness, tannin, body")
+    console.print("\n[bold]Schema:[/bold]")
+    console.print("  Basic: wine_name, producer, vintage, notes, score, liked, price")
+    console.print("  [cyan]Geography: country, region[/cyan]")
+    console.print("  Dimensions: wine_color, is_sparkling, is_natural, sweetness")
+    console.print("  Features: acidity, minerality, fruitiness, tannin, body")
     console.print("\n[bold yellow]Note: Next Step:[/bold yellow] Run enrich_geography.py to fill in country/region data\n")
 
 

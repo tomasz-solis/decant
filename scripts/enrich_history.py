@@ -195,7 +195,7 @@ def enrich_history():
         return
 
     console.print(f"[yellow]Found {len(needs_enrichment)} wines needing enrichment[/yellow]")
-    console.print(f"[dim]Will extract: flavor features + geography[/dim]\n")
+    console.print("[dim]Will extract: flavor features + geography[/dim]\n")
 
     # Initialize OpenAI client
     client = OpenAI()
@@ -261,7 +261,7 @@ def enrich_history():
     # Save enriched data
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]OK Enrichment complete![/green]")
+    console.print("\n[green]OK Enrichment complete![/green]")
     console.print(f"[green]OK Updated {enriched_count} wines with complete profiles[/green]")
     console.print(f"[green]OK Saved to {history_path.name}[/green]\n")
 

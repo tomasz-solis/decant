@@ -24,7 +24,7 @@ def test_single_extraction():
     wine_name = "Fefiñanes Albariño 2022"
     producer = "Fefiñanes"
 
-    console.print(f"\n[bold]Testing Geography Extraction[/bold]\n")
+    console.print("\n[bold]Testing Geography Extraction[/bold]\n")
     console.print(f"Wine: {wine_name}")
     console.print(f"Producer: {producer}\n")
 

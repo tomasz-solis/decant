@@ -9,7 +9,6 @@ Use this when you've manually edited history.csv and want to sync the files
 without spending API credits.
 """
 
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -54,7 +53,7 @@ def sync_features():
 
     # If features doesn't exist, create it from history
     if not features_path.exists():
-        console.print(f"[yellow]Creating wine_features.csv from history.csv[/yellow]")
+        console.print("[yellow]Creating wine_features.csv from history.csv[/yellow]")
         features_path.parent.mkdir(parents=True, exist_ok=True)
         history_df.to_csv(features_path, index=False)
         console.print(f"[green]OK Created wine_features.csv with {len(history_df)} wines[/green]\n")
@@ -86,8 +85,8 @@ def sync_features():
     history_df.to_csv(features_path, index=False)
 
     console.print(f"\n[green]OK wine_features.csv updated with {len(history_df)} wines[/green]")
-    console.print(f"[green]OK FULL schema synced (18 columns)[/green]")
-    console.print(f"[cyan]OK Includes: country, region, wine_color, is_sparkling, is_natural, sweetness[/cyan]\n")
+    console.print("[green]OK FULL schema synced (18 columns)[/green]")
+    console.print("[cyan]OK Includes: country, region, wine_color, is_sparkling, is_natural, sweetness[/cyan]\n")
 
 
 if __name__ == "__main__":

@@ -8,12 +8,11 @@ Adds src/ to path and runs pytest.
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add src to path
 src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
-
-# Run pytest
-import pytest
 
 if __name__ == "__main__":
     # Run with verbose output and coverage

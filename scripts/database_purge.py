@@ -7,7 +7,6 @@ Total Database Purge and Cleanup
 3. Fix Martín Códax 2022 specifically
 """
 
-import sys
 from pathlib import Path
 import pandas as pd
 from datetime import datetime
@@ -92,10 +91,10 @@ if martin_mask.any():
     df.at[martin_idx, 'sweetness'] = 'Dry'
 
     print("\nUpdated to:")
-    print(f"  OK Country: Spain")
-    print(f"  OK Region: Rías Baixas")
-    print(f"  OK Wine Color: White")
-    print(f"  OK Sweetness: Dry\n")
+    print("  OK Country: Spain")
+    print("  OK Region: Rías Baixas")
+    print("  OK Wine Color: White")
+    print("  OK Sweetness: Dry\n")
 else:
     print("Warning:  Martín Códax 2022 not found in database\n")
 

@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 
 from decant.services.wine_match import (
-    PriorTasting,
     find_prior_tasting,
     tokenize_wine,
 )

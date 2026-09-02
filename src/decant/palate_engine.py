@@ -118,7 +118,7 @@ class PalateEngine:
                 pop_vals['minerality'],
             ])
 
-        liked_wines = self.history_df[self.history_df['liked'] == True]
+        liked_wines = self.history_df[self.history_df['liked'].eq(True)]
         self.n_liked = len(liked_wines)
 
         if self.n_liked > 0:
@@ -238,7 +238,7 @@ class PalateEngine:
 
         if wine_color and self.history_df is not None:
             color_liked = self.history_df[
-                (self.history_df['liked'] == True)
+                (self.history_df['liked'].eq(True))
                 & (self.history_df['wine_color'] == wine_color)
             ]
 
@@ -327,7 +327,7 @@ class PalateEngine:
 
         if wine_color and self.history_df is not None:
             color_liked = self.history_df[
-                (self.history_df['liked'] == True) &
+                (self.history_df['liked'].eq(True)) &
                 (self.history_df['wine_color'] == wine_color)
             ]
 

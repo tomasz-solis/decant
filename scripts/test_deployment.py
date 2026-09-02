@@ -8,7 +8,6 @@ Tests that new wine data can be written correctly with all 18 columns populated.
 import sys
 from pathlib import Path
 import pandas as pd
-from datetime import datetime
 
 project_root = Path(__file__).parent.parent
 
@@ -48,7 +47,7 @@ print("NEW WINE DATA")
 print(f"Wine: {new_wine['wine_name']}")
 print(f"Location: {new_wine['region']}, {new_wine['country']}")
 print(f"Color: {new_wine['wine_color']} | Sweetness: {new_wine['sweetness']}")
-print(f"Flavor Profile:")
+print("Flavor Profile:")
 print(f"  Acidity: {new_wine['acidity']}/10")
 print(f"  Minerality: {new_wine['minerality']}/10")
 print(f"  Fruitiness: {new_wine['fruitiness']}/10")

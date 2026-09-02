@@ -10,7 +10,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List, Dict
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -189,7 +188,7 @@ def main():
     print("FEATURE SUMMARY")
     print()
     print(df[["acidity", "minerality", "fruitiness", "tannin", "body"]].describe())
-    print(f"\nLiked distribution:")
+    print("\nLiked distribution:")
     print(df["liked"].value_counts())
     print()
 

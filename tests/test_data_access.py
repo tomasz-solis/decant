@@ -8,7 +8,6 @@ Covers two responsibilities:
 from unittest.mock import MagicMock
 
 import pandas as pd
-import pytest
 
 from decant.services.data_access import (
     DEFAULTS,

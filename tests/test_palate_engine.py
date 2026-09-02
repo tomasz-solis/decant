@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from decant.palate_engine import PalateEngine, WineVector, PalateScore
+from decant.palate_engine import PalateEngine, WineVector
 
 
 class TestWineVector:

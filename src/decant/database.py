@@ -245,7 +245,7 @@ def add_wine(wine_data: Dict[str, Any]) -> bool:
 
             conn.commit()
             return True
-    except Exception as e:
+    except Exception:
         conn.rollback()
         raise
     finally:
@@ -490,7 +490,7 @@ def upload_wine_image(wine_name: str, image_data: bytes, content_type: str = "im
 
         # Upload to 'wine-images' bucket
         try:
-            response = client.storage.from_('wine-images').upload(
+            client.storage.from_('wine-images').upload(
                 filename,
                 image_data,
                 {
@@ -508,7 +508,7 @@ def upload_wine_image(wine_name: str, image_data: bytes, content_type: str = "im
         public_url = client.storage.from_('wine-images').get_public_url(filename)
         return public_url
 
-    except Exception as e:
+    except Exception:
         # Fail gracefully - storage is optional
         return None
 

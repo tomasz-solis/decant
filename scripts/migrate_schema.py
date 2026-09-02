@@ -9,7 +9,6 @@ This script:
 4. Validates data types (liked=bool, price=float, score=float)
 """
 
-import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -38,7 +37,7 @@ def migrate_schema():
         history_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(history_path, index=False)
 
-        console.print(f"[green]OK Created empty history.csv with core schema[/green]\n")
+        console.print("[green]OK Created empty history.csv with core schema[/green]\n")
         return
 
     # Load existing data
@@ -115,7 +114,7 @@ def migrate_schema():
     # Save simplified schema
     df_simplified.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]OK Migration complete![/green]")
+    console.print("\n[green]OK Migration complete![/green]")
     console.print(f"[green]OK Removed {len(extra_columns)} extra columns[/green]")
     console.print(f"[green]OK {len(df_simplified)} wines saved with core 12-column schema[/green]")
     console.print(f"\n[bold]Core columns:[/bold] {', '.join(core_columns)}\n")

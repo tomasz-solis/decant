@@ -19,7 +19,6 @@ from openai import OpenAI
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from decant.schema import WineExtraction
 
 console = Console()
 load_dotenv()
@@ -172,7 +171,7 @@ def enrich_geography():
     # Save enriched data
     df.to_csv(history_path, index=False)
 
-    console.print(f"\n[green]OK Enrichment complete![/green]")
+    console.print("\n[green]OK Enrichment complete![/green]")
     console.print(f"[green]OK Updated {enriched_count} wines with geography data[/green]")
     console.print(f"[green]OK Saved to {history_path.name}[/green]\n")
 

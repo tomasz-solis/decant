@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Emergency hydration for wines with partial data."""
 
-import sys
 from pathlib import Path
 import pandas as pd
 from openai import OpenAI
@@ -23,7 +22,7 @@ notes = df.at[0, 'notes']
 
 print(f"Hydrating: {wine_name}")
 print(f"Producer: {producer}")
-print(f"Current values: A:8 M:0 F:0 T:0 B:6\n")
+print("Current values: A:8 M:0 F:0 T:0 B:6\n")
 
 prompt = f"""Research this wine and provide MISSING flavor features.
 
@@ -74,7 +73,7 @@ minerality = extract_number(content, 'MINERALITY') or 8
 fruitiness = extract_number(content, 'FRUITINESS') or 7
 tannin = extract_number(content, 'TANNIN') or 1
 
-print(f"Extracted values:")
+print("Extracted values:")
 print(f"  Minerality: {minerality}/10")
 print(f"  Fruitiness: {fruitiness}/10")
 print(f"  Tannin: {tannin}/10")
@@ -87,5 +86,5 @@ df.at[0, 'tannin'] = tannin
 # Save
 df.to_csv(project_root / 'data' / 'history.csv', index=False)
 
-print(f"\nOK Hydration complete!")
+print("\nOK Hydration complete!")
 print(f"Final values: A:8 M:{minerality} F:{fruitiness} T:{tannin} B:6")
