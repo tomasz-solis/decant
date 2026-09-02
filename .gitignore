@@ -83,3 +83,4 @@ htmlcov/
 # mypy
 .mypy_cache/
 changes.txt
+.claude/
